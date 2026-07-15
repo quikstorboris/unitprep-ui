@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_URL } from "@/lib/api";
+import { API_URL, errorMessageFrom } from "@/lib/api";
 import SessionExpiredPage from "@/components/SessionExpiredPage";
 import type {
   DiscoverResponse,
@@ -101,7 +101,7 @@ export default function DiscoveryPage({
 
         if (!response.ok) {
           throw new Error(
-            "Failed to select master file"
+            await errorMessageFrom(response)
           );
         }
 

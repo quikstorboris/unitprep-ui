@@ -1,5 +1,5 @@
 "use client";
-import { API_URL } from "@/lib/api";
+import { API_URL, errorMessageFrom } from "@/lib/api";
 import { useEffect, useState } from "react";
 import SessionExpiredPage from "@/components/SessionExpiredPage";
 import type {
@@ -66,12 +66,8 @@ function CorrectionField({
       }
 
       if (!response.ok) {
-        const text =
-          await response.text();
-
         throw new Error(
-          text ||
-            `HTTP ${response.status}`
+          await errorMessageFrom(response)
         );
       }
 
@@ -184,12 +180,8 @@ function ExemptButton({
       }
 
       if (!response.ok) {
-        const text =
-          await response.text();
-
         throw new Error(
-          text ||
-            `HTTP ${response.status}`
+          await errorMessageFrom(response)
         );
       }
 
@@ -386,11 +378,8 @@ export default function ScanResultsPage({
         }
 
         if (!response.ok) {
-          const text =
-            await response.text();
-
           throw new Error(
-            `HTTP ${response.status}: ${text}`
+            await errorMessageFrom(response)
           );
         }
 

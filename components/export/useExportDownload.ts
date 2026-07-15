@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { API_URL } from "@/lib/api";
+import { API_URL, errorMessageFrom } from "@/lib/api";
 
 interface UseExportDownloadResult {
   exporting: boolean;
@@ -105,12 +105,8 @@ export function useExportDownload(
       }
 
       if (!response.ok) {
-        const message =
-          await response.text();
-
         throw new Error(
-          message ||
-            `HTTP ${response.status}`
+          await errorMessageFrom(response)
         );
       }
 

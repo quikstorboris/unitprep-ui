@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { API_URL } from "@/lib/api";
+import { API_URL, errorMessageFrom } from "@/lib/api";
 import type { AnalyzeResponse } from "@/types/api";
 
 interface UseAnalysisResult {
@@ -72,7 +72,7 @@ export function useAnalysis(
 
         if (!response.ok) {
           throw new Error(
-            `HTTP ${response.status}`
+            await errorMessageFrom(response)
           );
         }
 
