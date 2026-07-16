@@ -83,3 +83,112 @@ export type AnalyzeResponse = {
   similar_group_details: SimilarityMatch[];
   advisory_issue_details: AdvisoryIssue[];
 };
+
+// Dedup (duplicate tenant check) contracts — mirror unitprep-dedup's own
+// result types 1:1:
+//   DedupCheckResponse -> unitprep-api/src/api/dedup.rs
+//   DedupReport        -> unitprep-dedup/src/report.rs
+//   FlaggedGroup, TenantGroup, TenantRecord, FieldMismatch,
+//   FieldValueMismatch, TypoVariantCandidate, FieldCategory, FieldName
+//                      -> unitprep-dedup/src/types.rs, types/fields.rs
+
+export type FieldCategory =
+  | "Phone"
+  | "Email"
+  | "Address"
+  | "AltContact"
+  | "Company"
+  | "Name";
+
+export type FieldName =
+  | "PhoneNumber"
+  | "PhoneNumberPrefix"
+  | "Email"
+  | "AddressStreet1"
+  | "AddressStreet2"
+  | "AddressCity"
+  | "AddressState"
+  | "AddressPostalCode"
+  | "AltContactFirstName"
+  | "AltContactLastName"
+  | "AltContactEmail"
+  | "AltContactPhoneNumber"
+  | "AltContactPhoneNumberPrefix"
+  | "AltContactAddressStreet1"
+  | "AltContactAddressStreet2"
+  | "AltContactAddressCity"
+  | "AltContactAddressState"
+  | "AltContactAddressPostalCode"
+  | "CompanyName"
+  | "FirstName"
+  | "LastName";
+
+export type TenantRecord = {
+  cust_numb: string;
+  unit_number: string;
+  first_last: string;
+  first_name: string;
+  last_name: string;
+  company_name: string;
+  phone_number: string;
+  phone_number_prefix: string;
+  email: string;
+  address_street1: string;
+  address_street2: string;
+  address_city: string;
+  address_state: string;
+  address_postal_code: string;
+  alt_contact_first_name: string;
+  alt_contact_last_name: string;
+  alt_contact_email: string;
+  alt_contact_phone_number: string;
+  alt_contact_phone_number_prefix: string;
+  alt_contact_address_street1: string;
+  alt_contact_address_street2: string;
+  alt_contact_address_city: string;
+  alt_contact_address_state: string;
+  alt_contact_address_postal_code: string;
+};
+
+/** Blank values arrive as the literal string "(blank)", sorted last. */
+export type FieldValueMismatch = {
+  field: FieldName;
+  values: string[];
+};
+
+export type FieldMismatch = {
+  category: FieldCategory;
+  fields: FieldValueMismatch[];
+};
+
+export type TenantGroup = {
+  key: string;
+  records: TenantRecord[];
+};
+
+export type FlaggedGroup = {
+  group: TenantGroup;
+  mismatches: FieldMismatch[];
+  note: string;
+};
+
+export type TypoVariantCandidate = {
+  key_a: string;
+  key_b: string;
+  ratio: number;
+  contact_info_matches: boolean;
+  note: string;
+};
+
+export type DedupReport = {
+  total_rows: number;
+  unique_tenants: number;
+  multi_unit_tenants: number;
+  flagged_groups: FlaggedGroup[];
+  typo_variant_candidates: TypoVariantCandidate[];
+};
+
+export type DedupCheckResponse = {
+  session_id: string;
+  report: DedupReport;
+};
