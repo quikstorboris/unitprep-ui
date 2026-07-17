@@ -453,10 +453,35 @@ export default function ScanResultsPage({
     (i) => i.severity !== "Error"
   );
 
+  const filesErrored =
+    results.files_errored;
+
+  // `ready` already accounts for both causes (unresolved errors and
+  // files that couldn't be validated at all) — trust it rather than
+  // re-deriving from error_count alone, which would silently leave no
+  // way to override in a files-errored-only case.
   const canExport =
-    results.ready ||
-    (results.error_count > 0 &&
-      acknowledged);
+    results.ready || acknowledged;
+
+  const blockingReasons: string[] = [];
+
+  if (errors.length > 0) {
+    blockingReasons.push(
+      `${errors.length} error${
+        errors.length === 1 ? "" : "s"
+      }`
+    );
+  }
+
+  if (filesErrored.length > 0) {
+    blockingReasons.push(
+      `${filesErrored.length} file${
+        filesErrored.length === 1
+          ? ""
+          : "s"
+      } that could not be validated`
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl text-slate-100">
@@ -483,7 +508,7 @@ export default function ScanResultsPage({
         Validation Results
       </h1>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <div className="rounded border border-slate-700 p-4">
           <div className="text-sm text-slate-400">
             Files Checked
@@ -516,6 +541,22 @@ export default function ScanResultsPage({
 
         <div className="rounded border border-slate-700 p-4">
           <div className="text-sm text-slate-400">
+            Files Errored
+          </div>
+
+          <div
+            className={
+              filesErrored.length > 0
+                ? "text-2xl font-bold text-red-400"
+                : "text-2xl font-bold"
+            }
+          >
+            {filesErrored.length}
+          </div>
+        </div>
+
+        <div className="rounded border border-slate-700 p-4">
+          <div className="text-sm text-slate-400">
             Export Status
           </div>
 
@@ -527,7 +568,46 @@ export default function ScanResultsPage({
         </div>
       </div>
 
-      {results.issue_count === 0 ? (
+      {filesErrored.length > 0 && (
+        <div className="mt-6 rounded border border-red-800 bg-red-950 p-4">
+          <div className="font-semibold text-red-300">
+            ⚠ {filesErrored.length} file
+            {filesErrored.length === 1
+              ? ""
+              : "s"}{" "}
+            could not be validated
+          </div>
+
+          <div className="mt-1 text-sm text-red-200">
+            This usually indicates a bug
+            in the tool rather than a
+            problem with your data —
+            contact support with the
+            details below.
+          </div>
+
+          <ul className="mt-3 space-y-1">
+            {filesErrored.map(
+              (fileError, index) => (
+                <li
+                  key={`${fileError.file_name}-${index}`}
+                  className="text-sm text-red-100"
+                >
+                  <strong>
+                    {
+                      fileError.file_name
+                    }
+                  </strong>{" "}
+                  — {fileError.message}
+                </li>
+              )
+            )}
+          </ul>
+        </div>
+      )}
+
+      {results.issue_count === 0 &&
+      filesErrored.length === 0 ? (
         <div className="mt-6 rounded bg-green-900 p-4">
           ✅ Validation completed
           successfully.
@@ -541,15 +621,15 @@ export default function ScanResultsPage({
           must be resolved or
           acknowledged before export.
         </div>
-      ) : (
+      ) : results.issue_count > 0 ? (
         <div className="mt-6 rounded bg-yellow-900 p-4">
           ⚠ Advisory findings
           detected. Review
           recommended.
         </div>
-      )}
+      ) : null}
 
-      {results.error_count > 0 && (
+      {blockingReasons.length > 0 && (
         <label className="mt-4 flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -561,10 +641,9 @@ export default function ScanResultsPage({
             }
           />
           I&apos;ve reviewed the{" "}
-          {results.error_count} error
-          {results.error_count === 1
-            ? ""
-            : "s"}{" "}
+          {blockingReasons.join(
+            " and "
+          )}{" "}
           above and want to export
           anyway.
         </label>

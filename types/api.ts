@@ -51,12 +51,25 @@ export type ValidationIssue = {
   exemptable: boolean;
 };
 
+/**
+ * A discovered unit file that couldn't be validated at all, due to an
+ * internal inconsistency between discovery and validation's own column
+ * lookup — not a data-quality problem found in the file's contents.
+ * Distinct from `ValidationIssue`, which describes a real problem in a
+ * file that was otherwise successfully checked.
+ */
+export type FileValidationError = {
+  file_name: string;
+  message: string;
+};
+
 export type ValidateResponse = {
   files_checked: number;
   issue_count: number;
   error_count: number;
   warning_count: number;
   issues: ValidationIssue[];
+  files_errored: FileValidationError[];
   ready: boolean;
 };
 
