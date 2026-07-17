@@ -2,6 +2,7 @@
 
 import DedupSummaryStats from "./dedup/DedupSummaryStats";
 import FlaggedGroupsSection from "./dedup/FlaggedGroupsSection";
+import RelatedTenantsSection from "./dedup/RelatedTenantsSection";
 import TypoVariantsSection from "./dedup/TypoVariantsSection";
 import { useDedupExport } from "./dedup/useDedupExport";
 import { useDedupReport } from "./dedup/useDedupReport";
@@ -73,6 +74,9 @@ export default function DedupResultsPage({
     report.flagged_groups.length ===
       0 &&
     report.typo_variant_candidates
+      .length === 0 &&
+    report
+      .related_tenant_candidates
       .length === 0;
 
   return (
@@ -107,6 +111,12 @@ export default function DedupResultsPage({
               <TypoVariantsSection
                 candidates={
                   report.typo_variant_candidates
+                }
+              />
+
+              <RelatedTenantsSection
+                candidates={
+                  report.related_tenant_candidates
                 }
               />
             </div>

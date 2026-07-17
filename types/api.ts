@@ -193,12 +193,33 @@ export type TypoVariantCandidate = {
   note: string;
 };
 
+export type RelatednessSignal =
+  | "SharedPhone"
+  | "SharedEmail"
+  | "SharedAlternateContact"
+  | "SharedHomeAddress";
+
+/**
+ * Two or more tenants (different name keys) sharing a specific,
+ * non-blank value — evidence of a real relationship (business + owner,
+ * family, subdivided unit) that neither exact-name grouping nor
+ * typo-variant similarity could catch, since both hinge on name
+ * similarity. Always advisory, same as `TypoVariantCandidate`.
+ */
+export type RelatedTenantCandidate = {
+  group_keys: string[];
+  signal: RelatednessSignal;
+  shared_value: string;
+  note: string;
+};
+
 export type DedupReport = {
   total_rows: number;
   unique_tenants: number;
   multi_unit_tenants: number;
   flagged_groups: FlaggedGroup[];
   typo_variant_candidates: TypoVariantCandidate[];
+  related_tenant_candidates: RelatedTenantCandidate[];
 };
 
 export type DedupCheckResponse = {

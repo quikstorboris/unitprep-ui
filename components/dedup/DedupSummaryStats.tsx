@@ -31,13 +31,19 @@ const STATS: Array<{
     value: (r) =>
       r.typo_variant_candidates.length,
   },
+  {
+    label: "Related Tenants",
+    value: (r) =>
+      r.related_tenant_candidates
+        .length,
+  },
 ];
 
 export default function DedupSummaryStats({
   report,
 }: DedupSummaryStatsProps) {
   return (
-    <div className="grid grid-cols-5 gap-4">
+    <div className="grid grid-cols-6 gap-4">
       {STATS.map(
         ({ label, value }) => (
           <div
