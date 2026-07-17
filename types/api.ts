@@ -226,3 +226,6 @@ export type DedupCheckResponse = {
   session_id: string;
   report: DedupReport;
 };
+
+/** `"both"` returns a ZIP containing both files in one download. */
+export type DedupExportFormat = "csv" | "xlsx" | "both";

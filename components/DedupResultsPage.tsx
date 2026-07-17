@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import DedupSummaryStats from "./dedup/DedupSummaryStats";
 import FlaggedGroupsSection from "./dedup/FlaggedGroupsSection";
 import RelatedTenantsSection from "./dedup/RelatedTenantsSection";
@@ -7,11 +9,24 @@ import TypoVariantsSection from "./dedup/TypoVariantsSection";
 import { useDedupExport } from "./dedup/useDedupExport";
 import { useDedupReport } from "./dedup/useDedupReport";
 import SessionExpiredPage from "./SessionExpiredPage";
+import type { DedupExportFormat } from "@/types/api";
 
 interface DedupResultsPageProps {
   sessionId: string;
   onHome: () => void;
 }
+
+const FORMAT_OPTIONS: Array<{
+  value: DedupExportFormat;
+  label: string;
+}> = [
+  { value: "csv", label: "CSV" },
+  { value: "xlsx", label: "Excel (.xlsx)" },
+  {
+    value: "both",
+    label: "Both (as a .zip)",
+  },
+];
 
 export default function DedupResultsPage({
   sessionId,
@@ -31,6 +46,13 @@ export default function DedupResultsPage({
     sessionExpired: exportExpired,
     handleExport,
   } = useDedupExport(sessionId);
+
+  const [
+    exportFormat,
+    setExportFormat,
+  ] = useState<DedupExportFormat>(
+    "csv"
+  );
 
   if (reportExpired || exportExpired) {
     return (
@@ -131,15 +153,53 @@ export default function DedupResultsPage({
       )}
 
       {!downloadComplete && (
-        <button
-          onClick={handleExport}
-          disabled={exporting}
-          className="mt-8 rounded bg-green-600 px-5 py-3 disabled:opacity-50"
-        >
-          {exporting
-            ? "Generating CSV..."
-            : "Download Export CSV"}
-        </button>
+        <div className="mt-8 rounded border border-slate-700 p-4">
+          <div className="mb-3 font-semibold">
+            Export Format
+          </div>
+
+          {FORMAT_OPTIONS.map(
+            ({ value, label }) => (
+              <label
+                key={value}
+                className="mb-2 block"
+              >
+                <input
+                  type="radio"
+                  name="exportFormat"
+                  value={value}
+                  checked={
+                    exportFormat ===
+                    value
+                  }
+                  onChange={() =>
+                    setExportFormat(
+                      value
+                    )
+                  }
+                />
+
+                <span className="ml-2">
+                  {label}
+                </span>
+              </label>
+            )
+          )}
+
+          <button
+            onClick={() =>
+              handleExport(
+                exportFormat
+              )
+            }
+            disabled={exporting}
+            className="mt-4 rounded bg-green-600 px-5 py-3 disabled:opacity-50"
+          >
+            {exporting
+              ? "Generating..."
+              : "Download Export"}
+          </button>
+        </div>
       )}
 
       {downloadComplete && (
@@ -151,14 +211,18 @@ export default function DedupResultsPage({
 
           <div className="text-slate-300">
             Your duplicate tenant
-            check CSV has been
+            check export has been
             generated and
             downloaded.
           </div>
 
           <div className="flex gap-4">
             <button
-              onClick={handleExport}
+              onClick={() =>
+                handleExport(
+                  exportFormat
+                )
+              }
               className="rounded bg-blue-600 px-4 py-2"
             >
               Download Again

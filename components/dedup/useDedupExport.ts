@@ -3,23 +3,33 @@
 import { useState } from "react";
 
 import { API_URL, errorMessageFrom } from "@/lib/api";
+import type { DedupExportFormat } from "@/types/api";
 
 interface UseDedupExportResult {
   exporting: boolean;
   downloadComplete: boolean;
   error: string | null;
   sessionExpired: boolean;
-  handleExport: () => Promise<void>;
+  handleExport: (
+    format: DedupExportFormat
+  ) => Promise<void>;
 }
 
-const FALLBACK_FILENAME =
-  "duplicate_tenant_check.csv";
+const FALLBACK_FILENAMES: Record<
+  DedupExportFormat,
+  string
+> = {
+  csv: "duplicate_tenant_check.csv",
+  xlsx: "duplicate_tenant_check.xlsx",
+  both: "duplicate_tenant_check.zip",
+};
 
 function filenameFromDisposition(
-  disposition: string | null
+  disposition: string | null,
+  format: DedupExportFormat
 ): string {
   if (!disposition) {
-    return FALLBACK_FILENAME;
+    return FALLBACK_FILENAMES[format];
   }
 
   const match = disposition.match(
@@ -27,7 +37,8 @@ function filenameFromDisposition(
   );
 
   return (
-    match?.[1] ?? FALLBACK_FILENAME
+    match?.[1] ??
+    FALLBACK_FILENAMES[format]
   );
 }
 
@@ -76,7 +87,9 @@ export function useDedupExport(
     setSessionExpired,
   ] = useState(false);
 
-  const handleExport = async () => {
+  const handleExport = async (
+    format: DedupExportFormat
+  ) => {
     try {
       setExporting(true);
       setError(null);
@@ -91,6 +104,7 @@ export function useDedupExport(
           },
           body: JSON.stringify({
             session_id: sessionId,
+            format,
           }),
         }
       );
@@ -113,7 +127,8 @@ export function useDedupExport(
         filenameFromDisposition(
           response.headers.get(
             "Content-Disposition"
-          )
+          ),
+          format
         );
 
       triggerBrowserDownload(
