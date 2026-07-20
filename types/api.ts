@@ -36,6 +36,7 @@ export type DiscoverResponse = {
   selected_group_file_name: string | null;
   requires_group_selection: boolean;
   ready: boolean;
+  discovered_group_names: string[];
 };
 
 export type Severity = "Info" | "Warning" | "Error";

@@ -34,6 +34,18 @@ cadences and are not required to share a version number.
   takes an `onSessionExpired` callback from its parent route, same
   pattern already used by `onBack`/`onHome` elsewhere.
 
+### Added (Group Prep, net-new clients)
+- `DiscoveryPage` shows a conspicuous warning (bold, yellow, ⚠️) when
+  zero master group files are found, explaining that every discovered
+  group will be treated as net-new, plus a collapsible list of the
+  actual distinct group names found — matching the corresponding
+  `unitprep-api` change.
+
+### Changed
+- `DiscoveryPage`'s status message now distinguishes "no unit files
+  found" from "awaiting master file selection" (previously the same
+  generic message for both).
+
 ## [1.0.0] - 2026-07-08
 
 ### Added

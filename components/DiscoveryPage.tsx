@@ -288,6 +288,58 @@ export default function DiscoveryPage({
               </strong>
             </p>
 
+            {discovery.group_files_found ===
+              0 && (
+              <div className="rounded border-2 border-yellow-500 bg-yellow-950/40 p-4">
+                <div className="flex items-start gap-2 text-lg font-bold text-yellow-400">
+                  <span aria-hidden="true">
+                    ⚠️
+                  </span>
+
+                  <span>
+                    No master group file
+                    found — every discovered
+                    group will be treated as
+                    net-new. Expected for a
+                    net-new client with
+                    nothing in QMS yet to
+                    cross-reference against.
+                  </span>
+                </div>
+
+                {discovery
+                  .discovered_group_names
+                  .length > 0 && (
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-sm font-medium text-yellow-300">
+                      {
+                        discovery
+                          .discovered_group_names
+                          .length
+                      }{" "}
+                      distinct group
+                      {discovery
+                        .discovered_group_names
+                        .length === 1
+                        ? ""
+                        : "s"}{" "}
+                      found — click to review
+                    </summary>
+
+                    <ul className="mt-2 list-disc space-y-1 pl-6 text-sm text-slate-200">
+                      {discovery.discovered_group_names.map(
+                        (name) => (
+                          <li key={name}>
+                            {name}
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            )}
+
             {discovery.requires_group_selection && (
               <div className="mt-4 rounded border border-yellow-600 p-4">
                 <div className="mb-3 font-semibold text-yellow-300">
@@ -361,10 +413,15 @@ export default function DiscoveryPage({
                 <span className="text-green-400">
                   ✅ Ready
                 </span>
-              ) : (
+              ) : discovery.requires_group_selection ? (
                 <span className="text-yellow-400">
                   Awaiting Master File
                   Selection
+                </span>
+              ) : (
+                <span className="text-yellow-400">
+                  No unit files found — check
+                  your folder selection
                 </span>
               )}
             </p>
