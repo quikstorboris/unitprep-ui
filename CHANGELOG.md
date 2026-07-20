@@ -8,6 +8,8 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-20
+
 ### Added
 - "Clients" left-nav entry and a per-client workspace
   (`/clients/[clientId]`) with horizontal tabs (Client Info, Dedup, Unit
@@ -19,22 +21,6 @@ cadences and are not required to share a version number.
   lives in the browser tab's `sessionStorage` and is lost on close.
 - Duplicate Tenant Check (dedup) is now reachable through the main
   navigation instead of only a standalone `/dedup` URL.
-
-### Changed
-- Group Prep and Dedup routes moved under `/clients/[clientId]/...`
-  (e.g. `/clients/[clientId]/unit-groups`, `/clients/[clientId]/dedup`).
-  The old top-level `/`, `/dedup`, `/results/[sessionId]`,
-  `/export/[sessionId]` routes are retired; `/` now redirects to
-  `/clients`.
-
-### Fixed
-- `DiscoveryPage`'s session-expired redirect was hardcoded to `/`,
-  which now lands on the Clients list instead of back to the client's
-  own Unit Groups tab — a regression from the route move above. It now
-  takes an `onSessionExpired` callback from its parent route, same
-  pattern already used by `onBack`/`onHome` elsewhere.
-
-### Added (Group Prep, net-new clients)
 - `DiscoveryPage` shows a conspicuous warning (bold, yellow, ⚠️) when
   zero master group files are found, explaining that every discovered
   group will be treated as net-new, plus a collapsible list of the
@@ -42,9 +28,21 @@ cadences and are not required to share a version number.
   `unitprep-api` change.
 
 ### Changed
+- Group Prep and Dedup routes moved under `/clients/[clientId]/...`
+  (e.g. `/clients/[clientId]/unit-groups`, `/clients/[clientId]/dedup`).
+  The old top-level `/`, `/dedup`, `/results/[sessionId]`,
+  `/export/[sessionId]` routes are retired; `/` now redirects to
+  `/clients`.
 - `DiscoveryPage`'s status message now distinguishes "no unit files
   found" from "awaiting master file selection" (previously the same
   generic message for both).
+
+### Fixed
+- `DiscoveryPage`'s session-expired redirect was hardcoded to `/`,
+  which now lands on the Clients list instead of back to the client's
+  own Unit Groups tab — a regression from the route move above. It now
+  takes an `onSessionExpired` callback from its parent route, same
+  pattern already used by `onBack`/`onHome` elsewhere.
 
 ## [1.0.0] - 2026-07-08
 
@@ -68,5 +66,6 @@ cadences and are not required to share a version number.
 - Validation issue detail now shows the specific affected unit ids
   instead of only a count.
 
-[Unreleased]: https://github.com/quikstorboris/unitprep-ui/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/quikstorboris/unitprep-ui/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/quikstorboris/unitprep-ui/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/quikstorboris/unitprep-ui/releases/tag/v1.0.0
