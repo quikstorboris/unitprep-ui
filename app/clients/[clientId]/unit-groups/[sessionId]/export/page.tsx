@@ -12,15 +12,17 @@ import { cancelSession } from "@/lib/api";
 export default function ExportPage() {
   const router = useRouter();
 
-  const { sessionId } =
-    useParams<{ sessionId: string }>();
+  const { clientId, sessionId } = useParams<{
+    clientId: string;
+    sessionId: string;
+  }>();
 
   const acknowledgeErrors =
     useSearchParams().get("ack") ===
     "1";
 
   return (
-    <main className="min-h-screen bg-slate-900 p-8">
+    <main className="p-8">
       <ExportCompletePage
         sessionId={sessionId}
         acknowledgeErrors={
@@ -28,7 +30,9 @@ export default function ExportPage() {
         }
         onHome={() => {
           cancelSession(sessionId);
-          router.push("/");
+          router.push(
+            `/clients/${clientId}/unit-groups`
+          );
         }}
       />
     </main>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { API_URL, errorMessageFrom } from "@/lib/api";
 import SessionExpiredPage from "@/components/SessionExpiredPage";
 import type {
@@ -24,6 +23,8 @@ interface DiscoveryPageProps {
   onDiscover: () => void;
 
   onScan: () => void;
+
+  onSessionExpired: () => void;
 }
 
 export default function DiscoveryPage({
@@ -36,6 +37,7 @@ export default function DiscoveryPage({
   onFileSelection,
   onDiscover,
   onScan,
+  onSessionExpired,
 }: DiscoveryPageProps) {
   const [
     selectedGroupFile,
@@ -61,8 +63,6 @@ export default function DiscoveryPage({
     groupSelectionError,
     setGroupSelectionError,
   ] = useState<string | null>(null);
-
-  const router = useRouter();
 
   const handleGroupSelection =
     async () => {
@@ -120,9 +120,7 @@ export default function DiscoveryPage({
   if (sessionExpired) {
     return (
       <SessionExpiredPage
-        onHome={() =>
-          router.push("/")
-        }
+        onHome={onSessionExpired}
       />
     );
   }

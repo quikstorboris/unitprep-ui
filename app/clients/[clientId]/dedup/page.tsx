@@ -1,19 +1,22 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 import DedupUploadPage from "@/components/DedupUploadPage";
 
 export default function DedupHome() {
   const router = useRouter();
 
+  const { clientId } =
+    useParams<{ clientId: string }>();
+
   return (
-    <main className="min-h-screen bg-slate-900 p-8">
-      <div className="mx-auto max-w-4xl text-slate-100">
+    <main className="p-8">
+      <div className="mx-auto max-w-4xl">
         <DedupUploadPage
           onChecked={(sessionId) =>
             router.push(
-              `/dedup/${sessionId}`
+              `/clients/${clientId}/dedup/${sessionId}`
             )
           }
         />

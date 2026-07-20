@@ -8,6 +8,32 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+### Added
+- "Clients" left-nav entry and a per-client workspace
+  (`/clients/[clientId]`) with horizontal tabs (Client Info, Dedup, Unit
+  Groups) — the first cut of the "Client Prep" navigation model. Tabs
+  are reachable in any order and none block the others.
+- Client Info tab: editable placeholder fields (contact, signer, bank
+  account, address, Dropbox folder path) and a QMS API placeholder
+  section. Frontend-only — no backend persistence exists yet; state
+  lives in the browser tab's `sessionStorage` and is lost on close.
+- Duplicate Tenant Check (dedup) is now reachable through the main
+  navigation instead of only a standalone `/dedup` URL.
+
+### Changed
+- Group Prep and Dedup routes moved under `/clients/[clientId]/...`
+  (e.g. `/clients/[clientId]/unit-groups`, `/clients/[clientId]/dedup`).
+  The old top-level `/`, `/dedup`, `/results/[sessionId]`,
+  `/export/[sessionId]` routes are retired; `/` now redirects to
+  `/clients`.
+
+### Fixed
+- `DiscoveryPage`'s session-expired redirect was hardcoded to `/`,
+  which now lands on the Clients list instead of back to the client's
+  own Unit Groups tab — a regression from the route move above. It now
+  takes an `onSessionExpired` callback from its parent route, same
+  pattern already used by `onBack`/`onHome` elsewhere.
+
 ## [1.0.0] - 2026-07-08
 
 ### Added

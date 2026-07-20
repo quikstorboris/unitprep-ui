@@ -8,16 +8,18 @@ import { cancelSession } from "@/lib/api";
 export default function DedupResultsRoute() {
   const router = useRouter();
 
-  const { sessionId } =
-    useParams<{ sessionId: string }>();
+  const { clientId, sessionId } = useParams<{
+    clientId: string;
+    sessionId: string;
+  }>();
 
   return (
-    <main className="min-h-screen bg-slate-900 p-8">
+    <main className="p-8">
       <DedupResultsPage
         sessionId={sessionId}
         onHome={() => {
           cancelSession(sessionId);
-          router.push("/dedup");
+          router.push(`/clients/${clientId}/dedup`);
         }}
       />
     </main>
