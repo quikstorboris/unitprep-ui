@@ -431,15 +431,30 @@ export default function DiscoveryPage({
                 <span className="text-green-400">
                   ✅ Ready
                 </span>
+              ) : discovery.requires_unit_file_selection ? (
+                <span className="text-yellow-400">
+                  Awaiting Unit File
+                  Selection
+                </span>
+              ) : discovery.requires_format_resolution ? (
+                <span className="text-yellow-400">
+                  Awaiting Format
+                  Confirmation
+                </span>
               ) : discovery.requires_group_selection ? (
                 <span className="text-yellow-400">
                   Awaiting Master File
                   Selection
                 </span>
-              ) : (
+              ) : discovery.unit_files_found ===
+                0 ? (
                 <span className="text-yellow-400">
                   No unit files found — check
                   your folder selection
+                </span>
+              ) : (
+                <span className="text-yellow-400">
+                  Not ready
                 </span>
               )}
             </p>
