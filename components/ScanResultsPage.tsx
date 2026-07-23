@@ -221,6 +221,17 @@ function ExemptButton({
   );
 }
 
+// A stable identity for a `ValidationIssue`, since the backend doesn't
+// assign one. Used as the list key for `IssueCard` so that saving a
+// correction (which drops the fixed issue out of `results.issues` and
+// shifts every later issue's array index) can't cause React to reuse an
+// `IssueCard`/`CorrectionField`/`ExemptButton` instance — and the
+// "✓ saved" state or typed value it holds — for what is now a different,
+// still-unresolved issue.
+function issueKey(issue: ValidationIssue): string {
+  return `${issue.file_name}::${issue.description}::${issue.affected_unit_ids.join(",")}`;
+}
+
 function IssueCard({
   issue,
   sessionId,
@@ -674,9 +685,9 @@ export default function ScanResultsPage({
 
                   <ul className="space-y-4">
                     {errors.map(
-                      (issue, index) => (
+                      (issue) => (
                         <IssueCard
-                          key={`error-${index}`}
+                          key={issueKey(issue)}
                           issue={issue}
                           sessionId={
                             sessionId
@@ -705,9 +716,9 @@ export default function ScanResultsPage({
 
                   <ul className="space-y-4">
                     {warnings.map(
-                      (issue, index) => (
+                      (issue) => (
                         <IssueCard
-                          key={`warning-${index}`}
+                          key={issueKey(issue)}
                           issue={issue}
                           sessionId={
                             sessionId
