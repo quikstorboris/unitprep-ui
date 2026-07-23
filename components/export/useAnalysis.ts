@@ -13,10 +13,14 @@ interface UseAnalysisResult {
 }
 
 /**
- * Runs POST /analyze exactly once per sessionId. The ref guard (rather
- * than relying on the effect's dependency array alone) is what makes
- * this safe under React's Strict Mode double-invoke in development —
- * without it, mounting twice would fire the request twice.
+ * Runs POST /analyze exactly once per sessionId. `startedFor` (rather
+ * than a plain boolean ref) is what makes this safe both under React's
+ * Strict Mode double-invoke in development (mounting twice for the same
+ * sessionId fires the request once) and if this component is ever reused
+ * across a genuine sessionId change without remounting (a new sessionId
+ * always gets its own request instead of being silently skipped). The
+ * `ignore` flag stops a slow, stale response from a previous sessionId
+ * overwriting state after that change.
  */
 export function useAnalysis(
   sessionId: string
@@ -37,17 +41,22 @@ export function useAnalysis(
     setSessionExpired,
   ] = useState(false);
 
-  const started = useRef(false);
+  const startedFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (
       !sessionId ||
-      started.current
+      startedFor.current === sessionId
     ) {
       return;
     }
 
-    started.current = true;
+    startedFor.current = sessionId;
+    let ignore = false;
+
+    setLoading(true);
+    setError(null);
+    setSessionExpired(false);
 
     const runAnalysis = async () => {
       try {
@@ -65,6 +74,8 @@ export function useAnalysis(
           }
         );
 
+        if (ignore) return;
+
         if (response.status === 404) {
           setSessionExpired(true);
           return;
@@ -79,19 +90,25 @@ export function useAnalysis(
         const data: AnalyzeResponse =
           await response.json();
 
-        setAnalysis(data);
+        if (!ignore) setAnalysis(data);
       } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unknown error"
-        );
+        if (!ignore) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unknown error"
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
     runAnalysis();
+
+    return () => {
+      ignore = true;
+    };
   }, [sessionId]);
 
   return {

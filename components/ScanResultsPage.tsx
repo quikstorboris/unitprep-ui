@@ -364,6 +364,15 @@ export default function ScanResultsPage({
   ] = useState(false);
 
   useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+
+    // Guards against a slow, stale /validate response from a previous
+    // sessionId overwriting state if this component is ever reused
+    // across a genuine sessionId change without remounting.
+    let ignore = false;
+
     const runValidation = async () => {
       try {
         setLoading(true);
@@ -383,6 +392,8 @@ export default function ScanResultsPage({
           }
         );
 
+        if (ignore) return;
+
         if (response.status === 404) {
           setSessionExpired(true);
           return;
@@ -397,21 +408,25 @@ export default function ScanResultsPage({
         const data: ValidateResponse =
           await response.json();
 
-        setResults(data);
+        if (!ignore) setResults(data);
       } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unknown error"
-        );
+        if (!ignore) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unknown error"
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
-    if (sessionId) {
-      runValidation();
-    }
+    runValidation();
+
+    return () => {
+      ignore = true;
+    };
   }, [sessionId]);
 
   // A saved correction can clear the error that justified the earlier

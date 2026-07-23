@@ -14,9 +14,14 @@ interface UseDedupReportResult {
 
 /**
  * Runs POST /dedup/report exactly once per sessionId (e.g. on first load
- * or after a page refresh). The ref guard mirrors useAnalysis's own —
- * without it, mounting twice would fire the request twice under React's
- * Strict Mode double-invoke in development.
+ * or after a page refresh). `startedFor` (rather than a plain boolean
+ * ref) mirrors useAnalysis's own reasoning: it's safe under React's
+ * Strict Mode double-invoke in development (same sessionId fires once),
+ * and if this component is ever reused across a genuine sessionId change
+ * without remounting, the new sessionId still gets its own request
+ * instead of being silently skipped. The `ignore` flag stops a slow,
+ * stale response from a previous sessionId overwriting state after that
+ * change.
  */
 export function useDedupReport(
   sessionId: string
@@ -35,17 +40,22 @@ export function useDedupReport(
     setSessionExpired,
   ] = useState(false);
 
-  const started = useRef(false);
+  const startedFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (
       !sessionId ||
-      started.current
+      startedFor.current === sessionId
     ) {
       return;
     }
 
-    started.current = true;
+    startedFor.current = sessionId;
+    let ignore = false;
+
+    setLoading(true);
+    setError(null);
+    setSessionExpired(false);
 
     const runReportFetch = async () => {
       try {
@@ -63,6 +73,8 @@ export function useDedupReport(
           }
         );
 
+        if (ignore) return;
+
         if (response.status === 404) {
           setSessionExpired(true);
           return;
@@ -77,19 +89,25 @@ export function useDedupReport(
         const data: DedupReportView =
           await response.json();
 
-        setReport(data);
+        if (!ignore) setReport(data);
       } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unknown error"
-        );
+        if (!ignore) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unknown error"
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
     runReportFetch();
+
+    return () => {
+      ignore = true;
+    };
   }, [sessionId]);
 
   return {
