@@ -307,6 +307,12 @@ export default function UnitGroupsHome() {
   return (
     <main className="p-8">
       <DiscoveryPage
+        // A new sessionId means a brand-new upload/discovery cycle — force
+        // a full remount so this page's local UI-gate state (e.g. the
+        // "master file selected" flag, or the child resolution panel's
+        // column mapping) can't survive from a previous session's cycle
+        // and be shown against data it was never actually validated for.
+        key={sessionId}
         selectedFiles={selectedFiles}
         sessionId={sessionId}
         discovery={discovery}
