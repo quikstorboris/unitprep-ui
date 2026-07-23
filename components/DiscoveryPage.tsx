@@ -167,7 +167,12 @@ export default function DiscoveryPage({
         </label>
 
         <div className="mt-4 text-sm text-slate-300">
-          Files Selected:{" "}
+          {/* Raw folder-picker count, before filtering to supported
+              extensions — deliberately labeled differently from the
+              "Files Selected" stat below (which is the filtered,
+              actually-uploaded count), so a folder with lots of
+              non-data files doesn't read as files going missing. */}
+          Files Found in Folder:{" "}
           <strong>
             {selectedFiles
               ? selectedFiles.length
