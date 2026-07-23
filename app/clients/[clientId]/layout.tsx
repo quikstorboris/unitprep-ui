@@ -15,9 +15,21 @@ export default function ClientLayout({
   const { clientId } =
     useParams<{ clientId: string }>();
 
-  const { getClient } = useClients();
+  const { getClient, hydrated } = useClients();
 
   const client = getClient(clientId);
+
+  // Before hydration, `clients` is still the empty initial cache — a
+  // lookup miss here just means sessionStorage hasn't been read yet, not
+  // that the client is actually missing. Wait rather than flashing the
+  // "not in session" message on every refresh.
+  if (!hydrated) {
+    return (
+      <div className="p-8 text-slate-400">
+        Loading…
+      </div>
+    );
+  }
 
   if (!client) {
     return (

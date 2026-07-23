@@ -61,6 +61,11 @@ type Listener = () => void;
 const listeners = new Set<Listener>();
 let cache: Client[] = [];
 let hydratedFromStorage = false;
+// Whether `hydrateFromStorage` below has run — exposed as its own
+// external-store snapshot (see `getHydratedSnapshot`) so consumers can
+// tell "haven't checked sessionStorage yet" apart from "checked, and
+// this client genuinely isn't in it".
+let hydrated = false;
 
 function commit(next: Client[]) {
   cache = next;
@@ -91,11 +96,15 @@ function hydrateFromStorage() {
 
     if (raw) {
       cache = JSON.parse(raw) as Client[];
-      listeners.forEach((listener) => listener());
     }
   } catch {
     // Corrupted/blocked storage — keep the empty in-memory default.
   }
+
+  // Always flip `hydrated` and notify, even when there was nothing to
+  // load — subscribers need to know the check happened either way.
+  hydrated = true;
+  listeners.forEach((listener) => listener());
 }
 
 function subscribe(listener: Listener): () => void {
@@ -112,6 +121,14 @@ function getSnapshot(): Client[] {
 
 function getServerSnapshot(): Client[] {
   return cache;
+}
+
+function getHydratedSnapshot(): boolean {
+  return hydrated;
+}
+
+function getHydratedServerSnapshot(): boolean {
+  return false;
 }
 
 function createClientRecord(
@@ -147,6 +164,11 @@ function updateClientRecord(
 
 interface ClientsContextValue {
   clients: Client[];
+  // False for the one render before the hydration effect below runs.
+  // Consumers should treat a lookup miss while this is false as "don't
+  // know yet", not "this client doesn't exist" — sessionStorage hasn't
+  // been read yet, so `clients` is still the empty initial cache.
+  hydrated: boolean;
   getClient: (id: string) => Client | undefined;
   createClient: (draft?: ClientDraft) => Client;
   updateClient: (id: string, patch: ClientDraft) => void;
@@ -166,12 +188,19 @@ export function ClientsProvider({
     getServerSnapshot
   );
 
+  const hydrated = useSyncExternalStore(
+    subscribe,
+    getHydratedSnapshot,
+    getHydratedServerSnapshot
+  );
+
   useEffect(() => {
     hydrateFromStorage();
   }, []);
 
   const value: ClientsContextValue = {
     clients,
+    hydrated,
     getClient: (id) =>
       clients.find((c) => c.id === id),
     createClient: createClientRecord,
