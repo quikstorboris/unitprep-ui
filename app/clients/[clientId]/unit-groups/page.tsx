@@ -4,7 +4,7 @@ import { useReducer } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import DiscoveryPage from "@/components/DiscoveryPage";
-import { API_URL } from "@/lib/api";
+import { API_URL, describeFetchError } from "@/lib/api";
 import type {
   DiscoverResponse,
   UploadResponse,
@@ -193,6 +193,24 @@ export default function UnitGroupsHome() {
         );
       });
 
+      // A sidecar field carrying each file's `lastModified` alongside the
+      // upload — standard multipart file parts have no metadata slot
+      // beyond filename/content-type, so this rides as one extra JSON
+      // field instead. Matched back to each file server-side by the same
+      // name used as its part's filename above. Used to help a user pick
+      // the right file when a folder contains more than one candidate
+      // unit list (e.g. several dated re-pulls of the same facility).
+      formData.append(
+        "file_modified_times",
+        JSON.stringify(
+          supportedFiles.map((file) => [
+            file.webkitRelativePath ||
+              file.name,
+            file.lastModified,
+          ])
+        )
+      );
+
       const uploadResponse =
         await fetch(
           `${API_URL}/upload`,
@@ -277,9 +295,7 @@ export default function UnitGroupsHome() {
       dispatch({
         type: "discover_failed",
         message:
-          error instanceof Error
-            ? error.message
-            : "Unknown error",
+          describeFetchError(error),
       });
     } finally {
       dispatch({
@@ -304,6 +320,14 @@ export default function UnitGroupsHome() {
         }
         onDiscover={
           handleDiscover
+        }
+        onDiscoveryUpdated={(
+          discovery
+        ) =>
+          dispatch({
+            type: "discovery_succeeded",
+            discovery,
+          })
         }
         onScan={() =>
           router.push(

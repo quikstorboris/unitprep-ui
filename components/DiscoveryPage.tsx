@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { API_URL, errorMessageFrom } from "@/lib/api";
+import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
 import SessionExpiredPage from "@/components/SessionExpiredPage";
+import UnitFileResolutionPanel from "@/components/UnitFileResolutionPanel";
 import type {
   DiscoverResponse,
   UploadSummary,
@@ -22,6 +23,10 @@ interface DiscoveryPageProps {
 
   onDiscover: () => void;
 
+  onDiscoveryUpdated: (
+    discovery: DiscoverResponse
+  ) => void;
+
   onScan: () => void;
 
   onSessionExpired: () => void;
@@ -36,6 +41,7 @@ export default function DiscoveryPage({
   apiError,
   onFileSelection,
   onDiscover,
+  onDiscoveryUpdated,
   onScan,
   onSessionExpired,
 }: DiscoveryPageProps) {
@@ -108,9 +114,10 @@ export default function DiscoveryPage({
         setLocalReady(true);
       } catch (err) {
         setGroupSelectionError(
-          err instanceof Error
-            ? err.message
-            : "Failed to select master file."
+          describeFetchError(
+            err,
+            "Failed to select master file."
+          )
         );
       } finally {
         setSelecting(false);
@@ -287,6 +294,17 @@ export default function DiscoveryPage({
                 }
               </strong>
             </p>
+
+            <UnitFileResolutionPanel
+              sessionId={sessionId}
+              discovery={discovery}
+              onDiscoveryUpdated={
+                onDiscoveryUpdated
+              }
+              onSessionExpired={() =>
+                setSessionExpired(true)
+              }
+            />
 
             {discovery.group_files_found ===
               0 && (

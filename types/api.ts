@@ -29,6 +29,24 @@ export type UploadSummary = {
   integrity_verified: boolean;
 };
 
+/**
+ * A discovered file matching a known vendor's header signature (QSX,
+ * DoorSwap, ...) — a candidate to become the session's one selected unit
+ * file. `modified_at` is epoch milliseconds (from the browser's
+ * `File.lastModified`, threaded through at upload time), `null` when the
+ * browser didn't send one.
+ */
+export type UnitFileCandidate = {
+  file_name: string;
+  modified_at: number | null;
+  detected_vendor: string;
+};
+
+export type FieldMappingEntry = {
+  target: string;
+  source: string;
+};
+
 export type DiscoverResponse = {
   unit_files_found: number;
   group_files_found: number;
@@ -37,7 +55,33 @@ export type DiscoverResponse = {
   requires_group_selection: boolean;
   ready: boolean;
   discovered_group_names: string[];
+
+  unit_file_candidates: UnitFileCandidate[];
+  selected_unit_file_name: string | null;
+  /** More than one candidate, none selected yet — show the file picker. */
+  requires_unit_file_selection: boolean;
+  /** One file selected, but its vendor format isn't confirmed/mapped yet. */
+  requires_format_resolution: boolean;
+  detected_vendor_name: string | null;
+  /** The selected file's own headers — only populated while
+   * `requires_format_resolution` is true. */
+  source_headers: string[];
+  /** The detected vendor's preset mapping, to pre-fill the manual mapping
+   * UI (still fully overridable). */
+  suggested_mapping: FieldMappingEntry[];
+  /** Static and the same on every response — the manual mapping UI's
+   * left-column target fields, and which of those are required. */
+  canonical_target_fields: string[];
+  required_target_fields: string[];
 };
+
+export type ResolveUnitFormatRequest =
+  | { session_id: string; action: "confirm" }
+  | {
+      session_id: string;
+      action: "map";
+      mapping: { target: string; source: string | null }[];
+    };
 
 export type Severity = "Info" | "Warning" | "Error";
 

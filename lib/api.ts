@@ -9,6 +9,31 @@ export const API_URL =
  * string — fall back to the raw text, then to a bare status code, rather
  * than showing a blank error.
  */
+/**
+ * `fetch` throws a plain `TypeError` (not an HTTP error — the request
+ * never got an HTTP response at all) when the request can't reach the
+ * server: connection refused, DNS failure, CORS rejection, offline, etc.
+ * The browser's own message for this ("Failed to fetch", "Load failed",
+ * "NetworkError when attempting to fetch resource" depending on browser)
+ * reads as a generic, unhelpful error with no indication of what's
+ * actually wrong — this exists so every fetch call site can show
+ * something a user can act on instead ("is the API running?") rather
+ * than the raw browser string. Distinct from a non-2xx response, which
+ * `errorMessageFrom` already handles with the server's own message.
+ */
+export function describeFetchError(
+  error: unknown,
+  fallback: string = "Unknown error"
+): string {
+  if (error instanceof TypeError) {
+    return `Could not reach the API server at ${API_URL} — check that it's running and reachable from this browser.`;
+  }
+
+  return error instanceof Error
+    ? error.message
+    : fallback;
+}
+
 export async function errorMessageFrom(
   response: Response
 ): Promise<string> {
