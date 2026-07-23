@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { API_URL, errorMessageFrom } from "@/lib/api";
 import type { AnalyzeResponse } from "@/types/api";
@@ -13,14 +13,17 @@ interface UseAnalysisResult {
 }
 
 /**
- * Runs POST /analyze exactly once per sessionId. `startedFor` (rather
- * than a plain boolean ref) is what makes this safe both under React's
- * Strict Mode double-invoke in development (mounting twice for the same
- * sessionId fires the request once) and if this component is ever reused
- * across a genuine sessionId change without remounting (a new sessionId
- * always gets its own request instead of being silently skipped). The
- * `ignore` flag stops a slow, stale response from a previous sessionId
- * overwriting state after that change.
+ * Runs POST /analyze per sessionId. Deliberately has no "already
+ * started" ref beyond the `ignore` flag below -- under React's Strict
+ * Mode double-invoke in development, that flag alone still resolves to
+ * exactly one applied result (the second run's), just at the cost of an
+ * extra harmless request; a persistent ref that skips the second run's
+ * fetch entirely causes the *first* run's own cleanup to mark its
+ * in-flight response ignored, with no second fetch left to supply a real
+ * one -- loading would then never resolve. If this component is ever
+ * reused across a genuine sessionId change without remounting, the new
+ * sessionId still gets its own request and a stale in-flight response
+ * from the old one is dropped, via this same flag.
  */
 export function useAnalysis(
   sessionId: string
@@ -41,25 +44,19 @@ export function useAnalysis(
     setSessionExpired,
   ] = useState(false);
 
-  const startedFor = useRef<string | null>(null);
-
   useEffect(() => {
-    if (
-      !sessionId ||
-      startedFor.current === sessionId
-    ) {
+    if (!sessionId) {
       return;
     }
 
-    startedFor.current = sessionId;
     let ignore = false;
-
-    setLoading(true);
-    setError(null);
-    setSessionExpired(false);
 
     const runAnalysis = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        setSessionExpired(false);
+
         const response = await fetch(
           `${API_URL}/analyze`,
           {
