@@ -98,13 +98,13 @@ export type AnalyzeResponse = {
   advisory_issue_details: AdvisoryIssue[];
 };
 
-// Dedup (duplicate tenant check) contracts — mirror unitprep-dedup's own
-// result types 1:1:
-//   DedupCheckResponse -> unitprep-api/src/api/dedup.rs
-//   DedupReport        -> unitprep-dedup/src/report.rs
-//   FlaggedGroup, TenantGroup, TenantRecord, FieldMismatch,
-//   FieldValueMismatch, TypoVariantCandidate, FieldCategory, FieldName
-//                      -> unitprep-dedup/src/types.rs, types/fields.rs
+// Dedup (duplicate tenant check) contracts — mirror unitprep-api's
+// enriched view types 1:1 (not unitprep-dedup's own raw domain types,
+// which stay pure and never carry column-layout/cell-ref concepts):
+//   DedupCheckResponse, DedupReportView, FlaggedGroupView, BulletView,
+//   TypoVariantView, RelatedTenantView, RelatedTenantMemberView
+//     -> unitprep-api/src/api/dedup.rs, dedup_view.rs
+//   FieldCategory, FieldName -> unitprep-dedup/src/types/fields.rs
 
 export type FieldCategory =
   | "Phone"
@@ -137,59 +137,31 @@ export type FieldName =
   | "FirstName"
   | "LastName";
 
-export type TenantRecord = {
-  cust_numb: string;
-  unit_number: string;
-  first_last: string;
-  first_name: string;
-  last_name: string;
-  company_name: string;
-  phone_number: string;
-  phone_number_prefix: string;
-  email: string;
-  address_street1: string;
-  address_street2: string;
-  address_city: string;
-  address_state: string;
-  address_postal_code: string;
-  alt_contact_first_name: string;
-  alt_contact_last_name: string;
-  alt_contact_email: string;
-  alt_contact_phone_number: string;
-  alt_contact_phone_number_prefix: string;
-  alt_contact_address_street1: string;
-  alt_contact_address_street2: string;
-  alt_contact_address_city: string;
-  alt_contact_address_state: string;
-  alt_contact_address_postal_code: string;
-};
-
-/** Blank values arrive as the literal string "(blank)", sorted last. */
-export type FieldValueMismatch = {
+/** One plain-English sentence for a single differing field. */
+export type BulletView = {
   field: FieldName;
-  values: string[];
+  label: string;
+  sentence: string;
+  /** Cell references in the *exported* CSV/xlsx (e.g. "N22") — empty if
+   * none apply. */
+  cell_refs: string[];
 };
 
-export type FieldMismatch = {
-  category: FieldCategory;
-  fields: FieldValueMismatch[];
-};
-
-export type TenantGroup = {
+export type FlaggedGroupView = {
   key: string;
-  records: TenantRecord[];
+  display_name: string;
+  units: string[];
+  /** In priority order — the order to show them in a "Mismatches: ..."
+   * summary line. */
+  categories: FieldCategory[];
+  bullets: BulletView[];
 };
 
-export type FlaggedGroup = {
-  group: TenantGroup;
-  mismatches: FieldMismatch[];
-  note: string;
-};
-
-export type TypoVariantCandidate = {
-  key_a: string;
-  key_b: string;
-  ratio: number;
+export type TypoVariantView = {
+  display_name_a: string;
+  units_a: string[];
+  display_name_b: string;
+  units_b: string[];
   contact_info_matches: boolean;
   note: string;
 };
@@ -200,32 +172,37 @@ export type RelatednessSignal =
   | "SharedAlternateContact"
   | "SharedHomeAddress";
 
+export type RelatedTenantMemberView = {
+  display_name: string;
+  units: string[];
+};
+
 /**
  * Two or more tenants (different name keys) sharing a specific,
  * non-blank value — evidence of a real relationship (business + owner,
  * family, subdivided unit) that neither exact-name grouping nor
  * typo-variant similarity could catch, since both hinge on name
- * similarity. Always advisory, same as `TypoVariantCandidate`.
+ * similarity. Always advisory, same as `TypoVariantView`.
  */
-export type RelatedTenantCandidate = {
-  group_keys: string[];
+export type RelatedTenantView = {
+  members: RelatedTenantMemberView[];
   signal: RelatednessSignal;
   shared_value: string;
   note: string;
 };
 
-export type DedupReport = {
+export type DedupReportView = {
   total_rows: number;
   unique_tenants: number;
   multi_unit_tenants: number;
-  flagged_groups: FlaggedGroup[];
-  typo_variant_candidates: TypoVariantCandidate[];
-  related_tenant_candidates: RelatedTenantCandidate[];
+  flagged_groups: FlaggedGroupView[];
+  typo_variant_candidates: TypoVariantView[];
+  related_tenant_candidates: RelatedTenantView[];
 };
 
 export type DedupCheckResponse = {
   session_id: string;
-  report: DedupReport;
+  report: DedupReportView;
 };
 
 /** `"both"` returns a ZIP containing both files in one download. */

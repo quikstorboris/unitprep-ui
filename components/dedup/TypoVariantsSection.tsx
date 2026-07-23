@@ -1,7 +1,8 @@
-import type { TypoVariantCandidate } from "@/types/api";
+import { formatUnits } from "@/lib/format";
+import type { TypoVariantView } from "@/types/api";
 
 interface TypoVariantsSectionProps {
-  candidates: TypoVariantCandidate[];
+  candidates: TypoVariantView[];
 }
 
 export default function TypoVariantsSection({
@@ -47,15 +48,25 @@ export default function TypoVariantsSection({
                 {candidates.map(
                   (candidate, index) => (
                     <tr
-                      key={`${candidate.key_a}-${candidate.key_b}-${index}`}
+                      key={`${candidate.display_name_a}-${candidate.display_name_b}-${index}`}
                       className="border-t border-slate-800"
                     >
                       <td className="p-3">
-                        {candidate.key_a}
+                        {candidate.display_name_a}
+                        <div className="text-xs text-slate-500">
+                          {formatUnits(
+                            candidate.units_a
+                          )}
+                        </div>
                       </td>
 
                       <td className="p-3">
-                        {candidate.key_b}
+                        {candidate.display_name_b}
+                        <div className="text-xs text-slate-500">
+                          {formatUnits(
+                            candidate.units_b
+                          )}
+                        </div>
                       </td>
 
                       <td className="p-3">

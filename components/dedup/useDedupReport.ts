@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 
 import { API_URL, errorMessageFrom } from "@/lib/api";
-import type { DedupReport } from "@/types/api";
+import type { DedupReportView } from "@/types/api";
 
 interface UseDedupReportResult {
-  report: DedupReport | null;
+  report: DedupReportView | null;
   loading: boolean;
   error: string | null;
   sessionExpired: boolean;
@@ -22,7 +22,7 @@ export function useDedupReport(
   sessionId: string
 ): UseDedupReportResult {
   const [report, setReport] =
-    useState<DedupReport | null>(null);
+    useState<DedupReportView | null>(null);
 
   const [loading, setLoading] =
     useState(true);
@@ -74,7 +74,7 @@ export function useDedupReport(
           );
         }
 
-        const data: DedupReport =
+        const data: DedupReportView =
           await response.json();
 
         setReport(data);

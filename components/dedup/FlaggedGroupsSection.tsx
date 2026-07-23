@@ -1,8 +1,15 @@
-import type { FlaggedGroup } from "@/types/api";
+import Tooltip from "@/components/Tooltip";
+import { formatUnits } from "@/lib/format";
+import type { FlaggedGroupView } from "@/types/api";
 
 interface FlaggedGroupsSectionProps {
-  groups: FlaggedGroup[];
+  groups: FlaggedGroupView[];
 }
+
+const COMPANY_MISMATCH_TOOLTIP =
+  "This tenant has more than one company name on file. Since they'll manage all their units " +
+  "through one tenant-portal login, you'll need to decide how this account should be organized — " +
+  "usually by picking one company name and updating the other unit(s) to match.";
 
 export default function FlaggedGroupsSection({
   groups,
@@ -22,78 +29,39 @@ export default function FlaggedGroupsSection({
             No duplicate tenants flagged.
           </div>
         ) : (
-          groups.map(
-            (flagged, index) => (
-              <div
-                key={`${flagged.group.key}-${index}`}
-                className="rounded border border-slate-800 p-4"
-              >
-                <div className="mb-2 font-semibold">
-                  {flagged.group.key}
-                  {" — Units: "}
-                  {flagged.group.records
-                    .map(
-                      (record) =>
-                        record.unit_number
-                    )
-                    .join(", ")}
-                </div>
-
-                <div className="text-sm text-slate-300">
-                  {flagged.note}
-                </div>
-
-                <details className="mt-3 rounded border border-slate-700 p-3">
-                  <summary className="cursor-pointer text-sm text-slate-400">
-                    What differs (
-                    {
-                      flagged.mismatches
-                        .length
-                    }
-                    )
-                  </summary>
-
-                  <div className="mt-2 space-y-2">
-                    {flagged.mismatches.map(
-                      (
-                        mismatch,
-                        mismatchIndex
-                      ) => (
-                        <div
-                          key={`${mismatch.category}-${mismatchIndex}`}
-                        >
-                          <div className="text-sm font-semibold text-slate-300">
-                            {
-                              mismatch.category
-                            }
-                          </div>
-
-                          {mismatch.fields.map(
-                            (field) => (
-                              <div
-                                key={
-                                  field.field
-                                }
-                                className="ml-3 text-sm text-slate-400"
-                              >
-                                {
-                                  field.field
-                                }
-                                :{" "}
-                                {field.values.join(
-                                  " vs. "
-                                )}
-                              </div>
-                            )
-                          )}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </details>
+          groups.map((group, index) => (
+            <div
+              key={`${group.key}-${index}`}
+              className="rounded border border-slate-800 p-4"
+            >
+              <div className="mb-1 font-semibold">
+                {group.display_name}
+                {" — "}
+                {formatUnits(group.units)}
               </div>
-            )
-          )
+
+              <div className="mb-3 text-sm text-slate-400">
+                Mismatches:{" "}
+                {group.categories.join(", ")}
+              </div>
+
+              <ul className="list-disc space-y-1 pl-5 text-sm text-slate-300">
+                {group.bullets.map((bullet) => (
+                  <li key={bullet.field}>
+                    {bullet.sentence}
+                    {bullet.cell_refs.length > 0 && (
+                      <span className="ml-1 text-slate-500">
+                        ({bullet.cell_refs.join(", ")})
+                      </span>
+                    )}
+                    {bullet.field === "CompanyName" && (
+                      <Tooltip text={COMPANY_MISMATCH_TOOLTIP} />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
         )}
       </div>
     </details>

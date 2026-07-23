@@ -1,13 +1,13 @@
-import type { DedupReport } from "@/types/api";
+import type { DedupReportView } from "@/types/api";
 
 interface DedupSummaryStatsProps {
-  report: DedupReport;
+  report: DedupReportView;
 }
 
 const STATS: Array<{
   label: string;
   value: (
-    report: DedupReport
+    report: DedupReportView
   ) => number;
 }> = [
   {

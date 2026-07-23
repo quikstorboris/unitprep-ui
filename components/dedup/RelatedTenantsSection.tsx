@@ -1,7 +1,8 @@
-import type { RelatedTenantCandidate, RelatednessSignal } from "@/types/api";
+import { formatUnits } from "@/lib/format";
+import type { RelatedTenantView, RelatednessSignal } from "@/types/api";
 
 interface RelatedTenantsSectionProps {
-  candidates: RelatedTenantCandidate[];
+  candidates: RelatedTenantView[];
 }
 
 const SIGNAL_LABELS: Record<RelatednessSignal, string> = {
@@ -41,6 +42,10 @@ export default function RelatedTenantsSection({
                   </th>
 
                   <th className="p-3 text-left">
+                    Tenants
+                  </th>
+
+                  <th className="p-3 text-left">
                     Note
                   </th>
                 </tr>
@@ -50,7 +55,9 @@ export default function RelatedTenantsSection({
                 {candidates.map(
                   (candidate, index) => (
                     <tr
-                      key={`${candidate.group_keys.join("-")}-${index}`}
+                      key={`${candidate.members
+                        .map((m) => m.display_name)
+                        .join("-")}-${index}`}
                       className="border-t border-slate-800"
                     >
                       <td className="p-3">
@@ -66,6 +73,15 @@ export default function RelatedTenantsSection({
                         {
                           candidate.shared_value
                         }
+                      </td>
+
+                      <td className="p-3">
+                        {candidate.members
+                          .map(
+                            (member) =>
+                              `${member.display_name} (${formatUnits(member.units)})`
+                          )
+                          .join(", ")}
                       </td>
 
                       <td className="p-3">
