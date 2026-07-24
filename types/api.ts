@@ -31,8 +31,9 @@ export type UploadSummary = {
 
 /**
  * A discovered file matching a known vendor's header signature (QSX,
- * DoorSwap, ...) — a candidate to become the session's one selected unit
- * file. `modified_at` is epoch milliseconds (from the browser's
+ * DoorSwap, ...) — one entry in the checkbox list the user confirms a
+ * subset (or all) of as this session's unit files to process.
+ * `modified_at` is epoch milliseconds (from the browser's
  * `File.lastModified`, threaded through at upload time), `null` when the
  * browser didn't send one.
  */
@@ -52,18 +53,51 @@ export type DiscoverResponse = {
   group_files_found: number;
   group_file_names: string[];
   selected_group_file_name: string | null;
-  requires_group_selection: boolean;
+  /** Whether the selected group file actually looks like a real master
+   * group file — meaningful mainly for a manually-uploaded override
+   * (`/group-file/upload`), which bypasses discovery's own
+   * classification on purpose. `null` until a group file is selected. */
+  group_file_format_valid: boolean | null;
+  /** Explicit "yes, this is the right file" confirmation (see
+   * `/group-file/confirm`) — selecting a file isn't enough on its own;
+   * `ready` requires this too. */
+  group_file_confirmed: boolean;
   ready: boolean;
   discovered_group_names: string[];
+  /** The subset of `discovered_group_names` that don't look like a real
+   * storage-unit group name (no parseable dimension, or a degenerate
+   * 0x0) — a review hint, not used for matching/analysis. */
+  uncommon_group_names: string[];
 
   unit_file_candidates: UnitFileCandidate[];
-  selected_unit_file_name: string | null;
-  /** More than one candidate, none selected yet — show the file picker. */
+  /** The confirmed set to process — a folder can span several distinct
+   * facilities at once, so this can hold more than one file. */
+  selected_unit_file_names: string[];
+  /** More than one candidate, nothing confirmed yet — show the checkbox picker. */
   requires_unit_file_selection: boolean;
-  /** One file selected, but its vendor format isn't confirmed/mapped yet. */
+  /** At least one confirmed file's vendor format isn't confirmed/mapped yet. */
   requires_format_resolution: boolean;
+  /** Which confirmed file the confirm/map screen is currently working on —
+   * `null` once every confirmed file is resolved. */
+  current_unit_file_name: string | null;
+  /** Every confirmed file still awaiting resolution, in the order they'll
+   * be resolved (`current_unit_file_name` is always this list's first
+   * entry) — lets the UI show progress like "file 2 of 5". */
+  pending_unit_file_names: string[];
+  /** Confirmed files whose headers don't match the majority shape among
+   * the rest of the confirmed set — blocks bulk "Confirm {vendor}" until
+   * the user returns to Unit Files Selection and fixes it. Empty in the
+   * expected case. */
+  mismatched_header_files: string[];
+  /** The vendor detected for `current_unit_file_name`, if any. */
   detected_vendor_name: string | null;
-  /** The selected file's own headers — only populated while
+  /** The vendor confirmed for the unit files, once every one of them is
+   * resolved (`detected_vendor_name` goes back to `null` at that point,
+   * since there's no more "current" pending file) — for display in the
+   * completed Format summary. `null` if not all resolved yet, or none
+   * matched a known vendor. */
+  confirmed_vendor_name: string | null;
+  /** `current_unit_file_name`'s own headers — only populated while
    * `requires_format_resolution` is true. */
   source_headers: string[];
   /** The detected vendor's preset mapping, to pre-fill the manual mapping
@@ -81,7 +115,8 @@ export type ResolveUnitFormatRequest =
       session_id: string;
       action: "map";
       mapping: { target: string; source: string | null }[];
-    };
+    }
+  | { session_id: string; action: "reset" };
 
 export type Severity = "Info" | "Warning" | "Error";
 
@@ -94,6 +129,19 @@ export type ValidationIssue = {
   detail: string;
   correctable_fields: string[];
   exemptable: boolean;
+  /** Distinct UnitGroup names this issue concerns — the flagged group
+   * names themselves for the three per-group checks (rare/single-unit/
+   * odd groups), or the resolved UnitGroup of each affected unit for
+   * every other (per-unit) check. Drives the per-group correct/exclude
+   * UI. */
+  affected_group_names: string[];
+  /** True for the three per-group checks — tells the UI whether
+   * `affected_unit_ids` are real unit numbers worth listing
+   * individually, or (for these checks) just group names again. */
+  flagged_are_group_names: boolean;
+  /** (group name, occurrence count) pairs — populated only for "Rare
+   * UnitGroup detected". */
+  group_occurrence_counts: [string, number][];
 };
 
 /**

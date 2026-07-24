@@ -19,7 +19,7 @@ export default function DedupResultsRoute() {
         sessionId={sessionId}
         onHome={() => {
           cancelSession(sessionId);
-          router.push(`/clients/${clientId}/dedup`);
+          router.replace(`/clients/${clientId}/info`);
         }}
       />
     </main>

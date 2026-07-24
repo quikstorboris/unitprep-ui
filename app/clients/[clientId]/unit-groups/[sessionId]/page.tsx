@@ -30,6 +30,11 @@ export default function ResultsPage() {
               : `/clients/${clientId}/unit-groups/${sessionId}/export`
           )
         }
+        onSessionExpired={() =>
+          router.replace(
+            `/clients/${clientId}/info`
+          )
+        }
       />
     </main>
   );

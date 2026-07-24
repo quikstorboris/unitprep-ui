@@ -11,12 +11,14 @@ import SessionExpiredPage from "./SessionExpiredPage";
 interface ExportCompletePageProps {
   sessionId: string;
   acknowledgeErrors: boolean;
+  onBack: () => void;
   onHome: () => void;
 }
 
 export default function ExportCompletePage({
   sessionId,
   acknowledgeErrors,
+  onBack,
   onHome,
 }: ExportCompletePageProps) {
   const {
@@ -63,18 +65,36 @@ export default function ExportCompletePage({
           {analysisError}
         </div>
 
-        <button
-          onClick={onHome}
-          className="rounded bg-slate-700 px-4 py-2 text-white"
-        >
-          Home
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={onBack}
+            className="rounded bg-slate-700 px-4 py-2 text-white"
+          >
+            ← Back
+          </button>
+
+          <button
+            onClick={onHome}
+            className="rounded bg-slate-700 px-4 py-2 text-white"
+          >
+            Home
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-7xl text-slate-100">
+      <div className="mb-6 flex gap-4">
+        <button
+          onClick={onBack}
+          className="rounded bg-slate-700 px-4 py-2"
+        >
+          ← Back
+        </button>
+      </div>
+
       <h1 className="mb-8 text-4xl font-bold">
         Export Review
       </h1>

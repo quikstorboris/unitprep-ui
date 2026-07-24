@@ -28,10 +28,15 @@ export default function ExportPage() {
         acknowledgeErrors={
           acknowledgeErrors
         }
+        onBack={() =>
+          router.push(
+            `/clients/${clientId}/unit-groups/${sessionId}`
+          )
+        }
         onHome={() => {
           cancelSession(sessionId);
-          router.push(
-            `/clients/${clientId}/unit-groups`
+          router.replace(
+            `/clients/${clientId}/info`
           );
         }}
       />

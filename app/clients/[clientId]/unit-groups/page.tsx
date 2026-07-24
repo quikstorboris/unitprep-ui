@@ -4,7 +4,7 @@ import { useReducer } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import DiscoveryPage from "@/components/DiscoveryPage";
-import { API_URL, describeFetchError } from "@/lib/api";
+import { API_URL, cancelSession, describeFetchError } from "@/lib/api";
 import type {
   DiscoverResponse,
   UploadResponse,
@@ -340,9 +340,18 @@ export default function UnitGroupsHome() {
             `/clients/${clientId}/unit-groups/${sessionId}`
           )
         }
-        onSessionExpired={() =>
+        onBack={() => {
+          if (sessionId) {
+            cancelSession(sessionId);
+          }
+
           router.push(
-            `/clients/${clientId}/unit-groups`
+            `/clients/${clientId}/info`
+          );
+        }}
+        onSessionExpired={() =>
+          router.replace(
+            `/clients/${clientId}/info`
           )
         }
       />
