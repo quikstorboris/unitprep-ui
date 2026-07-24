@@ -5,6 +5,30 @@ import { useState } from "react";
 import { API_URL, errorMessageFrom } from "@/lib/api";
 import type { DedupCheckResponse } from "@/types/api";
 
+// Extensions the backend can actually parse — `DedupSessionService::
+// create_session` (unitprep-api/src/application/dedup_session_service.rs)
+// calls the same multi-format `parse_document` dispatch Group Prep's
+// upload uses, not a CSV-only parser, so this mirrors
+// unit-groups/page.tsx's own SUPPORTED_EXTENSIONS rather than trusting
+// the file picker's `accept` attribute alone (a browser hint the user
+// can bypass, e.g. via "All Files").
+const SUPPORTED_EXTENSIONS = [
+  ".csv",
+  ".xlsx",
+  ".xls",
+];
+
+function isSupportedFile(
+  file: File
+): boolean {
+  const name =
+    file.name.toLowerCase();
+
+  return SUPPORTED_EXTENSIONS.some(
+    (ext) => name.endsWith(ext)
+  );
+}
+
 interface DedupUploadPageProps {
   onChecked: (sessionId: string) => void;
 }
@@ -24,12 +48,20 @@ export default function DedupUploadPage({
   const handleFileSelection = (
     files: FileList | null
   ) => {
-    setSelectedFile(
+    const file =
       files && files.length > 0
         ? files[0]
-        : null
-    );
+        : null;
 
+    if (file && !isSupportedFile(file)) {
+      setSelectedFile(null);
+      setApiError(
+        `"${file.name}" isn't a supported file type — select a .csv, .xlsx, or .xls file.`
+      );
+      return;
+    }
+
+    setSelectedFile(file);
     setApiError(null);
   };
 
@@ -97,7 +129,7 @@ export default function DedupUploadPage({
         <input
           id="dedup-file-picker"
           type="file"
-          accept=".csv"
+          accept=".csv,.xlsx,.xls"
           className="hidden"
           onChange={(e) =>
             handleFileSelection(
