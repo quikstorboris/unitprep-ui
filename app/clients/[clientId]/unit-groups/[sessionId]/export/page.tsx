@@ -24,6 +24,10 @@ export default function ExportPage() {
   return (
     <main className="p-8">
       <ExportCompletePage
+        // A new sessionId means a new export flow — force a full remount
+        // so this page's local exporting/downloadComplete/error state
+        // can't leak from a session this page previously rendered.
+        key={sessionId}
         sessionId={sessionId}
         acknowledgeErrors={
           acknowledgeErrors

@@ -16,6 +16,10 @@ export default function DedupResultsRoute() {
   return (
     <main className="p-8">
       <DedupResultsPage
+        // A new sessionId means a new dedup report — force a full
+        // remount so this page's local fetch/export state can't leak
+        // from a session this page previously rendered.
+        key={sessionId}
         sessionId={sessionId}
         onHome={() => {
           cancelSession(sessionId);
