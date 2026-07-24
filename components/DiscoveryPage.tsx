@@ -111,6 +111,16 @@ export default function DiscoveryPage({
     setSelectingGroupFile,
   ] = useState(false);
 
+  // Only one of the three group-file operations (manual upload, confirm,
+  // select-a-candidate) can be meaningfully in flight at once against the
+  // same session — each button previously disabled only its own flag, so
+  // e.g. clicking "Confirm" didn't block "Select Different File" from
+  // also firing before the first request landed.
+  const groupFileBusy =
+    manualGroupFileUploading ||
+    confirmingGroupFile ||
+    selectingGroupFile;
+
   const [
     groupFileSelectError,
     setGroupFileSelectError,
@@ -670,7 +680,7 @@ export default function DiscoveryPage({
                           }
                           disabled={
                             !groupFileCandidateChoice ||
-                            selectingGroupFile
+                            groupFileBusy
                           }
                           className="rounded bg-yellow-600 px-4 py-2 disabled:opacity-50"
                         >
@@ -687,7 +697,7 @@ export default function DiscoveryPage({
                               )
                             }
                             disabled={
-                              selectingGroupFile
+                              groupFileBusy
                             }
                             className="rounded bg-slate-700 px-4 py-2 hover:bg-slate-600 disabled:opacity-50"
                           >
@@ -756,7 +766,7 @@ export default function DiscoveryPage({
                                 handleConfirmGroupFile
                               }
                               disabled={
-                                confirmingGroupFile
+                                groupFileBusy
                               }
                               className="rounded bg-green-700 px-4 py-2 hover:bg-green-600 disabled:opacity-50"
                             >
@@ -774,7 +784,10 @@ export default function DiscoveryPage({
                                 true
                               )
                             }
-                            className="rounded bg-slate-700 px-4 py-2 hover:bg-slate-600"
+                            disabled={
+                              groupFileBusy
+                            }
+                            className="rounded bg-slate-700 px-4 py-2 hover:bg-slate-600 disabled:opacity-50"
                           >
                             Choose From
                             Discovered
@@ -787,7 +800,7 @@ export default function DiscoveryPage({
                             manualGroupFileInputRef.current?.click()
                           }
                           disabled={
-                            manualGroupFileUploading
+                            groupFileBusy
                           }
                           className="rounded bg-slate-700 px-4 py-2 hover:bg-slate-600 disabled:opacity-50"
                         >
