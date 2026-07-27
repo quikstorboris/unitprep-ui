@@ -1,5 +1,6 @@
 "use client";
 import { API_URL, basename, errorMessageFrom } from "@/lib/api";
+import { useSessionAction } from "@/lib/useSessionAction";
 import {
   useEffect,
   useRef,
@@ -36,60 +37,40 @@ function CorrectionField({
   onSessionExpired,
 }: CorrectionFieldProps) {
   const [value, setValue] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const {
+    pending: saving,
+    error,
+    run,
+  } = useSessionAction(
+    sessionId,
+    "/correct"
+  );
 
   const handleSave = async () => {
     if (!value.trim()) return;
 
-    try {
-      setSaving(true);
-      setError(null);
+    const result = await run({
+      file_name: fileName,
+      unit_number: unitNumber,
+      field,
+      value,
+    });
 
-      const response = await fetch(
-        `${API_URL}/correct`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            file_name: fileName,
-            unit_number: unitNumber,
-            field,
-            value,
-          }),
-        }
-      );
-
-      if (response.status === 404) {
-        onSessionExpired();
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          await errorMessageFrom(response)
-        );
-      }
-
-      const data: ValidateResponse =
-        await response.json();
-
-      setSaved(true);
-      onSaved(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unknown error"
-      );
-    } finally {
-      setSaving(false);
+    if (result.kind === "sessionExpired") {
+      onSessionExpired();
+      return;
     }
+
+    if (result.kind === "error") {
+      return;
+    }
+
+    const data: ValidateResponse =
+      await result.response.json();
+
+    setSaved(true);
+    onSaved(data);
   };
 
   return (
@@ -152,57 +133,34 @@ function ExemptButton({
   onExempted,
   onSessionExpired,
 }: ExemptButtonProps) {
-  const [saving, setSaving] =
-    useState(false);
-
-  const [error, setError] =
-    useState<string | null>(null);
+  const {
+    pending: saving,
+    error,
+    run,
+  } = useSessionAction(
+    sessionId,
+    "/exempt-dimensions"
+  );
 
   const handleExempt = async () => {
-    try {
-      setSaving(true);
-      setError(null);
+    const result = await run({
+      file_name: fileName,
+      unit_number: unitNumber,
+    });
 
-      const response = await fetch(
-        `${API_URL}/exempt-dimensions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            file_name: fileName,
-            unit_number: unitNumber,
-          }),
-        }
-      );
-
-      if (response.status === 404) {
-        onSessionExpired();
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          await errorMessageFrom(response)
-        );
-      }
-
-      const data: ValidateResponse =
-        await response.json();
-
-      onExempted(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unknown error"
-      );
-    } finally {
-      setSaving(false);
+    if (result.kind === "sessionExpired") {
+      onSessionExpired();
+      return;
     }
+
+    if (result.kind === "error") {
+      return;
+    }
+
+    const data: ValidateResponse =
+      await result.response.json();
+
+    onExempted(data);
   };
 
   return (
@@ -264,109 +222,79 @@ function GroupCorrectionCard({
     additionalProperties,
     setAdditionalProperties,
   ] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [excluding, setExcluding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  // Two independent actions against two independent endpoints -- each
+  // gets its own useSessionAction instance rather than sharing one, so
+  // "Save" and "Exclude" have their own pending/error state (both are
+  // still cross-disabled against each other in the JSX below, matching
+  // the original behavior).
+  const {
+    pending: saving,
+    error: saveError,
+    run: runSave,
+  } = useSessionAction(
+    sessionId,
+    "/correct-group"
+  );
+
+  const {
+    pending: excluding,
+    error: excludeError,
+    run: runExclude,
+  } = useSessionAction(
+    sessionId,
+    "/exclude-group"
+  );
+
+  const error = saveError ?? excludeError;
+
   const handleSave = async () => {
-    try {
-      setSaving(true);
-      setError(null);
+    const result = await runSave({
+      group_name: groupName,
+      width: width.trim() || null,
+      length: length.trim() || null,
+      additional_properties:
+        additionalProperties.trim() ||
+        null,
+    });
 
-      const response = await fetch(
-        `${API_URL}/correct-group`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            group_name: groupName,
-            width: width.trim() || null,
-            length: length.trim() || null,
-            additional_properties:
-              additionalProperties.trim() ||
-              null,
-          }),
-        }
-      );
-
-      if (response.status === 404) {
-        onSessionExpired();
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          await errorMessageFrom(response)
-        );
-      }
-
-      const data: ValidateResponse =
-        await response.json();
-
-      setSaved(true);
-      onUpdated(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unknown error"
-      );
-    } finally {
-      setSaving(false);
+    if (result.kind === "sessionExpired") {
+      onSessionExpired();
+      return;
     }
+
+    if (result.kind === "error") {
+      return;
+    }
+
+    const data: ValidateResponse =
+      await result.response.json();
+
+    setSaved(true);
+    onUpdated(data);
   };
 
   const handleExclude = async () => {
-    try {
-      setExcluding(true);
-      setError(null);
+    const result = await runExclude({
+      group_name: groupName,
+      excluded: true,
+    });
 
-      const response = await fetch(
-        `${API_URL}/exclude-group`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            group_name: groupName,
-            excluded: true,
-          }),
-        }
-      );
-
-      if (response.status === 404) {
-        onSessionExpired();
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          await errorMessageFrom(response)
-        );
-      }
-
-      const data: ValidateResponse =
-        await response.json();
-
-      onExcluded([groupName]);
-      onUpdated(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unknown error"
-      );
-    } finally {
-      setExcluding(false);
+    if (result.kind === "sessionExpired") {
+      onSessionExpired();
+      return;
     }
+
+    if (result.kind === "error") {
+      return;
+    }
+
+    const data: ValidateResponse =
+      await result.response.json();
+
+    onExcluded([groupName]);
+    onUpdated(data);
   };
 
   return (
@@ -487,58 +415,35 @@ function ExcludeAllButton({
   onExcluded,
   onSessionExpired,
 }: ExcludeAllButtonProps) {
-  const [excluding, setExcluding] =
-    useState(false);
-
-  const [error, setError] =
-    useState<string | null>(null);
+  const {
+    pending: excluding,
+    error,
+    run,
+  } = useSessionAction(
+    sessionId,
+    "/exclude-groups"
+  );
 
   const handleExcludeAll = async () => {
-    try {
-      setExcluding(true);
-      setError(null);
+    const result = await run({
+      group_names: groupNames,
+      excluded: true,
+    });
 
-      const response = await fetch(
-        `${API_URL}/exclude-groups`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            group_names: groupNames,
-            excluded: true,
-          }),
-        }
-      );
-
-      if (response.status === 404) {
-        onSessionExpired();
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          await errorMessageFrom(response)
-        );
-      }
-
-      const data: ValidateResponse =
-        await response.json();
-
-      onExcluded(groupNames);
-      onUpdated(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unknown error"
-      );
-    } finally {
-      setExcluding(false);
+    if (result.kind === "sessionExpired") {
+      onSessionExpired();
+      return;
     }
+
+    if (result.kind === "error") {
+      return;
+    }
+
+    const data: ValidateResponse =
+      await result.response.json();
+
+    onExcluded(groupNames);
+    onUpdated(data);
   };
 
   return (
@@ -586,60 +491,35 @@ function EditGroupsButton({
   onIncluded,
   onSessionExpired,
 }: EditGroupsButtonProps) {
-  const [
-    restoring,
-    setRestoring,
-  ] = useState(false);
-
-  const [error, setError] =
-    useState<string | null>(null);
+  const {
+    pending: restoring,
+    error,
+    run,
+  } = useSessionAction(
+    sessionId,
+    "/exclude-groups"
+  );
 
   const handleClick = async () => {
-    try {
-      setRestoring(true);
-      setError(null);
+    const result = await run({
+      group_names: groupNames,
+      excluded: false,
+    });
 
-      const response = await fetch(
-        `${API_URL}/exclude-groups`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            group_names: groupNames,
-            excluded: false,
-          }),
-        }
-      );
-
-      if (response.status === 404) {
-        onSessionExpired();
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          await errorMessageFrom(response)
-        );
-      }
-
-      const data: ValidateResponse =
-        await response.json();
-
-      onIncluded(groupNames);
-      onUpdated(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unknown error"
-      );
-    } finally {
-      setRestoring(false);
+    if (result.kind === "sessionExpired") {
+      onSessionExpired();
+      return;
     }
+
+    if (result.kind === "error") {
+      return;
+    }
+
+    const data: ValidateResponse =
+      await result.response.json();
+
+    onIncluded(groupNames);
+    onUpdated(data);
   };
 
   return (
@@ -696,61 +576,36 @@ function ImportAsIsButton({
   onAcknowledged,
   onSessionExpired,
 }: ImportAsIsButtonProps) {
-  const [
-    acknowledging,
-    setAcknowledging,
-  ] = useState(false);
-
-  const [error, setError] =
-    useState<string | null>(null);
+  const {
+    pending: acknowledging,
+    error,
+    run,
+  } = useSessionAction(
+    sessionId,
+    "/acknowledge-group-warnings"
+  );
 
   const handleClick = async () => {
-    try {
-      setAcknowledging(true);
-      setError(null);
+    const result = await run({
+      check,
+      group_names: groupNames,
+      acknowledged: true,
+    });
 
-      const response = await fetch(
-        `${API_URL}/acknowledge-group-warnings`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            check,
-            group_names: groupNames,
-            acknowledged: true,
-          }),
-        }
-      );
-
-      if (response.status === 404) {
-        onSessionExpired();
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          await errorMessageFrom(response)
-        );
-      }
-
-      const data: ValidateResponse =
-        await response.json();
-
-      onAcknowledged(groupNames);
-      onUpdated(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unknown error"
-      );
-    } finally {
-      setAcknowledging(false);
+    if (result.kind === "sessionExpired") {
+      onSessionExpired();
+      return;
     }
+
+    if (result.kind === "error") {
+      return;
+    }
+
+    const data: ValidateResponse =
+      await result.response.json();
+
+    onAcknowledged(groupNames);
+    onUpdated(data);
   };
 
   return (
@@ -800,61 +655,36 @@ function UndoImportAsIsButton({
   onUnacknowledged,
   onSessionExpired,
 }: UndoImportAsIsButtonProps) {
-  const [
-    restoring,
-    setRestoring,
-  ] = useState(false);
-
-  const [error, setError] =
-    useState<string | null>(null);
+  const {
+    pending: restoring,
+    error,
+    run,
+  } = useSessionAction(
+    sessionId,
+    "/acknowledge-group-warnings"
+  );
 
   const handleClick = async () => {
-    try {
-      setRestoring(true);
-      setError(null);
+    const result = await run({
+      check,
+      group_names: groupNames,
+      acknowledged: false,
+    });
 
-      const response = await fetch(
-        `${API_URL}/acknowledge-group-warnings`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            check,
-            group_names: groupNames,
-            acknowledged: false,
-          }),
-        }
-      );
-
-      if (response.status === 404) {
-        onSessionExpired();
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          await errorMessageFrom(response)
-        );
-      }
-
-      const data: ValidateResponse =
-        await response.json();
-
-      onUnacknowledged(groupNames);
-      onUpdated(data);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unknown error"
-      );
-    } finally {
-      setRestoring(false);
+    if (result.kind === "sessionExpired") {
+      onSessionExpired();
+      return;
     }
+
+    if (result.kind === "error") {
+      return;
+    }
+
+    const data: ValidateResponse =
+      await result.response.json();
+
+    onUnacknowledged(groupNames);
+    onUpdated(data);
   };
 
   return (
