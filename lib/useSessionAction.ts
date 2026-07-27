@@ -1,0 +1,152 @@
+"use client";
+
+import { useState } from "react";
+
+import { API_URL, errorMessageFrom } from "@/lib/api";
+
+/**
+ * What `run` resolved to, checked by the caller immediately after
+ * awaiting it -- deliberately not left to be read back off the hook's
+ * own `sessionExpired`/`error` state, since a state update scheduled
+ * during `run` isn't visible in the same closure's already-captured
+ * variables until the next render (a stale-closure trap). The hook's
+ * `pending`/`error`/`sessionExpired` fields are for rendering the
+ * button's own UI (a "Saving..." label, an inline error) — this return
+ * value is for deciding what to do next.
+ */
+export type SessionActionResult =
+  | { kind: "ok"; response: Response }
+  | { kind: "sessionExpired" }
+  | { kind: "error"; message: string };
+
+interface UseSessionActionResult {
+  pending: boolean;
+  error: string | null;
+  sessionExpired: boolean;
+  /**
+   * Fires the action. `extraBody` is merged alongside `session_id` in
+   * the request body.
+   */
+  run: (
+    extraBody?: Record<string, unknown>
+  ) => Promise<SessionActionResult>;
+}
+
+/**
+ * Fires one POST `{session_id: sessionId, ...extraBody}` to `path` on
+ * demand (unlike useSessionPost, which fires on mount/sessionId
+ * change). Shared shape for the "user clicked a button" family of
+ * actions: the export/dedup-export download hooks, and the per-row
+ * action components on ScanResultsPage (correct, exempt, exclude,
+ * acknowledge) that each previously carried their own copy of this
+ * exact fetch/404/error handling.
+ */
+export function useSessionAction(
+  sessionId: string,
+  path: string
+): UseSessionActionResult {
+  const [pending, setPending] =
+    useState(false);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [
+    sessionExpired,
+    setSessionExpired,
+  ] = useState(false);
+
+  const run = async (
+    extraBody?: Record<string, unknown>
+  ): Promise<SessionActionResult> => {
+    try {
+      setPending(true);
+      setError(null);
+
+      const response = await fetch(
+        `${API_URL}${path}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            session_id: sessionId,
+            ...extraBody,
+          }),
+        }
+      );
+
+      if (response.status === 404) {
+        setSessionExpired(true);
+        return { kind: "sessionExpired" };
+      }
+
+      if (!response.ok) {
+        const message =
+          await errorMessageFrom(
+            response
+          );
+        setError(message);
+        return {
+          kind: "error",
+          message,
+        };
+      }
+
+      return { kind: "ok", response };
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unknown error";
+      setError(message);
+      return { kind: "error", message };
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return {
+    pending,
+    error,
+    sessionExpired,
+    run,
+  };
+}
+
+/**
+ * Triggers a browser download for `blob`, naming it from the response's
+ * `Content-Disposition` header when present, falling back to
+ * `fallbackName` otherwise. Merges what were two identical copies of
+ * this same filename-extraction + anchor-click dance in
+ * useExportDownload and useDedupExport.
+ */
+export function downloadBlob(
+  blob: Blob,
+  disposition: string | null,
+  fallbackName: string
+): void {
+  const match = disposition?.match(
+    /filename="([^"]+)"/
+  );
+
+  const filename =
+    match?.[1] ?? fallbackName;
+
+  const url =
+    window.URL.createObjectURL(blob);
+
+  const link =
+    document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  window.URL.revokeObjectURL(url);
+}
