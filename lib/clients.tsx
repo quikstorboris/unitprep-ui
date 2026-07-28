@@ -177,6 +177,16 @@ interface ClientsContextValue {
 const ClientsContext =
   createContext<ClientsContextValue | null>(null);
 
+// Mounted exactly once, wrapping everything in app/layout.tsx (the App
+// Router's single root layout) -- by construction, every route in this app
+// renders underneath that one instance, so the module-level `cache`/
+// `listeners`/`hydrated` state above is only ever driven by one provider.
+// If that ever changes -- a second ClientsProvider mounted somewhere else
+// (a nested layout, a test rendering it twice, a future refactor) -- it
+// would silently share this same module state with the root one rather
+// than getting its own, which would surprise whoever does that. Keep this
+// mounted in exactly one place; if a second mount ever becomes necessary,
+// this module needs a real per-instance store, not just a comment.
 export function ClientsProvider({
   children,
 }: {
