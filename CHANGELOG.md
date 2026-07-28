@@ -8,6 +8,38 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-07-28
+
+Test coverage expansion; no new functionality.
+
+### Added
+- Unit/component test coverage across `lib/` and the `dedup`, `export`,
+  `discovery`, `scan-results`, `nav`, and `unit-groups` component tiers
+  -- 3 test files / 18 tests to 40 files / 262 tests, ~9% to ~73%
+  overall statement coverage. Deliberately stops short of the 6
+  page-orchestration components (`DedupResultsPage`, `DedupUploadPage`,
+  `DiscoveryPage`, `ExportCompletePage`, `ScanResultsPage`,
+  `SessionExpiredPage`) and `page.tsx`/`layout.tsx` routing glue,
+  already excluded from the coverage config -- these are thin
+  composition over already-tested pieces and are exercised end-to-end
+  instead (see below).
+- 3 new Playwright E2E flows: reviewing analysis and downloading the
+  export ZIP (plus an analysis-failure path), reviewing flagged
+  groups/typo variants/related tenants and downloading a dedup export
+  (plus the all-clear no-issues-found path), and a session-expired
+  redirect landing back on the client's info page. Shares a new
+  `e2e/helpers.ts` (CORS-preflight mocking, sessionStorage client
+  seeding) with the existing `session-remount` spec's pattern.
+
+### Fixed
+- Local Playwright runs now retry once (`retries: 1`, previously `0`
+  outside CI) -- Next dev's on-demand route compile can race the very
+  first request to a not-yet-compiled dynamic route and transiently
+  return Next's own 404 instead of waiting, especially with
+  `fullyParallel` workers hitting several different fresh routes at
+  once. Not a routing bug; the retry absorbs it the same way CI's
+  existing retries already did.
+
 ## [1.1.2] - 2026-07-28
 
 Test tooling; no new functionality.
