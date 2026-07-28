@@ -4,7 +4,13 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // Locally, 1 retry (not 0) because Next dev's on-demand route compile
+  // races with the very first request to a not-yet-compiled dynamic
+  // route -- concurrent workers hitting different fresh routes against a
+  // cold `next dev` server can transiently get Next's own 404 page
+  // instead of waiting for the compile, indistinguishable from a real
+  // routing bug except that it never repeats once that route is warm.
+  retries: process.env.CI ? 2 : 1,
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:3100",
