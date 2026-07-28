@@ -65,6 +65,11 @@ export function useSessionPost<TResponse>(
           `${API_URL}${path}`,
           {
             method: "POST",
+            // Sends the auth session cookie once auth actually issues
+            // one -- inert today (no cookie exists yet), but the seam
+            // needs to exist now so wiring auth in later doesn't mean
+            // grep-and-patch every fetch call site in the app.
+            credentials: "include",
             headers: {
               "Content-Type":
                 "application/json",
@@ -77,7 +82,15 @@ export function useSessionPost<TResponse>(
 
         if (ignore) return;
 
-        if (response.status === 404) {
+        // 401 (not authenticated) is folded into the same
+        // "sessionExpired" path as 404 (session gone) -- both mean
+        // "nothing to show, start over" from this hook's point of view,
+        // and there's no dedicated login-required UI yet to send a 401
+        // to instead.
+        if (
+          response.status === 404 ||
+          response.status === 401
+        ) {
           setSessionExpired(true);
           return;
         }
