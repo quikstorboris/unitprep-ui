@@ -51,4 +51,20 @@ describe("ClientTabs", () => {
 
     expect(screen.getAllByRole("link")).toHaveLength(3);
   });
+
+  it("marks only the active tab with aria-current", () => {
+    usePathname.mockReturnValue("/clients/c1/dedup");
+
+    render(<ClientTabs clientId="c1" />);
+
+    expect(
+      screen.getByRole("link", { name: "Dedup" })
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getByRole("link", { name: "Client Info" })
+    ).not.toHaveAttribute("aria-current");
+    expect(
+      screen.getByRole("link", { name: "Unit Groups" })
+    ).not.toHaveAttribute("aria-current");
+  });
 });

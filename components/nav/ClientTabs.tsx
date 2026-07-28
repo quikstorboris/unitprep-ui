@@ -40,6 +40,7 @@ export default function ClientTabs({
             <Link
               key={tab.key}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                 active
                   ? "border-blue-500 text-slate-100"

@@ -32,4 +32,24 @@ describe("LeftNav", () => {
       screen.getByRole("link", { name: "Clients" })
     ).toHaveAttribute("href", "/clients");
   });
+
+  it("marks the Clients link with aria-current when its path is active", () => {
+    usePathname.mockReturnValue("/clients/c1/info");
+
+    render(<LeftNav />);
+
+    expect(
+      screen.getByRole("link", { name: "Clients" })
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("does not mark the Clients link as current when its path isn't active", () => {
+    usePathname.mockReturnValue("/somewhere-else");
+
+    render(<LeftNav />);
+
+    expect(
+      screen.getByRole("link", { name: "Clients" })
+    ).not.toHaveAttribute("aria-current");
+  });
 });
