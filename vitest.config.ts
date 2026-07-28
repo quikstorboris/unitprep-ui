@@ -16,6 +16,17 @@ export default defineConfig({
     // `@playwright/test`, not Vitest -- excluded so `vitest run` never
     // tries (and fails) to execute them as unit tests.
     exclude: ["node_modules/**", "e2e/**"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      include: ["app/**", "components/**", "lib/**"],
+      exclude: [
+        "**/*.test.{ts,tsx}",
+        "**/*.d.ts",
+        "app/**/layout.tsx",
+        "app/**/page.tsx",
+      ],
+    },
   },
   resolve: {
     alias: {

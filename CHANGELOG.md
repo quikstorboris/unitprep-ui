@@ -8,6 +8,26 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-07-28
+
+Test tooling; no new functionality.
+
+### Added
+- Vitest + React Testing Library -- this repo had zero automated tests
+  before this. First coverage: `useSessionPost`/`useSessionAction`
+  (including the `credentials: "include"` send, which had no test
+  proving it since it was added) and `ScanResultsStatTiles`.
+- Playwright, plus a regression test for the state-scoping bug class
+  that's been fixed four separate times across different routes
+  (`key={sessionId}`): mocks `/validate` per session and uses real
+  browser back/forward -- a genuine client-side transition, not a
+  reload -- between two sessions' results pages, asserting neither
+  leaks into the other.
+- `@vitest/coverage-v8` wired in (`npm run test:coverage`) -- current
+  baseline is low (~9% overall) since only the files above have tests
+  so far; establishes the tool and the honest starting point rather
+  than a completed effort.
+
 ## [1.1.1] - 2026-07-28
 
 No new functionality; a post-1.1.0 hygiene and correctness pass
