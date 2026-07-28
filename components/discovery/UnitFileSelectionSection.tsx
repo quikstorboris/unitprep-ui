@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { API_URL, basename, describeFetchError, errorMessageFrom } from "@/lib/api";
+import { basename } from "@/lib/api";
+import { useSessionAction } from "@/lib/useSessionAction";
 import type { DiscoverResponse } from "@/types/api";
 
 interface UnitFileSelectionSectionProps {
@@ -69,15 +70,14 @@ export function UnitFileSelectionSection({
     }
   );
 
-  const [
-    selecting,
-    setSelecting,
-  ] = useState(false);
-
-  const [
-    selectError,
-    setSelectError,
-  ] = useState<string | null>(null);
+  const {
+    pending: selecting,
+    error: selectError,
+    run: runSelectUnitFiles,
+  } = useSessionAction(
+    sessionId,
+    "/unit-file/select"
+  );
 
   const checkedFileNames =
     discovery.unit_file_candidates
@@ -124,54 +124,29 @@ export function UnitFileSelectionSection({
         return;
       }
 
-      try {
-        setSelecting(true);
-        setSelectError(null);
+      const result =
+        await runSelectUnitFiles({
+          unit_file_names:
+            checkedFileNames,
+        });
 
-        const response = await fetch(
-          `${API_URL}/unit-file/select`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              session_id: sessionId,
-              unit_file_names:
-                checkedFileNames,
-            }),
-          }
-        );
-
-        if (response.status === 404) {
-          onSessionExpired();
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            await errorMessageFrom(
-              response
-            )
-          );
-        }
-
-        onSelectionConfirmed();
-
-        onDiscoveryUpdated(
-          await response.json()
-        );
-      } catch (err) {
-        setSelectError(
-          describeFetchError(
-            err,
-            "Failed to confirm the selected unit files."
-          )
-        );
-      } finally {
-        setSelecting(false);
+      if (
+        result.kind ===
+        "sessionExpired"
+      ) {
+        onSessionExpired();
+        return;
       }
+
+      if (result.kind === "error") {
+        return;
+      }
+
+      onSelectionConfirmed();
+
+      onDiscoveryUpdated(
+        await result.response.json()
+      );
     };
 
   return showSelectionSection ? (

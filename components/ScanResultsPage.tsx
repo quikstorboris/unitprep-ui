@@ -1,12 +1,14 @@
 "use client";
-import { API_URL, basename, errorMessageFrom } from "@/lib/api";
+import { basename } from "@/lib/api";
+import { useSessionPost } from "@/lib/useSessionPost";
 import {
-  useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import SessionExpiredPage from "@/components/SessionExpiredPage";
 import { IssueCard, issueKey } from "@/components/scan-results/IssueCard";
+import { ScanResultsStatTiles } from "@/components/scan-results/ScanResultsStatTiles";
 import { WarningsSection } from "@/components/scan-results/WarningsSection";
 import {
   deriveScanResults,
@@ -27,21 +29,40 @@ export default function ScanResultsPage({
   onExport,
   onSessionExpired,
 }: ScanResultsPageProps) {
-  const [loading, setLoading] =
-    useState(true);
+  const {
+    data: fetchedResults,
+    loading,
+    error,
+    sessionExpired: fetchSessionExpired,
+  } = useSessionPost<ValidateResponse>(
+    sessionId,
+    "/validate"
+  );
 
-  const [error, setError] =
-    useState<string | null>(null);
-
-  const [results, setResults] =
+  // `null` until an action (correct/exclude/exempt/...) returns a fresh
+  // `ValidateResponse` -- once set, this wins over `fetchedResults` for
+  // the rest of this component's lifetime, so `results` always reflects
+  // the latest known state without needing an effect to copy hook data
+  // into local state on every change.
+  const [resultsOverride, setResultsOverride] =
     useState<ValidateResponse | null>(
       null
     );
 
+  const results =
+    resultsOverride ?? fetchedResults;
+
+  // Set by a later action's own 404, not by the initial /validate fetch
+  // (see `fetchSessionExpired` above) -- combined below into the single
+  // `sessionExpired` flag the rest of this component reads.
   const [
-    sessionExpired,
-    setSessionExpired,
+    actionSessionExpired,
+    setActionSessionExpired,
   ] = useState(false);
+
+  const sessionExpired =
+    fetchSessionExpired ||
+    actionSessionExpired;
 
   // One scroll target per warning reason (the bottom of its own "Groups
   // Needing Review" list), keyed by description -- lets a long list's
@@ -105,76 +126,10 @@ export default function ScanResultsPage({
     setWasFullyResolved,
   ] = useState(false);
 
-  useEffect(() => {
-    if (!sessionId) {
-      return;
-    }
-
-    // Guards against a slow, stale /validate response from a previous
-    // sessionId overwriting state if this component is ever reused
-    // across a genuine sessionId change without remounting.
-    let ignore = false;
-
-    const runValidation = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await fetch(
-          `${API_URL}/validate`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              session_id: sessionId,
-            }),
-          }
-        );
-
-        if (ignore) return;
-
-        if (response.status === 404) {
-          setSessionExpired(true);
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            await errorMessageFrom(response)
-          );
-        }
-
-        const data: ValidateResponse =
-          await response.json();
-
-        if (!ignore) setResults(data);
-      } catch (err) {
-        if (!ignore) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Unknown error"
-          );
-        }
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    };
-
-    runValidation();
-
-    return () => {
-      ignore = true;
-    };
-  }, [sessionId]);
-
   const handleResultsUpdated = (
     updated: ValidateResponse
   ) => {
-    setResults(updated);
+    setResultsOverride(updated);
   };
 
   const handleGroupsExcluded = (
@@ -230,7 +185,7 @@ export default function ScanResultsPage({
   };
 
   const handleSessionExpired = () =>
-    setSessionExpired(true);
+    setActionSessionExpired(true);
 
   // Every derived value below is computed defensively (safe when
   // `results` is still null) so the effects further down -- which must
@@ -244,11 +199,20 @@ export default function ScanResultsPage({
     warningReasonGroups,
     totalWarningItems,
     reasonSections,
-  } = deriveScanResults(
-    results,
-    reasonSnapshots,
-    excludedGroupNames,
-    acknowledgedGroupNames
+  } = useMemo(
+    () =>
+      deriveScanResults(
+        results,
+        reasonSnapshots,
+        excludedGroupNames,
+        acknowledgedGroupNames
+      ),
+    [
+      results,
+      reasonSnapshots,
+      excludedGroupNames,
+      acknowledgedGroupNames,
+    ]
   );
 
   // The three blocks below adjust state *during* render rather than in
@@ -419,82 +383,19 @@ export default function ScanResultsPage({
         Validation Results
       </h1>
 
-      <div className="grid grid-cols-5 gap-4">
-        <div className="rounded border border-slate-700 p-4">
-          <div className="text-sm text-slate-400">
-            Files Checked
-          </div>
-
-          <div className="text-2xl font-bold">
-            {results.files_checked}
-          </div>
-        </div>
-
-        <div className="rounded border border-slate-700 p-4">
-          <div className="text-sm text-slate-400">
-            Errors
-          </div>
-
-          <div className="text-2xl font-bold text-red-400">
-            {results.error_count}
-          </div>
-        </div>
-
-        <div className="rounded border border-slate-700 p-4">
-          <div className="text-sm text-slate-400">
-            Warnings
-          </div>
-
-          <div
-            className={
-              warningsAllResolved
-                ? "text-2xl font-bold text-slate-500"
-                : "text-2xl font-bold text-yellow-400"
-            }
-          >
-            {displayedWarningTotal}
-          </div>
-        </div>
-
-        <div className="rounded border border-slate-700 p-4">
-          <div className="text-sm text-slate-400">
-            Files Errored
-          </div>
-
-          <div
-            className={
-              filesErrored.length > 0
-                ? "text-2xl font-bold text-red-400"
-                : "text-2xl font-bold"
-            }
-          >
-            {filesErrored.length}
-          </div>
-        </div>
-
-        <div className="rounded border border-slate-700 p-4">
-          <div className="text-sm text-slate-400">
-            Export Status
-          </div>
-
-          <div
-            className={
-              !results.ready
-                ? "text-left text-2xl font-bold text-red-400"
-                : totalWarningItems >
-                  0
-                ? "text-left text-2xl font-bold text-yellow-400"
-                : "text-left text-2xl font-bold"
-            }
-          >
-            {!results.ready
-              ? "❌ Blocked"
-              : totalWarningItems > 0
-              ? "⚠️ Resolve Warnings"
-              : "✅ Allowed"}
-          </div>
-        </div>
-      </div>
+      <ScanResultsStatTiles
+        results={results}
+        filesErrored={filesErrored}
+        totalWarningItems={
+          totalWarningItems
+        }
+        displayedWarningTotal={
+          displayedWarningTotal
+        }
+        warningsAllResolved={
+          warningsAllResolved
+        }
+      />
 
       {results.issue_count === 0 &&
       filesErrored.length === 0 ? (

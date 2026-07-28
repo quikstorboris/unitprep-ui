@@ -1,7 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { API_URL, describeFetchError, errorMessageFrom, parentAndBasename } from "@/lib/api";
+import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
+import { useSessionAction } from "@/lib/useSessionAction";
+import { GroupFileCandidatePicker } from "@/components/discovery/GroupFileCandidatePicker";
+import { GroupFileSummary } from "@/components/discovery/GroupFileSummary";
 import type { DiscoverResponse } from "@/types/api";
 
 interface MasterGroupFileSectionProps {
@@ -47,10 +50,14 @@ export function MasterGroupFileSection({
     setManualGroupFileError,
   ] = useState<string | null>(null);
 
-  const [
-    confirmingGroupFile,
-    setConfirmingGroupFile,
-  ] = useState(false);
+  const {
+    pending: confirmingGroupFile,
+    error: confirmGroupFileError,
+    run: runConfirmGroupFile,
+  } = useSessionAction(
+    sessionId,
+    "/group-file/confirm"
+  );
 
   // The radio pick isn't submitted until "Select" is clicked -- this is
   // local UI state only, separate from `discovery.selected_group_file_name`
@@ -60,10 +67,14 @@ export function MasterGroupFileSection({
     setGroupFileCandidateChoice,
   ] = useState("");
 
-  const [
-    selectingGroupFile,
-    setSelectingGroupFile,
-  ] = useState(false);
+  const {
+    pending: selectingGroupFile,
+    error: groupFileSelectError,
+    run: runSelectGroupFileCandidate,
+  } = useSessionAction(
+    sessionId,
+    "/group-file/select"
+  );
 
   // Only one of the three group-file operations (manual upload, confirm,
   // select-a-candidate) can be meaningfully in flight at once against the
@@ -74,11 +85,6 @@ export function MasterGroupFileSection({
     manualGroupFileUploading ||
     confirmingGroupFile ||
     selectingGroupFile;
-
-  const [
-    groupFileSelectError,
-    setGroupFileSelectError,
-  ] = useState<string | null>(null);
 
   // Set by "Choose From Discovered Files" once a candidate is already
   // selected -- reopens the radio list so the user can pick a different
@@ -163,50 +169,24 @@ export function MasterGroupFileSection({
         return;
       }
 
-      try {
-        setConfirmingGroupFile(true);
-        setManualGroupFileError(null);
+      const result =
+        await runConfirmGroupFile();
 
-        const response = await fetch(
-          `${API_URL}/group-file/confirm`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              session_id: sessionId,
-            }),
-          }
-        );
-
-        if (response.status === 404) {
-          onSessionExpired();
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            await errorMessageFrom(
-              response
-            )
-          );
-        }
-
-        onDiscoveryUpdated(
-          await response.json()
-        );
-      } catch (err) {
-        setManualGroupFileError(
-          describeFetchError(
-            err,
-            "Failed to confirm the master group file."
-          )
-        );
-      } finally {
-        setConfirmingGroupFile(false);
+      if (
+        result.kind ===
+        "sessionExpired"
+      ) {
+        onSessionExpired();
+        return;
       }
+
+      if (result.kind === "error") {
+        return;
+      }
+
+      onDiscoveryUpdated(
+        await result.response.json()
+      );
     };
 
   const handleSelectGroupFileCandidate =
@@ -218,56 +198,33 @@ export function MasterGroupFileSection({
         return;
       }
 
-      try {
-        setSelectingGroupFile(true);
-        setGroupFileSelectError(null);
-
-        const response = await fetch(
-          `${API_URL}/group-file/select`,
+      const result =
+        await runSelectGroupFileCandidate(
           {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              session_id: sessionId,
-              group_file_name:
-                groupFileCandidateChoice,
-            }),
+            group_file_name:
+              groupFileCandidateChoice,
           }
         );
 
-        if (response.status === 404) {
-          onSessionExpired();
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            await errorMessageFrom(
-              response
-            )
-          );
-        }
-
-        setForceShowGroupFileCandidates(
-          false
-        );
-
-        onDiscoveryUpdated(
-          await response.json()
-        );
-      } catch (err) {
-        setGroupFileSelectError(
-          describeFetchError(
-            err,
-            "Failed to select the master group file."
-          )
-        );
-      } finally {
-        setSelectingGroupFile(false);
+      if (
+        result.kind ===
+        "sessionExpired"
+      ) {
+        onSessionExpired();
+        return;
       }
+
+      if (result.kind === "error") {
+        return;
+      }
+
+      setForceShowGroupFileCandidates(
+        false
+      );
+
+      onDiscoveryUpdated(
+        await result.response.json()
+      );
     };
 
   return (
@@ -329,190 +286,52 @@ export function MasterGroupFileSection({
         1 &&
       (!discovery.selected_group_file_name ||
         forceShowGroupFileCandidates) ? (
-        <div className="mt-3">
-          <p className="mb-3 text-sm text-slate-300">
-            {
-              discovery
-                .group_files_found
-            }{" "}
-            candidate master
-            group files found
-            — pick the one
-            that&apos;s
-            actually the
-            reference set for
-            this client.
-          </p>
-
-          {discovery.group_file_names.map(
-            (file) => (
-              <label
-                key={file}
-                className="mb-2 block"
-              >
-                <input
-                  type="radio"
-                  name="groupFileCandidate"
-                  value={
-                    file
-                  }
-                  checked={
-                    groupFileCandidateChoice ===
-                    file
-                  }
-                  onChange={() =>
-                    setGroupFileCandidateChoice(
-                      file
-                    )
-                  }
-                />
-
-                <span className="ml-2">
-                  {parentAndBasename(
-                    file
-                  )}
-                </span>
-              </label>
+        <GroupFileCandidatePicker
+          discovery={discovery}
+          choice={
+            groupFileCandidateChoice
+          }
+          onChoiceChange={
+            setGroupFileCandidateChoice
+          }
+          onSelect={
+            handleSelectGroupFileCandidate
+          }
+          onCancel={() =>
+            setForceShowGroupFileCandidates(
+              false
             )
-          )}
-
-          <div className="mt-4 flex gap-3">
-            <button
-              onClick={
-                handleSelectGroupFileCandidate
-              }
-              disabled={
-                !groupFileCandidateChoice ||
-                groupFileBusy
-              }
-              className="rounded bg-yellow-600 px-4 py-2 disabled:opacity-50"
-            >
-              {selectingGroupFile
-                ? "Selecting..."
-                : "Select"}
-            </button>
-
-            {discovery.selected_group_file_name && (
-              <button
-                onClick={() =>
-                  setForceShowGroupFileCandidates(
-                    false
-                  )
-                }
-                disabled={
-                  groupFileBusy
-                }
-                className="rounded bg-slate-700 px-4 py-2 hover:bg-slate-600 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-
-          {groupFileSelectError && (
-            <div className="mt-3 rounded bg-red-900 p-3 text-red-200">
-              {
-                groupFileSelectError
-              }
-            </div>
-          )}
-        </div>
+          }
+          selecting={
+            selectingGroupFile
+          }
+          busy={groupFileBusy}
+          error={
+            groupFileSelectError
+          }
+        />
       ) : discovery.selected_group_file_name ? (
-        <div className="mt-3">
-          {discovery.group_file_format_valid ===
-          false ? (
-            <div className="rounded bg-red-900 p-3 text-red-200">
-              ❌ File format
-              invalid — select
-              another file.{" "}
-              <strong>
-                {
-                  discovery.selected_group_file_name
-                }
-              </strong>{" "}
-              is missing one
-              or more required
-              columns (Name,
-              Description,
-              Assigned To,
-              Status, Last
-              Updated).
-            </div>
-          ) : discovery.group_file_confirmed ? (
-            <div className="rounded bg-green-900 p-3 text-green-200">
-              ✅ Master file
-              confirmed —{" "}
-              <strong>
-                {
-                  discovery.selected_group_file_name
-                }
-              </strong>
-            </div>
-          ) : (
-            <div className="rounded bg-green-900 p-3 text-green-200">
-              ✅ Master file
-              is good —{" "}
-              <strong>
-                {
-                  discovery.selected_group_file_name
-                }
-              </strong>
-            </div>
-          )}
-
-          <div className="mt-3 flex flex-wrap gap-3">
-            {discovery.group_file_format_valid !==
-              false &&
-              !discovery.group_file_confirmed && (
-                <button
-                  onClick={
-                    handleConfirmGroupFile
-                  }
-                  disabled={
-                    groupFileBusy
-                  }
-                  className="rounded bg-green-700 px-4 py-2 hover:bg-green-600 disabled:opacity-50"
-                >
-                  {confirmingGroupFile
-                    ? "Confirming..."
-                    : "Confirm"}
-                </button>
-              )}
-
-            {discovery.group_files_found >
-              1 && (
-              <button
-                onClick={() =>
-                  setForceShowGroupFileCandidates(
-                    true
-                  )
-                }
-                disabled={
-                  groupFileBusy
-                }
-                className="rounded bg-slate-700 px-4 py-2 hover:bg-slate-600 disabled:opacity-50"
-              >
-                Choose From
-                Discovered
-                Files
-              </button>
-            )}
-
-            <button
-              onClick={() =>
-                manualGroupFileInputRef.current?.click()
-              }
-              disabled={
-                groupFileBusy
-              }
-              className="rounded bg-slate-700 px-4 py-2 hover:bg-slate-600 disabled:opacity-50"
-            >
-              {manualGroupFileUploading
-                ? "Uploading..."
-                : "Select Different File"}
-            </button>
-          </div>
-        </div>
+        <GroupFileSummary
+          discovery={discovery}
+          busy={groupFileBusy}
+          confirming={
+            confirmingGroupFile
+          }
+          uploading={
+            manualGroupFileUploading
+          }
+          onConfirm={
+            handleConfirmGroupFile
+          }
+          onChooseFromDiscovered={() =>
+            setForceShowGroupFileCandidates(
+              true
+            )
+          }
+          onSelectDifferentFile={() =>
+            manualGroupFileInputRef.current?.click()
+          }
+        />
       ) : netNewAcknowledged ? (
         <div className="mt-3 text-green-400">
           ✅ Confirmed
@@ -550,9 +369,11 @@ export function MasterGroupFileSection({
         </div>
       )}
 
-      {manualGroupFileError && (
+      {(manualGroupFileError ||
+        confirmGroupFileError) && (
         <div className="mt-3 rounded bg-red-900 p-3 text-red-200">
-          {manualGroupFileError}
+          {manualGroupFileError ||
+            confirmGroupFileError}
         </div>
       )}
     </div>
