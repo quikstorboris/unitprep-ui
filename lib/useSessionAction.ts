@@ -62,6 +62,7 @@ export function useSessionAction(
     try {
       setPending(true);
       setError(null);
+      setSessionExpired(false);
 
       const response = await fetch(
         `${API_URL}${path}`,
@@ -129,24 +130,59 @@ export function useSessionAction(
   };
 }
 
+// RFC 5987/6266 extended form -- charset'lang'percent-encoded-value, e.g.
+// `filename*=UTF-8''r%C3%A9sum%C3%A9.zip` -- used for non-ASCII filenames.
+// Not dormant forever: only today's backend, which only ever sends the
+// plain ASCII form below, makes this branch unreachable in practice.
+function extendedFilenameFrom(
+  disposition: string
+): string | null {
+  const match = disposition.match(
+    /filename\*=[^']*''([^;]+)/i
+  );
+
+  if (!match) return null;
+
+  try {
+    return decodeURIComponent(match[1].trim());
+  } catch {
+    // Malformed percent-encoding -- fall through to the plain form/default
+    // rather than throw over a cosmetic filename.
+    return null;
+  }
+}
+
+function plainFilenameFrom(
+  disposition: string
+): string | null {
+  const match = disposition.match(
+    /filename="([^"]+)"/
+  );
+
+  return match?.[1] ?? null;
+}
+
 /**
  * Triggers a browser download for `blob`, naming it from the response's
  * `Content-Disposition` header when present, falling back to
  * `fallbackName` otherwise. Merges what were two identical copies of
  * this same filename-extraction + anchor-click dance in
  * useExportDownload and useDedupExport.
+ *
+ * Prefers the RFC 6266 extended `filename*=` form over the plain
+ * `filename="..."` form when both are present, per RFC 6266 section 4.3 --
+ * then falls back through plain -> `fallbackName`.
  */
 export function downloadBlob(
   blob: Blob,
   disposition: string | null,
   fallbackName: string
 ): void {
-  const match = disposition?.match(
-    /filename="([^"]+)"/
-  );
-
   const filename =
-    match?.[1] ?? fallbackName;
+    (disposition &&
+      (extendedFilenameFrom(disposition) ??
+        plainFilenameFrom(disposition))) ||
+    fallbackName;
 
   const url =
     window.URL.createObjectURL(blob);

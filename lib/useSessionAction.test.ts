@@ -83,6 +83,27 @@ describe("useSessionAction", () => {
 
     expect(outcome).toEqual({ kind: "ok", response });
   });
+
+  it("resets sessionExpired back to false once a later run succeeds", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useSessionAction("s1", "/correct"));
+
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(result.current.sessionExpired).toBe(true);
+
+    await act(async () => {
+      await result.current.run();
+    });
+
+    expect(result.current.sessionExpired).toBe(false);
+  });
 });
 
 describe("downloadBlob", () => {
@@ -119,5 +140,53 @@ describe("downloadBlob", () => {
     downloadBlob(new Blob(["data"]), null, "fallback.csv");
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the extended filename*= form when present", () => {
+    const anchor = document.createElement("a");
+    const createElementSpy = vi
+      .spyOn(document, "createElement")
+      .mockReturnValue(anchor);
+
+    downloadBlob(
+      new Blob(["data"]),
+      "attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.zip",
+      "fallback.csv"
+    );
+
+    expect(anchor.download).toBe("résumé.zip");
+    createElementSpy.mockRestore();
+  });
+
+  it("prefers the extended filename*= form over the plain form when both are present", () => {
+    const anchor = document.createElement("a");
+    const createElementSpy = vi
+      .spyOn(document, "createElement")
+      .mockReturnValue(anchor);
+
+    downloadBlob(
+      new Blob(["data"]),
+      'attachment; filename="fallback-ascii.csv"; filename*=UTF-8\'\'r%C3%A9sum%C3%A9.zip',
+      "fallback.csv"
+    );
+
+    expect(anchor.download).toBe("résumé.zip");
+    createElementSpy.mockRestore();
+  });
+
+  it("falls back to the plain filename= form when filename*= is malformed", () => {
+    const anchor = document.createElement("a");
+    const createElementSpy = vi
+      .spyOn(document, "createElement")
+      .mockReturnValue(anchor);
+
+    downloadBlob(
+      new Blob(["data"]),
+      'attachment; filename="report.csv"; filename*=UTF-8\'\'%',
+      "fallback.csv"
+    );
+
+    expect(anchor.download).toBe("report.csv");
+    createElementSpy.mockRestore();
   });
 });
