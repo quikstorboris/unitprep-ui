@@ -8,6 +8,33 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-07-28
+
+No new functionality; a post-1.1.0 hygiene and correctness pass
+mirroring `unitprep-api`'s 1.1.1.
+
+### Changed
+- `useSessionPost`/`useSessionAction` now send `credentials: "include"`
+  and fold a 401 into the same `sessionExpired` state a 404 already
+  produces -- inert until the backend's auth work actually issues a
+  session cookie.
+- The remaining hand-rolled fetches migrated onto the shared hooks:
+  `ScanResultsPage.tsx`'s `/validate` effect and the fetches in all 3
+  discovery components except the one genuine `FormData` file upload,
+  which stays hand-rolled on purpose (the shared hooks are JSON-only by
+  design). `deriveScanResults` is now memoized.
+- Split two oversized components: `MasterGroupFileSection.tsx`
+  (517 -> 381 lines, extracted `GroupFileCandidatePicker.tsx` and
+  `GroupFileSummary.tsx`) and `FormatConfirmationSection.tsx`
+  (521 -> 223 lines, extracted `FormatResolutionActiveView.tsx` and
+  `FormatConfirmedSummary.tsx`). `ScanResultsPage.tsx`'s stat grid
+  extracted to `components/scan-results/ScanResultsStatTiles.tsx`
+  (687 -> 588 lines).
+- Applied `npm audit fix` (7 packages updated). 4 High-severity
+  advisories (`next`, its bundled `postcss`/`sharp`, and transitive
+  `brace-expansion`) remain -- no non-breaking fix currently exists for
+  either; tracked, not forced.
+
 ## [1.1.0] - 2026-07-20
 
 ### Added
