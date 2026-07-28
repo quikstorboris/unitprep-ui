@@ -29,15 +29,37 @@ function validateResponse(filesChecked: number) {
   };
 }
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "http://127.0.0.1:3100",
+  "Access-Control-Allow-Credentials": "true",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 async function mockValidateBySession(
   page: Page,
   responsesBySessionId: Record<string, unknown>
 ) {
   await page.route("**/validate", async (route: Route) => {
+    // /validate is cross-origin from the app's own dev server
+    // (127.0.0.1:8080 vs. 127.0.0.1:3100), and its JSON body makes it a
+    // non-simple request per the CORS spec -- the real browser sends an
+    // OPTIONS preflight with no body before the POST itself. Answering
+    // only the POST and never the preflight leaves the preflight (and
+    // so the whole fetch) hanging forever, which is exactly what a stuck
+    // "Loading…" state without a request-method check looks like.
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: CORS_HEADERS });
+      return;
+    }
+
     const body = route.request().postDataJSON() as { session_id: string };
     const response = responsesBySessionId[body.session_id];
 
-    await route.fulfill({ json: response ?? { error: "unmocked session" } });
+    await route.fulfill({
+      json: response ?? { error: "unmocked session" },
+      headers: CORS_HEADERS,
+    });
   });
 }
 
@@ -46,6 +68,33 @@ test("switching sessions via browser back/forward does not leak stale results", 
 }) => {
   const sessionA = "session-a";
   const sessionB = "session-b";
+
+  // Clients are frontend-only state, scoped per tab in sessionStorage
+  // (see lib/clients.tsx) -- no backend entity exists yet. addInitScript
+  // re-runs before every navigation in this test, so the seeded client
+  // survives page.goto() to a new route, not just the first load.
+  await page.addInitScript(
+    ([clientId]) => {
+      sessionStorage.setItem(
+        "unitprep:clients",
+        JSON.stringify([
+          {
+            id: clientId,
+            name: "E2E Test Client",
+            contactName: "",
+            contactEmail: "",
+            contactPhone: "",
+            signerName: "",
+            bankAccount: "",
+            address: "",
+            dropboxPath: "",
+            createdAt: Date.now(),
+          },
+        ])
+      );
+    },
+    [CLIENT_ID]
+  );
 
   await mockValidateBySession(page, {
     [sessionA]: validateResponse(111),
