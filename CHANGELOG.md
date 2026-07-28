@@ -8,6 +8,34 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-07-28
+
+Bug fixes surfaced during the backend's pre-auth hardening review, plus
+the frontend half of the same dead code-path removal. No new
+functionality.
+
+### Fixed
+- Removed the `acknowledge_errors` export-override pathway (`?ack=1`,
+  the `acknowledgeErrors` prop chain) -- dead code with no reachable UI
+  trigger; the backend's own override was removed in the same pass.
+- `useExportDownload`'s success state no longer persists across a new
+  export attempt -- a failed retry no longer shows stale success
+  alongside its own error.
+- Added a reentrancy guard to `useExportDownload` so a rapid
+  double-invocation (e.g. a second click landing before `disabled`
+  takes effect) can't fire two concurrent `/export` requests.
+- `sessionExpired` in `useSessionAction` now resets at the start of
+  each action, matching `useSessionPost`'s existing behavior --
+  previously sticky once tripped, with no way back to `false`.
+
+### Added
+- `aria-current="page"` on the active link in `ClientTabs` and
+  `LeftNav`.
+- `downloadBlob` now prefers the RFC 6266 extended `filename*=` form
+  over the plain form when parsing `Content-Disposition`, falling back
+  through plain -> a default name. Currently dormant -- the backend
+  only ever sends the plain ASCII form today.
+
 ## [1.1.3] - 2026-07-28
 
 Test coverage expansion; no new functionality.
