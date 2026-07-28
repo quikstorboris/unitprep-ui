@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  useParams,
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 import ExportCompletePage from "@/components/ExportCompletePage";
 import { cancelSession } from "@/lib/api";
@@ -17,10 +13,6 @@ export default function ExportPage() {
     sessionId: string;
   }>();
 
-  const acknowledgeErrors =
-    useSearchParams().get("ack") ===
-    "1";
-
   return (
     <main className="p-8">
       <ExportCompletePage
@@ -29,9 +21,6 @@ export default function ExportPage() {
         // can't leak from a session this page previously rendered.
         key={sessionId}
         sessionId={sessionId}
-        acknowledgeErrors={
-          acknowledgeErrors
-        }
         onBack={() =>
           router.push(
             `/clients/${clientId}/unit-groups/${sessionId}`

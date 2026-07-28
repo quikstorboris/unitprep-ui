@@ -19,7 +19,7 @@ import type { ValidateResponse } from "@/types/api";
 interface ScanResultsPageProps {
   sessionId: string;
   onBack: () => void;
-  onExport: (acknowledged: boolean) => void;
+  onExport: () => void;
   onSessionExpired: () => void;
 }
 
@@ -569,7 +569,7 @@ export default function ScanResultsPage({
 
       <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-slate-700 pt-6">
         <button
-          onClick={() => onExport(false)}
+          onClick={onExport}
           disabled={!everythingResolved}
           className="rounded bg-green-600 px-4 py-2 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
         >

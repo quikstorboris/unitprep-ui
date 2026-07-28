@@ -28,11 +28,9 @@ export default function ResultsPage() {
             `/clients/${clientId}/unit-groups`
           );
         }}
-        onExport={(acknowledged) =>
+        onExport={() =>
           router.push(
-            acknowledged
-              ? `/clients/${clientId}/unit-groups/${sessionId}/export?ack=1`
-              : `/clients/${clientId}/unit-groups/${sessionId}/export`
+            `/clients/${clientId}/unit-groups/${sessionId}/export`
           )
         }
         onSessionExpired={() =>

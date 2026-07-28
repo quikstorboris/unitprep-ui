@@ -10,14 +10,12 @@ import SessionExpiredPage from "./SessionExpiredPage";
 
 interface ExportCompletePageProps {
   sessionId: string;
-  acknowledgeErrors: boolean;
   onBack: () => void;
   onHome: () => void;
 }
 
 export default function ExportCompletePage({
   sessionId,
-  acknowledgeErrors,
   onBack,
   onHome,
 }: ExportCompletePageProps) {
@@ -34,10 +32,7 @@ export default function ExportCompletePage({
     error: exportError,
     sessionExpired: exportExpired,
     handleExport,
-  } = useExportDownload(
-    sessionId,
-    acknowledgeErrors
-  );
+  } = useExportDownload(sessionId);
 
   if (analysisExpired || exportExpired) {
     return (
