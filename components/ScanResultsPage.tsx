@@ -1,5 +1,4 @@
 "use client";
-import { basename } from "@/lib/api";
 import { useSessionPost } from "@/lib/useSessionPost";
 import {
   useMemo,
@@ -7,7 +6,8 @@ import {
   useState,
 } from "react";
 import SessionExpiredPage from "@/components/SessionExpiredPage";
-import { IssueCard, issueKey } from "@/components/scan-results/IssueCard";
+import { ErrorsSection } from "@/components/scan-results/ErrorsSection";
+import { FileErrorsSection } from "@/components/scan-results/FileErrorsSection";
 import { ScanResultsStatTiles } from "@/components/scan-results/ScanResultsStatTiles";
 import { WarningsSection } from "@/components/scan-results/WarningsSection";
 import {
@@ -459,75 +459,22 @@ export default function ScanResultsPage({
             <p>No issues found.</p>
           ) : (
             <>
-              <details className="rounded border border-slate-700 p-4">
-                <summary className="cursor-pointer font-semibold text-red-400">
-                  Errors ({errors.length})
-                </summary>
+              <ErrorsSection
+                sessionId={sessionId}
+                errors={errors}
+                onCorrectionSaved={
+                  handleResultsUpdated
+                }
+                onSessionExpired={
+                  handleSessionExpired
+                }
+              />
 
-                {errors.length === 0 ? (
-                  <p className="mt-3 text-sm text-slate-400">
-                    No errors.
-                  </p>
-                ) : (
-                  <ul className="mt-3 space-y-4">
-                    {errors.map(
-                      (issue) => (
-                        <IssueCard
-                          key={issueKey(issue)}
-                          issue={issue}
-                          sessionId={
-                            sessionId
-                          }
-                          onCorrectionSaved={
-                            handleResultsUpdated
-                          }
-                          onSessionExpired={
-                            handleSessionExpired
-                          }
-                        />
-                      )
-                    )}
-                  </ul>
-                )}
-              </details>
-
-              <details className="rounded border border-slate-700 p-4">
-                <summary className="cursor-pointer font-semibold text-red-400">
-                  File Errors (
-                  {filesErrored.length})
-                </summary>
-
-                {filesErrored.length ===
-                0 ? (
-                  <p className="mt-3 text-sm text-slate-400">
-                    No file errors.
-                  </p>
-                ) : (
-                  <ul className="mt-3 space-y-1">
-                    {filesErrored.map(
-                      (
-                        fileError,
-                        index
-                      ) => (
-                        <li
-                          key={`${fileError.file_name}-${index}`}
-                          className="text-sm text-red-200"
-                        >
-                          <strong>
-                            {basename(
-                              fileError.file_name
-                            )}
-                          </strong>{" "}
-                          —{" "}
-                          {
-                            fileError.message
-                          }
-                        </li>
-                      )
-                    )}
-                  </ul>
-                )}
-              </details>
+              <FileErrorsSection
+                filesErrored={
+                  filesErrored
+                }
+              />
 
               <WarningsSection
                 sessionId={sessionId}
