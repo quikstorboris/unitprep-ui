@@ -143,4 +143,57 @@ describe("useDedupExport", () => {
     expect(clickSpy).not.toHaveBeenCalled();
     expect(result.current.downloadComplete).toBe(false);
   });
+
+  it("clears a stale downloadComplete from a prior success once a new attempt fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(new Blob(["csv"]), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "dedup export failed" }), {
+          status: 500,
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useDedupExport("s1"));
+
+    await act(async () => {
+      await result.current.handleExport("csv");
+    });
+    expect(result.current.downloadComplete).toBe(true);
+
+    await act(async () => {
+      await result.current.handleExport("csv");
+    });
+
+    expect(result.current.downloadComplete).toBe(false);
+    expect(result.current.error).toBe("dedup export failed");
+  });
+
+  it("ignores a second concurrent handleExport call while one is already in flight", async () => {
+    let resolveFetch!: (response: Response) => void;
+    const fetchMock = vi.fn().mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useDedupExport("s1"));
+
+    let firstCall!: Promise<void>;
+    let secondCall!: Promise<void>;
+    act(() => {
+      firstCall = result.current.handleExport("csv");
+      secondCall = result.current.handleExport("csv");
+    });
+
+    resolveFetch(new Response(new Blob(["csv"]), { status: 200 }));
+    await act(async () => {
+      await Promise.all([firstCall, secondCall]);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
 });

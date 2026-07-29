@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { downloadBlob, useSessionAction } from "@/lib/useSessionAction";
 import type { DedupExportFormat } from "@/types/api";
@@ -45,25 +45,45 @@ export function useDedupExport(
     setDownloadComplete,
   ] = useState(false);
 
+  // Guards a rapid double-invocation of handleExport (e.g. a second click
+  // landing before React commits `pending: true` and the button's own
+  // `disabled` prop actually takes effect) from firing two concurrent
+  // /dedup/export requests. A ref, not `pending` itself, because `pending`
+  // is state -- it isn't updated synchronously within the same tick a
+  // second call could arrive in, so checking it here wouldn't reliably
+  // catch one. Mirrors useExportDownload.
+  const exportInFlight = useRef(false);
+
   const handleExport = async (
     format: DedupExportFormat
   ) => {
-    const result = await run({ format });
+    if (exportInFlight.current) return;
+    exportInFlight.current = true;
 
-    if (result.kind !== "ok") return;
+    // Reset so a second attempt doesn't render the *previous* attempt's
+    // success state alongside (or instead of) this attempt's own outcome.
+    setDownloadComplete(false);
 
-    const blob =
-      await result.response.blob();
+    try {
+      const result = await run({ format });
 
-    downloadBlob(
-      blob,
-      result.response.headers.get(
-        "Content-Disposition"
-      ),
-      FALLBACK_FILENAMES[format]
-    );
+      if (result.kind !== "ok") return;
 
-    setDownloadComplete(true);
+      const blob =
+        await result.response.blob();
+
+      downloadBlob(
+        blob,
+        result.response.headers.get(
+          "Content-Disposition"
+        ),
+        FALLBACK_FILENAMES[format]
+      );
+
+      setDownloadComplete(true);
+    } finally {
+      exportInFlight.current = false;
+    }
   };
 
   return {
