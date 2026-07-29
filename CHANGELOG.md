@@ -8,6 +8,49 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-07-29
+
+A fresh adversarial review pass (5 parallel reviewers) after 1.1.4
+shipped, run to close out the refactor before a code-quality
+conclusion. No new functionality.
+
+### Fixed
+- The "Cancel" button in `UnitFileSelectionSection` was wired to the
+  same callback that *opens* the reopened-selection view, making it a
+  no-op once you were already in it -- now correctly returns to the
+  confirmed summary.
+- `UndoImportAsIsButton` showed the wrong label ("Edit Groups (N)",
+  copy-pasted from the unrelated `EditGroupsButton`) -- now says "Undo
+  Import As Is (N)".
+- `useDedupExport` was missing both of 1.1.4's `useExportDownload`
+  fixes -- stale `downloadComplete` state and a missing reentrancy
+  guard, same bug class, unfixed sibling.
+- `useDiscoveryFlow.handleDiscover` had no reentrancy guard (the same
+  gap `useExportDownload` had before 1.1.4), and a retry didn't clear
+  stale `uploadSummary`/`discovery` from a previous attempt.
+- `extendedFilenameFrom`'s RFC 5987 regex (added in 1.1.4) only matched
+  an empty language tag (`UTF-8''...`) -- a non-empty tag
+  (`UTF-8'en'...`) silently fell through to the plain form/default.
+- `useSessionPost` never reset `data` to `null` on a new fetch --
+  previously masked everywhere by the app's `key={sessionId}` remount
+  convention, not defended in the hook itself.
+
+### Added
+- `describeFetchError` (previously used in only 2 hand-rolled fetch
+  call sites) is now wired into `useSessionAction`/`useSessionPost`'s
+  catch blocks, so a network failure shows an actionable message
+  instead of the raw browser error across most of the app.
+- An E2E flow for the Group Prep discovery path (upload -> discover ->
+  confirm unit files -> confirm format -> reach scan results, plus
+  reopening unit-file selection and clicking Cancel) -- the coverage
+  gap that let the Cancel-button bug above go undetected.
+
+### Changed
+- Split `WarningsSection.tsx` (464 -> 378 lines): extracted
+  `ExcludedGroupsList.tsx` and `AcknowledgedGroupsList.tsx`.
+- Extracted `ScanResultsPage.tsx`'s inline "Errors"/"File Errors"
+  blocks into `ErrorsSection.tsx`/`FileErrorsSection.tsx`.
+
 ## [1.1.4] - 2026-07-28
 
 Bug fixes surfaced during the backend's pre-auth hardening review, plus
