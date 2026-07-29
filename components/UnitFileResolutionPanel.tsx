@@ -74,9 +74,6 @@ export default function UnitFileResolutionPanel({
         forceShowSelection={
           forceShowSelection
         }
-        onReturnToSelection={
-          onReturnToSelection
-        }
         onSelectionConfirmed={
           onSelectionConfirmed
         }

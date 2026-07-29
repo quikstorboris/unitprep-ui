@@ -58,7 +58,6 @@ function baseProps(
     onSessionExpired: vi.fn(),
     showSelectionSection: true,
     forceShowSelection: false,
-    onReturnToSelection: vi.fn(),
     onSelectionConfirmed: vi.fn(),
     ...overrides,
   };
@@ -191,9 +190,9 @@ describe("UnitFileSelectionSection", () => {
     expect(screen.queryByText(/Wave 1\//)).not.toBeInTheDocument();
   });
 
-  it("only offers Cancel on the checkbox picker when it was reopened over an existing selection, and it calls onReturnToSelection", async () => {
+  it("only offers Cancel on the checkbox picker when it was reopened over an existing selection, and it calls onSelectionConfirmed to close the reopened picker", async () => {
     const user = userEvent.setup();
-    const onReturnToSelection = vi.fn();
+    const onSelectionConfirmed = vi.fn();
 
     const { rerender } = render(
       <UnitFileSelectionSection
@@ -216,13 +215,13 @@ describe("UnitFileSelectionSection", () => {
           discovery: baseDiscovery({
             selected_unit_file_names: ["Wave 1/units.csv"],
           }),
-          onReturnToSelection,
+          onSelectionConfirmed,
         })}
       />
     );
 
     const cancelButton = screen.getByRole("button", { name: "Cancel" });
     await user.click(cancelButton);
-    expect(onReturnToSelection).toHaveBeenCalledTimes(1);
+    expect(onSelectionConfirmed).toHaveBeenCalledTimes(1);
   });
 });
