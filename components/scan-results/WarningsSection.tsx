@@ -4,12 +4,12 @@ import type { RefObject } from "react";
 import { basename } from "@/lib/api";
 import type { ValidateResponse } from "@/types/api";
 
-import { EditGroupsButton } from "./EditGroupsButton";
+import { AcknowledgedGroupsList } from "./AcknowledgedGroupsList";
 import { ExcludeAllButton } from "./ExcludeAllButton";
+import { ExcludedGroupsList } from "./ExcludedGroupsList";
 import { GroupCorrectionCard } from "./GroupCorrectionCard";
 import { ImportAsIsButton } from "./ImportAsIsButton";
 import { issueKey } from "./IssueCard";
-import { UndoImportAsIsButton } from "./UndoImportAsIsButton";
 import type { ReasonSection } from "./deriveReasonSections";
 
 interface WarningsSectionProps {
@@ -319,140 +319,54 @@ export function WarningsSection({
 
                 {group.excludedNames
                   .length > 0 && (
-                  <div className="mt-3 rounded border border-slate-700 bg-slate-900/40 p-3">
-                    <div className="mb-2 text-sm font-medium text-slate-400">
-                      Excluded Groups (
-                      {
-                        group
-                          .excludedNames
-                          .length
-                      }
-
-                      )
-                    </div>
-
-                    <ul className="mb-3 ml-4 list-disc space-y-0.5 text-sm text-slate-400">
-                      {group.excludedNames.map(
-                        (name) => {
-                          const occurrenceCount =
-                            group.occurrenceCounts.get(
-                              name
-                            );
-
-                          return (
-                            <li
-                              key={
-                                name
-                              }
-                            >
-                              {name}
-                              {occurrenceCount !==
-                                undefined && (
-                                <span>
-                                  {" "}
-                                  (
-                                  {
-                                    occurrenceCount
-                                  }
-
-                                  )
-                                </span>
-                              )}
-                            </li>
-                          );
-                        }
-                      )}
-                    </ul>
-
-                    <EditGroupsButton
-                      sessionId={
-                        sessionId
-                      }
-                      groupNames={
-                        group.excludedNames
-                      }
-                      onUpdated={
-                        onUpdated
-                      }
-                      onIncluded={
-                        onIncluded
-                      }
-                      onSessionExpired={
-                        onSessionExpired
-                      }
-                    />
-                  </div>
+                  <ExcludedGroupsList
+                    sessionId={
+                      sessionId
+                    }
+                    excludedNames={
+                      group.excludedNames
+                    }
+                    occurrenceCounts={
+                      group.occurrenceCounts
+                    }
+                    onUpdated={
+                      onUpdated
+                    }
+                    onIncluded={
+                      onIncluded
+                    }
+                    onSessionExpired={
+                      onSessionExpired
+                    }
+                  />
                 )}
 
                 {group
                   .acknowledgedNames
                   .length > 0 && (
-                  <div className="mt-3 rounded border border-slate-700 bg-slate-900/40 p-3">
-                    <div className="mb-2 text-sm font-medium text-slate-400">
-                      Imported As Is (
-                      {
-                        group
-                          .acknowledgedNames
-                          .length
-                      }
-
-                      )
-                    </div>
-
-                    <ul className="mb-3 ml-4 list-disc space-y-0.5 text-sm text-slate-400">
-                      {group.acknowledgedNames.map(
-                        (name) => {
-                          const occurrenceCount =
-                            group.occurrenceCounts.get(
-                              name
-                            );
-
-                          return (
-                            <li
-                              key={
-                                name
-                              }
-                            >
-                              {name}
-                              {occurrenceCount !==
-                                undefined && (
-                                <span>
-                                  {" "}
-                                  (
-                                  {
-                                    occurrenceCount
-                                  }
-
-                                  )
-                                </span>
-                              )}
-                            </li>
-                          );
-                        }
-                      )}
-                    </ul>
-
-                    <UndoImportAsIsButton
-                      sessionId={
-                        sessionId
-                      }
-                      check={
-                        group.description
-                      }
-                      groupNames={
-                        group.acknowledgedNames
-                      }
-                      onUpdated={
-                        onUpdated
-                      }
-                      onUnacknowledged={
-                        onUnacknowledged
-                      }
-                      onSessionExpired={
-                        onSessionExpired
-                      }
-                    />
-                  </div>
+                  <AcknowledgedGroupsList
+                    sessionId={
+                      sessionId
+                    }
+                    check={
+                      group.description
+                    }
+                    acknowledgedNames={
+                      group.acknowledgedNames
+                    }
+                    occurrenceCounts={
+                      group.occurrenceCounts
+                    }
+                    onUpdated={
+                      onUpdated
+                    }
+                    onUnacknowledged={
+                      onUnacknowledged
+                    }
+                    onSessionExpired={
+                      onSessionExpired
+                    }
+                  />
                 )}
               </details>
             )
