@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-import { API_URL, errorMessageFrom } from "@/lib/api";
+import {
+  API_URL,
+  describeFetchError,
+  errorMessageFrom,
+} from "@/lib/api";
 
 interface UseSessionPostResult<TResponse> {
   data: TResponse | null;
@@ -60,6 +64,12 @@ export function useSessionPost<TResponse>(
         setLoading(true);
         setError(null);
         setSessionExpired(false);
+        // Reset any previously-fetched data from an earlier sessionId/path
+        // so a new fetch doesn't briefly render stale data alongside (or
+        // instead of) this attempt's own outcome -- currently masked
+        // everywhere by the app's `key={sessionId}` remount convention,
+        // but not defended in the hook itself.
+        setData(null);
 
         const response = await fetch(
           `${API_URL}${path}`,
@@ -108,9 +118,7 @@ export function useSessionPost<TResponse>(
       } catch (err) {
         if (!ignore) {
           setError(
-            err instanceof Error
-              ? err.message
-              : "Unknown error"
+            describeFetchError(err)
           );
         }
       } finally {

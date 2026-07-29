@@ -83,4 +83,46 @@ describe("useSessionPost", () => {
     expect(result.current.loading).toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("describes an unreachable API server for a network-level fetch failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("Failed to fetch"))
+    );
+
+    const { result } = renderHook(() => useSessionPost("s1", "/analyze"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toContain(
+      "Could not reach the API server"
+    );
+    expect(result.current.sessionExpired).toBe(false);
+  });
+
+  it("clears stale data from a prior sessionId once a new fetch starts", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ facilities: 3 }), { status: 200 })
+      )
+      .mockImplementationOnce(
+        () => new Promise<Response>(() => {})
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, rerender } = renderHook(
+      ({ sessionId }) =>
+        useSessionPost<{ facilities: number }>(sessionId, "/analyze"),
+      { initialProps: { sessionId: "s1" } }
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toEqual({ facilities: 3 });
+
+    rerender({ sessionId: "s2" });
+
+    await waitFor(() => expect(result.current.loading).toBe(true));
+    expect(result.current.data).toBeNull();
+  });
 });

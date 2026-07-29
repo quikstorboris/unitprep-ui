@@ -104,6 +104,25 @@ describe("useSessionAction", () => {
 
     expect(result.current.sessionExpired).toBe(false);
   });
+
+  it("describes an unreachable API server for a network-level fetch failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("Failed to fetch"))
+    );
+
+    const { result } = renderHook(() => useSessionAction("s1", "/correct"));
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.run();
+    });
+
+    expect(outcome).toMatchObject({ kind: "error" });
+    expect(result.current.error).toContain(
+      "Could not reach the API server"
+    );
+  });
 });
 
 describe("downloadBlob", () => {
@@ -151,6 +170,22 @@ describe("downloadBlob", () => {
     downloadBlob(
       new Blob(["data"]),
       "attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.zip",
+      "fallback.csv"
+    );
+
+    expect(anchor.download).toBe("résumé.zip");
+    createElementSpy.mockRestore();
+  });
+
+  it("decodes the extended filename*= form with a non-empty RFC 5987 language tag", () => {
+    const anchor = document.createElement("a");
+    const createElementSpy = vi
+      .spyOn(document, "createElement")
+      .mockReturnValue(anchor);
+
+    downloadBlob(
+      new Blob(["data"]),
+      "attachment; filename*=UTF-8'en'r%C3%A9sum%C3%A9.zip",
       "fallback.csv"
     );
 

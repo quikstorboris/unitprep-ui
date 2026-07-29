@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 
-import { API_URL, errorMessageFrom } from "@/lib/api";
+import {
+  API_URL,
+  describeFetchError,
+  errorMessageFrom,
+} from "@/lib/api";
 
 /**
  * What `run` resolved to, checked by the caller immediately after
@@ -112,9 +116,7 @@ export function useSessionAction(
       return { kind: "ok", response };
     } catch (err) {
       const message =
-        err instanceof Error
-          ? err.message
-          : "Unknown error";
+        describeFetchError(err);
       setError(message);
       return { kind: "error", message };
     } finally {
@@ -138,7 +140,7 @@ function extendedFilenameFrom(
   disposition: string
 ): string | null {
   const match = disposition.match(
-    /filename\*=[^']*''([^;]+)/i
+    /filename\*=[^']*'[^']*'([^;]+)/i
   );
 
   if (!match) return null;
