@@ -69,7 +69,7 @@ export function UndoImportAsIsButton({
       >
         {restoring
           ? "Restoring..."
-          : `Edit Groups (${groupNames.length})`}
+          : `Undo Import As Is (${groupNames.length})`}
       </button>
 
       {error && (

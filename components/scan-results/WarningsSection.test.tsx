@@ -196,7 +196,7 @@ describe("WarningsSection", () => {
     expect(screen.getByText("Imported As Is (1)")).toBeInTheDocument();
     expect(screen.getByText("Imported Group")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Edit Groups (1)" })
+      screen.getByRole("button", { name: "Undo Import As Is (1)" })
     ).toBeInTheDocument();
   });
 

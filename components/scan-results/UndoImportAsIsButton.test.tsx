@@ -35,7 +35,7 @@ describe("UndoImportAsIsButton", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "Edit Groups (2)" })
+      screen.getByRole("button", { name: "Undo Import As Is (2)" })
     ).toBeInTheDocument();
   });
 
@@ -52,7 +52,7 @@ describe("UndoImportAsIsButton", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "Edit Groups (0)" })
+      screen.getByRole("button", { name: "Undo Import As Is (0)" })
     ).toBeDisabled();
   });
 
@@ -81,7 +81,7 @@ describe("UndoImportAsIsButton", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Edit Groups (1)" })
+      screen.getByRole("button", { name: "Undo Import As Is (1)" })
     );
 
     await waitFor(() => {
@@ -125,7 +125,7 @@ describe("UndoImportAsIsButton", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Edit Groups (1)" })
+      screen.getByRole("button", { name: "Undo Import As Is (1)" })
     );
 
     expect(screen.getByRole("button", { name: "Restoring..." })).toBeDisabled();
@@ -134,7 +134,7 @@ describe("UndoImportAsIsButton", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: "Edit Groups (1)" })
+        screen.getByRole("button", { name: "Undo Import As Is (1)" })
       ).not.toBeDisabled();
     });
   });
@@ -161,7 +161,7 @@ describe("UndoImportAsIsButton", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Edit Groups (1)" })
+      screen.getByRole("button", { name: "Undo Import As Is (1)" })
     );
 
     await waitFor(() => {
@@ -195,7 +195,7 @@ describe("UndoImportAsIsButton", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Edit Groups (1)" })
+      screen.getByRole("button", { name: "Undo Import As Is (1)" })
     );
 
     expect(await screen.findByText("undo failed")).toBeInTheDocument();
