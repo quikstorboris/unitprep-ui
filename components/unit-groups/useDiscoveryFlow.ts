@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer } from "react";
+import { useReducer, useRef } from "react";
 
 import { API_URL, describeFetchError } from "@/lib/api";
 import type {
@@ -92,6 +92,12 @@ function reducer(
         ...state,
         loading: true,
         apiError: null,
+        // Clear the previous attempt's uploadSummary/discovery too --
+        // otherwise a retry after a failure can briefly render a stale
+        // summary/discovery panel from the run before this one while the
+        // new upload/discover pair is still in flight.
+        uploadSummary: null,
+        discovery: null,
       };
 
     case "upload_succeeded":
@@ -176,6 +182,15 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
     });
   };
 
+  // Guards a rapid double-invocation of handleDiscover (e.g. a second
+  // click landing before React commits `loading: true` and the button's
+  // own `disabled` prop actually takes effect) from firing two concurrent
+  // upload/discover pipelines. A ref, not `loading` itself, because
+  // `loading` is state -- it isn't updated synchronously within the same
+  // tick a second call could arrive in, so checking it here wouldn't
+  // reliably catch one. Mirrors useExportDownload's exportInFlight guard.
+  const discoverInFlight = useRef(false);
+
   const handleDiscover = async () => {
     if (
       !selectedFiles ||
@@ -189,6 +204,9 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
 
       return;
     }
+
+    if (discoverInFlight.current) return;
+    discoverInFlight.current = true;
 
     try {
       dispatch({
@@ -320,6 +338,7 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
       dispatch({
         type: "discover_finished",
       });
+      discoverInFlight.current = false;
     }
   };
 

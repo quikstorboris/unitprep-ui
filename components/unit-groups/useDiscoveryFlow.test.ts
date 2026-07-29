@@ -353,6 +353,91 @@ describe("useDiscoveryFlow", () => {
     expect(result.current.loading).toBe(false);
   });
 
+  it("clears a stale uploadSummary/discovery from a prior run once a retry starts", async () => {
+    const uploadResponse = {
+      session_id: "s1",
+      files_uploaded: 1,
+      files_failed: 0,
+      multipart_errors: 0,
+    };
+    const discovery = discoverResponse({ unit_files_found: 2 });
+
+    const fetchMock = mockFetchByPath({
+      "/upload": () =>
+        new Response(JSON.stringify(uploadResponse), { status: 200 }),
+      "/discover": () =>
+        new Response(JSON.stringify(discovery), { status: 200 }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useDiscoveryFlow());
+
+    act(() => {
+      result.current.handleFileSelection(
+        makeFileList([new File(["a"], "units.csv")])
+      );
+    });
+
+    await act(async () => {
+      await result.current.handleDiscover();
+    });
+
+    expect(result.current.uploadSummary).not.toBeNull();
+    expect(result.current.discovery).not.toBeNull();
+
+    // Second attempt: stall the upload response so we can observe state
+    // while discover_started has fired but the new pipeline hasn't
+    // resolved yet.
+    let resolveUpload!: (value: Response) => void;
+    fetchMock.mockImplementationOnce(
+      () => new Promise<Response>((resolve) => (resolveUpload = resolve))
+    );
+
+    let secondCall!: Promise<void>;
+    act(() => {
+      secondCall = result.current.handleDiscover();
+    });
+
+    expect(result.current.uploadSummary).toBeNull();
+    expect(result.current.discovery).toBeNull();
+
+    resolveUpload(new Response(null, { status: 500 }));
+    await act(async () => {
+      await secondCall;
+    });
+  });
+
+  it("ignores a second concurrent handleDiscover call while one is already in flight", async () => {
+    let resolveUpload!: (value: Response) => void;
+    const fetchMock = vi.fn().mockImplementation(
+      () => new Promise<Response>((resolve) => (resolveUpload = resolve))
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useDiscoveryFlow());
+
+    act(() => {
+      result.current.handleFileSelection(
+        makeFileList([new File(["a"], "units.csv")])
+      );
+    });
+
+    let firstCall!: Promise<void>;
+    let secondCall!: Promise<void>;
+    act(() => {
+      firstCall = result.current.handleDiscover();
+      secondCall = result.current.handleDiscover();
+    });
+
+    resolveUpload(new Response(null, { status: 500 }));
+    await act(async () => {
+      await Promise.all([firstCall, secondCall]);
+    });
+
+    // Only the first call's own /upload request should have fired.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("applies an externally-updated discovery via handleDiscoveryUpdated", () => {
     const { result } = renderHook(() => useDiscoveryFlow());
     const updated = discoverResponse({ ready: true });
