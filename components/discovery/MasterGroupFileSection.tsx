@@ -129,6 +129,10 @@ export function MasterGroupFileSection({
           `${API_URL}/group-file/upload`,
           {
             method: "POST",
+            // The API is a different origin (different port), so cookies
+            // are withheld unless this is explicit -- without it, every
+            // request looks signed-out regardless of a valid session.
+            credentials: "include",
             body: formData,
           }
         );

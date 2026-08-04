@@ -253,6 +253,10 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
           `${API_URL}/upload`,
           {
             method: "POST",
+            // The API is a different origin (different port), so cookies
+            // are withheld unless this is explicit -- without it, every
+            // request looks signed-out regardless of a valid session.
+            credentials: "include",
             body: formData,
           }
         );
@@ -304,6 +308,10 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
           `${API_URL}/discover`,
           {
             method: "POST",
+            // The API is a different origin (different port), so cookies
+            // are withheld unless this is explicit -- without it, every
+            // request looks signed-out regardless of a valid session.
+            credentials: "include",
             headers: {
               "Content-Type":
                 "application/json",

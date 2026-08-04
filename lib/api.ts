@@ -107,6 +107,12 @@ export function cancelSession(
 ): void {
   fetch(`${API_URL}/session/cancel`, {
     method: "POST",
+    // The API is a different origin (different port), so cookies are
+    // withheld unless this is explicit -- without it, the request looks
+    // signed-out regardless of a valid session (harmless here, since a
+    // 401 is silently swallowed the same as any other failure, but it
+    // would mean this call never actually cancels anything).
+    credentials: "include",
     headers: {
       "Content-Type":
         "application/json",

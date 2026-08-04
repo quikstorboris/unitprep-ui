@@ -115,6 +115,7 @@ describe("cancelSession", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(`${API_URL}/session/cancel`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: "s1" }),
     });
