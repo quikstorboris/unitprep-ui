@@ -8,7 +8,34 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
-## [1.2.0] - 2026-08-04
+## [1.3.0] - 2026-08-04
+
+Phase 1 item 8: the admin Users tab.
+
+### Added
+- **Users tab** (`/admin/users`) — lists every account (email, name,
+  company, role, status, passkey count, TOTP status) via the new
+  `GET /auth/users`. Invite a new user, reissue a lost/expired invite for
+  one still `invited` with no passkey, or recover an `active` account
+  that has lost its only passkey — each shows the resulting one-time
+  setup link once, with a copy button, since the backend only returns it
+  the one time.
+- Listed in the left nav unconditionally for now — `Role` has exactly one
+  variant (`admin`) in v1, so every signed-in caller already qualifies;
+  worth revisiting once a second role exists.
+
+### Fixed
+- **An admin could accidentally trigger recovery on their own account.**
+  Recovering an account revokes every one of its live sessions, including
+  — for a caller acting on themselves — the very session used to click
+  the button, which then breaks the page mid-action with no clear reason
+  why. Caught live while testing: recovering a second account while
+  signed in as it succeeded server-side but immediately 401'd the same
+  page's next request. The "Recover account" action now never renders on
+  the signed-in caller's own row (shown as "You" instead) — it also made
+  no sense on its own terms, since reaching this page at all means you
+  aren't locked out.
+
 
 The auth frontend, built from nothing: sign-in, invite redemption /
 account recovery, mandatory TOTP step-up enrollment, an account page,
