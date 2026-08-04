@@ -9,10 +9,11 @@ import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
  */
 async function authFetch(
   path: string,
-  body?: unknown
+  body?: unknown,
+  method: "GET" | "POST" = "POST"
 ): Promise<Response> {
   return fetch(`${API_URL}${path}`, {
-    method: "POST",
+    method,
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -55,10 +56,11 @@ async function parseAuthResult<T>(
 
 async function tryAuthFetch<T>(
   path: string,
-  body?: unknown
+  body?: unknown,
+  method: "GET" | "POST" = "POST"
 ): Promise<AuthResult<T>> {
   try {
-    return await parseAuthResult<T>(await authFetch(path, body));
+    return await parseAuthResult<T>(await authFetch(path, body, method));
   } catch (err) {
     return { kind: "error", message: describeFetchError(err) };
   }
@@ -297,4 +299,63 @@ export async function logoutEverywhere(): Promise<
   AuthResult<{ success: boolean; revoked_count: number }>
 > {
   return tryAuthFetch("/auth/logout/everywhere");
+}
+
+export interface UserSummary {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  company: string;
+  job_title: string | null;
+  role: string;
+  status: string;
+  created_at: string;
+  credential_count: number;
+  totp_enrolled: boolean;
+}
+
+export async function listUsers(): Promise<
+  AuthResult<{ users: UserSummary[] }>
+> {
+  return tryAuthFetch("/auth/users", undefined, "GET");
+}
+
+/** Mirrors `VALID_COMPANIES` in unitprep-api's bootstrap.rs -- the two
+ * cannot disagree about what a company is without one of them being
+ * silently wrong. */
+export const VALID_COMPANIES = ["trojan", "cobre", "quikstor"] as const;
+
+export interface CreateInviteRequest {
+  email: string;
+  first_name: string;
+  last_name: string;
+  company: (typeof VALID_COMPANIES)[number];
+  job_title?: string;
+}
+
+export interface InviteIssued {
+  user_id: string;
+  invite_token: string;
+  expires_at: string;
+  reissued: boolean;
+}
+
+/** Same endpoint creates a brand-new user or reissues for an existing
+ * `invited`, zero-credential one -- the backend decides which from the
+ * email alone. */
+export async function createInvite(
+  request: CreateInviteRequest
+): Promise<AuthResult<InviteIssued>> {
+  return tryAuthFetch<InviteIssued>("/auth/invites", request);
+}
+
+/** Revokes every existing access path on the target account (passkeys,
+ * TOTP, live sessions, any outstanding invite) and issues a fresh one --
+ * for an account that has lost its only passkey. Only valid for a
+ * currently `active` account. */
+export async function recoverAccount(
+  email: string
+): Promise<AuthResult<InviteIssued>> {
+  return tryAuthFetch<InviteIssued>("/auth/invites/recover", { email });
 }

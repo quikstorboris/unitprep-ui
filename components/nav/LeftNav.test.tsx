@@ -41,6 +41,9 @@ describe("LeftNav", () => {
       screen.getByRole("link", { name: "Clients" })
     ).toHaveAttribute("href", "/clients");
     expect(
+      screen.getByRole("link", { name: "Users" })
+    ).toHaveAttribute("href", "/admin/users");
+    expect(
       screen.getByRole("link", { name: "Account" })
     ).toHaveAttribute("href", "/account");
   });

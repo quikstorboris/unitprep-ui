@@ -16,6 +16,11 @@ interface NavItem {
 // here, not restructuring the nav.
 const NAV_ITEMS: NavItem[] = [
   { label: "Clients", href: "/clients" },
+  // Not actually role-gated yet -- Role has one variant (admin) in v1, so
+  // every signed-in caller qualifies. Listed explicitly rather than
+  // omitted so this is a visible decision to revisit once a second role
+  // exists, not a silent assumption.
+  { label: "Users", href: "/admin/users" },
   { label: "Account", href: "/account" },
 ];
 
