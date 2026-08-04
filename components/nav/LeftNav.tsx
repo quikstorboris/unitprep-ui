@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   // omitted so this is a visible decision to revisit once a second role
   // exists, not a silent assumption.
   { label: "Users", href: "/admin/users" },
+  { label: "Audit Logs", href: "/admin/audit-logs" },
   { label: "Account", href: "/account" },
 ];
 

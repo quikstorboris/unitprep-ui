@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import {
   createInvite,
+  disableUser,
   listUsers,
   recoverAccount,
   VALID_COMPANIES,
@@ -50,6 +51,13 @@ export default function AdminUsersPage() {
   // Separate from pendingUserId (the in-flight network call) -- a row can
   // be awaiting confirmation without anything having been requested yet.
   const [confirmingRecoveryFor, setConfirmingRecoveryFor] = useState<
+    string | null
+  >(null);
+  // Same "click to arm, click again to confirm" shape as recovery, kept
+  // as its own piece of state rather than reusing confirmingRecoveryFor --
+  // the two actions are independent and a row could otherwise show both
+  // confirmations open from one flag.
+  const [confirmingDisableFor, setConfirmingDisableFor] = useState<
     string | null
   >(null);
   const [rowError, setRowError] = useState<string | null>(null);
@@ -144,6 +152,22 @@ export default function AdminUsersPage() {
     }
 
     setIssued(result.data);
+    await loadUsers();
+  }
+
+  async function handleDisable(user: UserSummary) {
+    setRowError(null);
+    setPendingUserId(user.id);
+
+    const result = await disableUser(user.id);
+    setPendingUserId(null);
+    setConfirmingDisableFor(null);
+
+    if (result.kind !== "ok") {
+      setRowError(result.message);
+      return;
+    }
+
     await loadUsers();
   }
 
@@ -333,6 +357,13 @@ export default function AdminUsersPage() {
                 // account also makes no sense on its own terms: reaching
                 // this page at all means you aren't locked out.
                 const canRecover = user.status === "active" && !isSelf;
+                // Never on your own row, for the same reason as
+                // recovery -- and never on an already-deactivated user,
+                // which the backend refuses anyway (set_user_status is
+                // still called on a no-op transition otherwise, and the
+                // resulting "conflict" error would be a confusing UI
+                // dead end when the row already shows deactivated).
+                const canDisable = user.status !== "deactivated" && !isSelf;
 
                 return (
                   <tr key={user.id} className="border-t border-slate-800">
@@ -343,7 +374,13 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-2 text-slate-400">
                       {user.company}
                     </td>
-                    <td className="px-4 py-2 text-slate-400">
+                    <td
+                      className={
+                        user.status === "deactivated"
+                          ? "px-4 py-2 text-red-400"
+                          : "px-4 py-2 text-slate-400"
+                      }
+                    >
                       {user.status}
                     </td>
                     <td className="px-4 py-2 text-slate-400">
@@ -392,6 +429,40 @@ export default function AdminUsersPage() {
                           <button
                             type="button"
                             onClick={() => setConfirmingRecoveryFor(null)}
+                            className={linkButtonClass}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+
+                      {canDisable && confirmingDisableFor !== user.id && (
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => setConfirmingDisableFor(user.id)}
+                          className={`${dangerButtonClass} ml-2`}
+                        >
+                          Disable
+                        </button>
+                      )}
+
+                      {canDisable && confirmingDisableFor === user.id && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-xs text-slate-400">
+                            Deactivates this account — sure?
+                          </span>
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleDisable(user)}
+                            className={dangerButtonClass}
+                          >
+                            {isPending ? "Disabling…" : "Yes, disable"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingDisableFor(null)}
                             className={linkButtonClass}
                           >
                             Cancel

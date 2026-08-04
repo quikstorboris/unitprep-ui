@@ -353,3 +353,54 @@ export async function recoverAccount(
 ): Promise<AuthResult<InviteIssued>> {
   return tryAuthFetch<InviteIssued>("/auth/invites/recover", { email });
 }
+
+/** The standalone disable-user action -- distinct from `recoverAccount`,
+ * which also passes an account through `deactivated` but only as one step
+ * of reissuing a lost credential. This is an admin deciding someone should
+ * lose access, with nothing reissued afterward. */
+export async function disableUser(
+  userId: string
+): Promise<AuthResult<{ user_id: string; status: string }>> {
+  return tryAuthFetch(`/auth/users/${userId}/deactivate`, undefined, "POST");
+}
+
+export interface AuditLogEntry {
+  id: number;
+  event_type: string;
+  actor_user_id: string | null;
+  target_user_id: string | null;
+  metadata: Record<string, unknown>;
+  before_state: Record<string, unknown> | null;
+  after_state: Record<string, unknown> | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface AuditLogFilters {
+  limit?: number;
+  /** Keyset pagination: only entries older than (lower id than) this one --
+   * pass the last entry's `id` from the previous page to fetch the next. */
+  beforeId?: number;
+  eventType?: string;
+  userId?: string;
+}
+
+export async function listAuditLogs(
+  filters: AuditLogFilters = {}
+): Promise<AuthResult<{ entries: AuditLogEntry[] }>> {
+  const params = new URLSearchParams();
+  if (filters.limit !== undefined) params.set("limit", String(filters.limit));
+  if (filters.beforeId !== undefined) {
+    params.set("before_id", String(filters.beforeId));
+  }
+  if (filters.eventType) params.set("event_type", filters.eventType);
+  if (filters.userId) params.set("user_id", filters.userId);
+
+  const query = params.toString();
+  return tryAuthFetch(
+    `/auth/audit-logs${query ? `?${query}` : ""}`,
+    undefined,
+    "GET"
+  );
+}
