@@ -267,12 +267,6 @@ export async function totpEnrollConfirm(
   });
 }
 
-export async function totpDisable(): Promise<
-  AuthResult<{ confirmed: boolean }>
-> {
-  return tryAuthFetch<{ confirmed: boolean }>("/auth/totp/disable");
-}
-
 /**
  * Step-up verification for an already-signed-in session -- NOT a way to
  * log in. TOTP no longer has a login role at all (see unitprep-api's

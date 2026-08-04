@@ -2,42 +2,20 @@
 
 import { useState } from "react";
 
-import { totpDisable } from "@/lib/auth";
 import { useCurrentUser } from "@/lib/currentUser";
 import TotpEnrollForm from "@/components/auth/TotpEnrollForm";
 
-const dangerButtonClass =
-  "rounded bg-red-900 px-4 py-2 text-sm font-medium text-red-100 transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50";
+const primaryButtonClass =
+  "rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
 
-const linkButtonClass =
-  "text-sm text-slate-400 transition-colors hover:text-slate-200 hover:underline";
-
-type Mode = "status" | "confirming-disable";
+type Mode = "status" | "updating";
 
 export default function AccountPage() {
   const { user, checked, refresh } = useCurrentUser();
 
   const [mode, setMode] = useState<Mode>("status");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleEnrolled() {
-    setMode("status");
-    await refresh();
-  }
-
-  async function handleDisable() {
-    setError(null);
-    setPending(true);
-
-    const result = await totpDisable();
-    setPending(false);
-
-    if (result.kind !== "ok") {
-      setError(result.message);
-      return;
-    }
-
     setMode("status");
     await refresh();
   }
@@ -87,22 +65,22 @@ export default function AccountPage() {
                 : "Required to confirm sensitive actions, like replacing a passkey. It isn't a second way to sign in — that's always your passkey."}
             </p>
 
-            {error && (
-              <p role="alert" className="text-sm text-red-400">
-                {error}
-              </p>
-            )}
-
             {user.totp_enrolled ? (
+              // No "remove" option -- TOTP is step-up-only, never a login
+              // factor, so there's no security upside to an account
+              // having zero step-up factor, only a self-inflicted-lockout
+              // risk (stuck until you re-enrol before any step-up-gated
+              // action, like adding a passkey, is available again). Update
+              // replaces the factor; it never removes one with nothing to
+              // replace it. The existing authenticator keeps working for
+              // the entire re-enrolment process -- it's only replaced once
+              // the new one is confirmed.
               <button
                 type="button"
-                onClick={() => {
-                  setError(null);
-                  setMode("confirming-disable");
-                }}
-                className={dangerButtonClass}
+                onClick={() => setMode("updating")}
+                className={primaryButtonClass}
               >
-                Remove authenticator app
+                Update authenticator app
               </button>
             ) : (
               <TotpEnrollForm onEnrolled={handleEnrolled} />
@@ -110,39 +88,11 @@ export default function AccountPage() {
           </div>
         )}
 
-        {mode === "confirming-disable" && (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-slate-400">
-              Without it, sensitive actions like replacing a passkey won&apos;t
-              be available until you set it up again. Continue?
-            </p>
-
-            {error && (
-              <p role="alert" className="text-sm text-red-400">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="button"
-              disabled={pending}
-              onClick={handleDisable}
-              className={dangerButtonClass}
-            >
-              {pending ? "Removing…" : "Yes, remove it"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setError(null);
-                setMode("status");
-              }}
-              className={linkButtonClass}
-            >
-              Cancel
-            </button>
-          </div>
+        {mode === "updating" && (
+          <TotpEnrollForm
+            onEnrolled={handleEnrolled}
+            onCancel={() => setMode("status")}
+          />
         )}
       </div>
     </div>
