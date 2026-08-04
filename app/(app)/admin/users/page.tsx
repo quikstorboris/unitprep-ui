@@ -3,12 +3,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import {
+  changeUserRole,
   createInvite,
   disableUser,
   listUsers,
   recoverAccount,
   VALID_COMPANIES,
+  VALID_ROLES,
   type InviteIssued,
+  type Role,
   type UserSummary,
 } from "@/lib/auth";
 import { useCurrentUser } from "@/lib/currentUser";
@@ -45,6 +48,7 @@ export default function AdminUsersPage() {
     VALID_COMPANIES[0]
   );
   const [jobTitle, setJobTitle] = useState("");
+  const [role, setRole] = useState<Role>(VALID_ROLES[0].value);
   const [createError, setCreateError] = useState<string | null>(null);
 
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
@@ -99,6 +103,7 @@ export default function AdminUsersPage() {
       last_name: trimmedLast,
       company,
       job_title: jobTitle.trim() || undefined,
+      role,
     });
     setPendingUserId(null);
 
@@ -112,6 +117,7 @@ export default function AdminUsersPage() {
     setFirstName("");
     setLastName("");
     setJobTitle("");
+    setRole(VALID_ROLES[0].value);
     setShowCreateForm(false);
     await loadUsers();
   }
@@ -126,6 +132,11 @@ export default function AdminUsersPage() {
       last_name: user.last_name,
       company: user.company as (typeof VALID_COMPANIES)[number],
       job_title: user.job_title ?? undefined,
+      // Unchanged -- reissue has no role picker of its own; a wrong role
+      // assigned before enrolment is fixable by changing it on the row
+      // dropdown once reissued (or before, since the backend re-applies
+      // whatever role is submitted here too).
+      role: user.role,
     });
     setPendingUserId(null);
 
@@ -162,6 +173,23 @@ export default function AdminUsersPage() {
     const result = await disableUser(user.id);
     setPendingUserId(null);
     setConfirmingDisableFor(null);
+
+    if (result.kind !== "ok") {
+      setRowError(result.message);
+      return;
+    }
+
+    await loadUsers();
+  }
+
+  async function handleRoleChange(user: UserSummary, newRole: Role) {
+    if (newRole === user.role) return;
+
+    setRowError(null);
+    setPendingUserId(user.id);
+
+    const result = await changeUserRole(user.id, newRole);
+    setPendingUserId(null);
 
     if (result.kind !== "ok") {
       setRowError(result.message);
@@ -266,7 +294,7 @@ export default function AdminUsersPage() {
             />
           </label>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <label className="flex flex-col gap-1 text-sm text-slate-300">
               Company
               <select
@@ -281,6 +309,20 @@ export default function AdminUsersPage() {
                 {VALID_COMPANIES.map((value) => (
                   <option key={value} value={value}>
                     {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-slate-300">
+              Role
+              <select
+                value={role}
+                onChange={(event) => setRole(event.target.value as Role)}
+                className={inputClass}
+              >
+                {VALID_ROLES.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
                   </option>
                 ))}
               </select>
@@ -338,6 +380,7 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-2 font-medium">Name</th>
                 <th className="px-4 py-2 font-medium">Email</th>
                 <th className="px-4 py-2 font-medium">Company</th>
+                <th className="px-4 py-2 font-medium">Role</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">Passkeys</th>
                 <th className="px-4 py-2 font-medium">TOTP</th>
@@ -373,6 +416,22 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-2 text-slate-400">{user.email}</td>
                     <td className="px-4 py-2 text-slate-400">
                       {user.company}
+                    </td>
+                    <td className="px-4 py-2">
+                      <select
+                        value={user.role}
+                        disabled={isSelf || isPending}
+                        onChange={(event) =>
+                          handleRoleChange(user, event.target.value as Role)
+                        }
+                        className={`${inputClass} py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50`}
+                      >
+                        {VALID_ROLES.map(({ value, label }) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td
                       className={

@@ -66,9 +66,14 @@ async function tryAuthFetch<T>(
   }
 }
 
+/** Mirrors unitprep-api's `Role` enum. `onboarding_manager` is schema-only
+ * on the backend today -- nothing can grant it yet -- but the type exists
+ * here so `WhoAmI`/`UserSummary` stop being a bare `string` for `role`. */
+export type Role = "admin" | "onboarding_manager";
+
 export interface WhoAmI {
   user_id: string;
-  role: string;
+  role: Role;
   totp_enrolled: boolean;
 }
 
@@ -302,7 +307,7 @@ export interface UserSummary {
   last_name: string;
   company: string;
   job_title: string | null;
-  role: string;
+  role: Role;
   status: string;
   created_at: string;
   credential_count: number;
@@ -320,12 +325,20 @@ export async function listUsers(): Promise<
  * silently wrong. */
 export const VALID_COMPANIES = ["trojan", "cobre", "quikstor"] as const;
 
+/** Mirrors `Role::from_db_text`'s accepted values in unitprep-api. Order
+ * here is display order in both role dropdowns. */
+export const VALID_ROLES: { value: Role; label: string }[] = [
+  { value: "admin", label: "Admin" },
+  { value: "onboarding_manager", label: "Onboarding Manager" },
+];
+
 export interface CreateInviteRequest {
   email: string;
   first_name: string;
   last_name: string;
   company: (typeof VALID_COMPANIES)[number];
   job_title?: string;
+  role: Role;
 }
 
 export interface InviteIssued {
@@ -362,6 +375,16 @@ export async function disableUser(
   userId: string
 ): Promise<AuthResult<{ user_id: string; status: string }>> {
   return tryAuthFetch(`/auth/users/${userId}/deactivate`, undefined, "POST");
+}
+
+/** Changes an already-enrolled user's role -- distinct from picking a
+ * role at invite-creation time (`createInvite`'s `role` field), which
+ * only applies to a brand-new or not-yet-enrolled account. */
+export async function changeUserRole(
+  userId: string,
+  role: Role
+): Promise<AuthResult<{ user_id: string; role: Role }>> {
+  return tryAuthFetch(`/auth/users/${userId}/role`, { role }, "POST");
 }
 
 export interface AuditLogEntry {
