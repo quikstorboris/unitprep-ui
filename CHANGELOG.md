@@ -8,6 +8,31 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-08-04
+
+### Fixed
+- **Every tool route (dedup, upload, discover, group-file upload,
+  session cancellation) rejected a signed-in user with "Sign in
+  required."** These are the app's original `fetch()` call sites,
+  written before any session/cookie concept existed, and none of them
+  were updated when the backend started requiring a session on every
+  tool route (`unitprep-api` v1.4.0) — `useSessionPost`/`useSessionAction`
+  already sent `credentials: "include"` (added ahead of time for exactly
+  this reason, per their own comments), but `DedupUploadPage.tsx`,
+  `useDiscoveryFlow.ts` (`/upload`, `/discover`), 
+  `MasterGroupFileSection.tsx` (`/group-file/upload`), and
+  `cancelSession` in `lib/api.ts` did not. Since the API is a different
+  origin (port 8080 vs. the app's 3000), a `fetch()` without
+  `credentials: "include"` silently withholds cookies regardless of
+  browser default — every one of these requests looked signed-out no
+  matter how recently the user had actually signed in.
+
+  Found from a live report (dedup refusing to run immediately after a
+  successful sign-in) and confirmed directly: the identical request
+  against the real dev server returned `401 Sign in required` without
+  `credentials: "include"` and succeeded (reaching real validation logic)
+  with it.
+
 ## [1.3.0] - 2026-08-04
 
 Phase 1 item 8: the admin Users tab.
