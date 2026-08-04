@@ -1,6 +1,8 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { stashDedupReport } from "@/lib/dedupReportCache";
+
 import { useDedupReport } from "./useDedupReport";
 
 function dedupReport() {
@@ -92,5 +94,39 @@ describe("useDedupReport", () => {
 
     expect(result.current.loading).toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("uses a report stashed by DedupUploadPage instead of fetching", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const report = dedupReport();
+    stashDedupReport("s1", report);
+
+    const { result } = renderHook(() => useDedupReport("s1"));
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.report).toEqual(report);
+    expect(result.current.sessionExpired).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to fetching when nothing was stashed for this sessionId", async () => {
+    const report = dedupReport();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(report), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Something is stashed, but for a different sessionId -- a direct
+    // visit/refresh of this URL, not a check-then-navigate flow.
+    stashDedupReport("some-other-session", report);
+
+    const { result } = renderHook(() => useDedupReport("s1"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.report).toEqual(report);
   });
 });

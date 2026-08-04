@@ -36,13 +36,20 @@ interface UseSessionPostResult<TResponse> {
  */
 export function useSessionPost<TResponse>(
   sessionId: string,
-  path: string
+  path: string,
+  // Optional escape hatch for a caller that already has the response --
+  // e.g. useDedupReport, when the endpoint that created this session
+  // already returned the same data a moment earlier (see
+  // lib/dedupReportCache.ts). Omitted entirely by every other caller
+  // (useAnalysis), which keeps their behavior exactly as it was: the
+  // fetch always runs when this parameter is never passed.
+  initialData?: TResponse
 ): UseSessionPostResult<TResponse> {
   const [data, setData] =
-    useState<TResponse | null>(null);
+    useState<TResponse | null>(initialData ?? null);
 
   const [loading, setLoading] =
-    useState(true);
+    useState(initialData === undefined);
 
   const [error, setError] =
     useState<string | null>(null);
@@ -54,6 +61,12 @@ export function useSessionPost<TResponse>(
 
   useEffect(() => {
     if (!sessionId) {
+      return;
+    }
+
+    // Already have the answer -- skip the round trip entirely rather
+    // than re-fetching data the caller handed in a moment ago.
+    if (initialData !== undefined) {
       return;
     }
 
@@ -131,7 +144,7 @@ export function useSessionPost<TResponse>(
     return () => {
       ignore = true;
     };
-  }, [sessionId, path]);
+  }, [sessionId, path, initialData]);
 
   return {
     data,

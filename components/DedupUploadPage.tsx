@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { API_URL, errorMessageFrom } from "@/lib/api";
+import { stashDedupReport } from "@/lib/dedupReportCache";
 import type { DedupCheckResponse } from "@/types/api";
 
 // Extensions the backend can actually parse — `DedupSessionService::
@@ -106,6 +107,12 @@ export default function DedupUploadPage({
 
       const data: DedupCheckResponse =
         await response.json();
+
+      // The results page (a moment away, via onChecked's navigation)
+      // would otherwise re-fetch this exact report over POST
+      // /dedup/report -- stash it so useDedupReport can use it directly
+      // instead of a second round trip for data already in hand.
+      stashDedupReport(data.session_id, data.report);
 
       onChecked(data.session_id);
     } catch (error) {

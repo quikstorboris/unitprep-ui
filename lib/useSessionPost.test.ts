@@ -100,6 +100,23 @@ describe("useSessionPost", () => {
     expect(result.current.sessionExpired).toBe(false);
   });
 
+  it("skips the fetch entirely when initialData is provided", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useSessionPost<{ facilities: number }>(
+        "s1",
+        "/analyze",
+        { facilities: 3 }
+      )
+    );
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.data).toEqual({ facilities: 3 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("clears stale data from a prior sessionId once a new fetch starts", async () => {
     const fetchMock = vi
       .fn()
