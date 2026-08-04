@@ -8,7 +8,54 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
-## [1.1.5] - 2026-07-29
+## [1.2.0] - 2026-08-04
+
+The auth frontend, built from nothing: sign-in, invite redemption /
+account recovery, mandatory TOTP step-up enrollment, an account page,
+and route gating. Closes out Phase 1 alongside `unitprep-api` 1.4.0 --
+this app is now an enforced product rather than a UI sitting in front
+of an API nothing required a session to reach.
+
+### Added
+- **Passkey sign-in** (`/login`) — email, then a native
+  `navigator.credentials.get()` ceremony via
+  `PublicKeyCredential.parseRequestOptionsFromJSON`. No password field
+  exists anywhere in this app.
+- **Invite redemption / account recovery** (`/invites/[token]`) — the
+  same page serves both, since the backend doesn't distinguish a first
+  invite from a recovery reissue at the registration layer. Guards
+  against redeeming an invite while already signed in as someone else:
+  shows an explicit "sign out and continue" step rather than silently
+  adding the new passkey to the wrong account.
+- **Mandatory TOTP step-up enrollment** (`/onboarding/totp`) — every
+  signed-in account without a confirmed TOTP credential is redirected
+  here before reaching anything else, enforced in the signed-in shell's
+  own layout rather than per-page. Explicitly framed as NOT a second
+  way to sign in: required later to confirm sensitive actions (starting
+  with replacing a passkey), which is also the framing on the account
+  page's own copy. Renders the `otpauth://` URI as a real QR code (new
+  `qrcode` dependency) alongside the base32 secret for a camera-less
+  device.
+- **Account page** (`/account`) — enroll/remove the authenticator app
+  credential; reachable once TOTP is already set up, or after the
+  mandatory onboarding step completes.
+- **Sign-out**, in the left nav, visible whenever signed in.
+- **Route gating** (`proxy.ts`) — redirects to `/login` when there's no
+  session cookie at all, for every page except `/login` and
+  `/invites/*`. Checks cookie presence only; actual session validity
+  stays where it already lived, server-side per request -- this exists
+  so a signed-out visitor never sees a flash of protected UI, not to
+  duplicate authorization.
+- `CurrentUserProvider`/`useCurrentUser` — the one source of truth for
+  "who, if anyone, is signed in", including `totp_enrolled` status,
+  read once via `/health/whoami` and refreshed after any auth action.
+
+### Changed
+- Every existing `/clients/*` route moved under a new `(app)` route
+  group, which now owns the left nav and client registry — the auth
+  pages above deliberately sit outside it, rendering with no shell
+  chrome.
+
 
 A fresh adversarial review pass (5 parallel reviewers) after 1.1.4
 shipped, run to close out the refactor before a code-quality
