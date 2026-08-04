@@ -1,17 +1,36 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import LeftNav from "./LeftNav";
 
-const { usePathname } = vi.hoisted(() => ({
+const { usePathname, useRouter, useCurrentUser } = vi.hoisted(() => ({
   usePathname: vi.fn(),
+  useRouter: vi.fn(),
+  useCurrentUser: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
   usePathname,
+  useRouter,
+}));
+
+vi.mock("@/lib/currentUser", () => ({
+  useCurrentUser,
 }));
 
 describe("LeftNav", () => {
+  beforeEach(() => {
+    useRouter.mockReturnValue({ replace: vi.fn() });
+    // Signed out by default -- most existing tests only care about the
+    // routed nav items, not the sign-out control, which only renders for
+    // a signed-in user (see the dedicated describe block below).
+    useCurrentUser.mockReturnValue({
+      user: null,
+      signOut: vi.fn(),
+    });
+  });
+
   it("renders the UnitPrep heading and a link per nav item", () => {
     usePathname.mockReturnValue("/clients");
 
@@ -21,6 +40,9 @@ describe("LeftNav", () => {
     expect(
       screen.getByRole("link", { name: "Clients" })
     ).toHaveAttribute("href", "/clients");
+    expect(
+      screen.getByRole("link", { name: "Account" })
+    ).toHaveAttribute("href", "/account");
   });
 
   it("renders its nav items regardless of which path is current", () => {
@@ -51,5 +73,35 @@ describe("LeftNav", () => {
     expect(
       screen.getByRole("link", { name: "Clients" })
     ).not.toHaveAttribute("aria-current");
+  });
+
+  it("does not render a sign-out control when signed out", () => {
+    usePathname.mockReturnValue("/clients");
+
+    render(<LeftNav />);
+
+    expect(
+      screen.queryByRole("button", { name: /sign out/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it("signs out and redirects to /login when signed in", async () => {
+    usePathname.mockReturnValue("/clients");
+    const signOut = vi.fn().mockResolvedValue(undefined);
+    const replace = vi.fn();
+    useCurrentUser.mockReturnValue({
+      user: { user_id: "u1", role: "admin", totp_enrolled: false },
+      signOut,
+    });
+    useRouter.mockReturnValue({ replace });
+
+    render(<LeftNav />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Sign out" })
+    );
+
+    expect(signOut).toHaveBeenCalled();
+    expect(replace).toHaveBeenCalledWith("/login");
   });
 });
