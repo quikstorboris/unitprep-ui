@@ -21,21 +21,36 @@ export default function AppLayout({
   const router = useRouter();
   const { user, checked } = useCurrentUser();
 
+  // proxy.ts only checks that a session cookie is *present*, not that it
+  // still resolves server-side -- deliberately, per its own doc comment,
+  // to avoid an edge-runtime round trip to the backend on every
+  // navigation. That means a cookie that's gone idle-invalid (30-minute
+  // idle timeout, see unitprep-api's Phase II session hardening),
+  // revoked from another device, or past its absolute expiry sails
+  // straight through proxy.ts and lands here. Without this guard,
+  // `checked && !user` was simply never handled: the shell rendered
+  // anyway, and the only visible symptom was the sign-out button
+  // silently disappearing (it's the one piece of UI that actually reads
+  // `user`) with no indication of *why*, and no way back to /login short
+  // of a manual navigation.
+  const isSignedOut = checked && !user;
+
   // Everyone must have a confirmed TOTP credential before reaching
   // anything in this shell -- see app/onboarding/totp's own doc comment
   // for why. Checked once here, at the route-group boundary, rather than
   // per-page, so a new page added under this group gets the guard for
-  // free. Signed-out visitors are untouched (`user` is null) -- that's
-  // proxy.ts's job, not this one's.
+  // free.
   const needsTotpOnboarding = checked && !!user && !user.totp_enrolled;
 
   useEffect(() => {
-    if (needsTotpOnboarding) {
+    if (isSignedOut) {
+      router.replace("/login");
+    } else if (needsTotpOnboarding) {
       router.replace("/onboarding/totp");
     }
-  }, [needsTotpOnboarding, router]);
+  }, [isSignedOut, needsTotpOnboarding, router]);
 
-  if (needsTotpOnboarding) {
+  if (isSignedOut || needsTotpOnboarding) {
     // Avoid rendering the real shell (and the data fetches its children
     // would kick off) for the instant before the redirect above lands.
     return (
