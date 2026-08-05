@@ -6,6 +6,7 @@ import {
   changeUserRole,
   createInvite,
   disableUser,
+  exportUsersCsv,
   listUsers,
   reactivateUser,
   recoverAccount,
@@ -17,6 +18,7 @@ import {
 } from "@/lib/auth";
 import RequireAdmin from "@/components/auth/RequireAdmin";
 import { useCurrentUser } from "@/lib/currentUser";
+import { downloadBlob } from "@/lib/useSessionAction";
 
 const primaryButtonClass =
   "rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
@@ -105,6 +107,28 @@ export default function AdminUsersPage() {
   >(null);
   const [rowError, setRowError] = useState<string | null>(null);
   const [issued, setIssued] = useState<InviteIssued | null>(null);
+
+  const [exportingUsers, setExportingUsers] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  async function handleExportUsers() {
+    setExportError(null);
+    setExportingUsers(true);
+    const result = await exportUsersCsv();
+    setExportingUsers(false);
+
+    if (result.kind !== "ok") {
+      setExportError(result.message);
+      return;
+    }
+
+    const blob = await result.response.blob();
+    downloadBlob(
+      blob,
+      result.response.headers.get("Content-Disposition"),
+      "unitprep-users.csv"
+    );
+  }
 
   async function loadUsers() {
     const result = await listUsers();
@@ -268,17 +292,33 @@ export default function AdminUsersPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setCreateError(null);
-            setShowCreateForm((value) => !value);
-          }}
-          className={primaryButtonClass}
-        >
-          {showCreateForm ? "Cancel" : "Invite a user"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={exportingUsers}
+            onClick={handleExportUsers}
+            className={smallButtonClass}
+          >
+            {exportingUsers ? "Exporting…" : "Export CSV"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCreateError(null);
+              setShowCreateForm((value) => !value);
+            }}
+            className={primaryButtonClass}
+          >
+            {showCreateForm ? "Cancel" : "Invite a user"}
+          </button>
+        </div>
       </div>
+
+      {exportError && (
+        <p role="alert" className="mb-4 text-sm text-red-400">
+          {exportError}
+        </p>
+      )}
 
       {issued && (
         <div className="mb-6 rounded border border-blue-800 bg-blue-950 p-4">

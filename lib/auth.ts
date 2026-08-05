@@ -324,6 +324,35 @@ export async function listUsers(): Promise<
   return tryAuthFetch("/auth/users", undefined, "GET");
 }
 
+/** Same shape as AuthResult, but keeping the raw `Response` rather than
+ * parsing it as JSON -- the caller reads it as a blob for download instead.
+ * Mirrors parseAuthResult's 401/error handling since it can't reuse that
+ * function directly (that one always calls response.json()). */
+export type ExportUsersResult =
+  | { kind: "ok"; response: Response }
+  | { kind: "unauthorized"; message: string }
+  | { kind: "error"; message: string };
+
+/** CSV export of every user field the admin Users table shows. */
+export async function exportUsersCsv(): Promise<ExportUsersResult> {
+  try {
+    const response = await authFetch("/auth/users/export", undefined, "GET");
+
+    if (response.status === 401) {
+      return {
+        kind: "unauthorized",
+        message: await errorMessageFrom(response),
+      };
+    }
+    if (!response.ok) {
+      return { kind: "error", message: await errorMessageFrom(response) };
+    }
+    return { kind: "ok", response };
+  } catch (err) {
+    return { kind: "error", message: describeFetchError(err) };
+  }
+}
+
 /** Mirrors `VALID_COMPANIES` in unitprep-api's bootstrap.rs -- the two
  * cannot disagree about what a company is without one of them being
  * silently wrong. */
