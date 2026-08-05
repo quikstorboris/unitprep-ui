@@ -7,6 +7,7 @@ import {
   createInvite,
   disableUser,
   listUsers,
+  reactivateUser,
   recoverAccount,
   VALID_COMPANIES,
   VALID_ROLES,
@@ -94,6 +95,12 @@ export default function AdminUsersPage() {
   // the two actions are independent and a row could otherwise show both
   // confirmations open from one flag.
   const [confirmingDisableFor, setConfirmingDisableFor] = useState<
+    string | null
+  >(null);
+  // Same shape again, for the same reason -- reactivate is independent of
+  // both disable and recovery and could otherwise show more than one row
+  // confirmation open at once.
+  const [confirmingReactivateFor, setConfirmingReactivateFor] = useState<
     string | null
   >(null);
   const [rowError, setRowError] = useState<string | null>(null);
@@ -211,6 +218,24 @@ export default function AdminUsersPage() {
       return;
     }
 
+    await loadUsers();
+  }
+
+  async function handleReactivate(user: UserSummary) {
+    setRowError(null);
+    setPendingUserId(user.id);
+
+    const result = await reactivateUser(user.id);
+    setPendingUserId(null);
+    setConfirmingReactivateFor(null);
+
+    if (result.kind !== "ok") {
+      setRowError(result.message);
+      return;
+    }
+
+    // Same as create/reissue/recover -- a fresh invite token, shown once.
+    setIssued(result.data);
     await loadUsers();
   }
 
@@ -441,6 +466,13 @@ export default function AdminUsersPage() {
                 // resulting "conflict" error would be a confusing UI
                 // dead end when the row already shows deactivated).
                 const canDisable = user.status !== "deactivated" && !isSelf;
+                // The counterpart to canDisable -- never true at the same
+                // time as it, since they're opposite ends of the same
+                // status check. No isSelf guard needed: a deactivated
+                // account can't be the caller's own (deactivating your own
+                // account is already refused server-side), so this can
+                // never be reached for isSelf in practice.
+                const canReactivate = user.status === "deactivated";
 
                 return (
                   <tr key={user.id} className="border-t border-slate-800">
@@ -571,6 +603,40 @@ export default function AdminUsersPage() {
                           <button
                             type="button"
                             onClick={() => setConfirmingDisableFor(null)}
+                            className={linkButtonClass}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+
+                      {canReactivate && confirmingReactivateFor !== user.id && (
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => setConfirmingReactivateFor(user.id)}
+                          className={smallButtonClass}
+                        >
+                          Reactivate
+                        </button>
+                      )}
+
+                      {canReactivate && confirmingReactivateFor === user.id && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-xs text-slate-400">
+                            Issues a fresh setup link — sure?
+                          </span>
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleReactivate(user)}
+                            className={smallButtonClass}
+                          >
+                            {isPending ? "Reactivating…" : "Yes, reactivate"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingReactivateFor(null)}
                             className={linkButtonClass}
                           >
                             Cancel

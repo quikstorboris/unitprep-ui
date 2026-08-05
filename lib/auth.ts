@@ -381,6 +381,21 @@ export async function disableUser(
   return tryAuthFetch(`/auth/users/${userId}/deactivate`, undefined, "POST");
 }
 
+/** The counterpart to `disableUser`, only valid for a currently
+ * `deactivated` account. A deactivated account already had every
+ * credential wiped at deactivation time, so this can't simply flip status
+ * back to `active` -- it goes to `invited` with a fresh invite instead,
+ * same destination `recoverAccount` uses and for the same reason. */
+export async function reactivateUser(
+  userId: string
+): Promise<AuthResult<InviteIssued>> {
+  return tryAuthFetch<InviteIssued>(
+    `/auth/users/${userId}/reactivate`,
+    undefined,
+    "POST"
+  );
+}
+
 /** Changes an already-enrolled user's role -- distinct from picking a
  * role at invite-creation time (`createInvite`'s `role` field), which
  * only applies to a brand-new or not-yet-enrolled account. */
