@@ -12,9 +12,6 @@ import {
   type UserSummary,
 } from "@/lib/auth";
 
-const smallButtonClass =
-  "rounded bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50";
-
 const inputClass =
   "rounded border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none";
 
@@ -288,7 +285,7 @@ export default function AdminAuditLogsPage() {
     });
   }, [loadFirstPage]);
 
-  async function loadMore() {
+  const loadMore = useCallback(async () => {
     const lastId = entries[entries.length - 1]?.id;
     if (lastId === undefined) return;
 
@@ -299,7 +296,37 @@ export default function AdminAuditLogsPage() {
     if (fetched === null) return;
     setEntries((current) => [...current, ...fetched]);
     setExhausted(fetched.length < PAGE_SIZE);
-  }
+  }, [entries, runQuery]);
+
+  // Lazy-load: an IntersectionObserver on a sentinel at the list's end,
+  // rather than the "Load more" button this replaced. Same underlying
+  // keyset pagination (loadMore/before_id) -- only the trigger changed.
+  // Re-created whenever exhausted/loadingMore/loadMore itself changes
+  // (loadMore's own identity changes on every successful fetch, since it
+  // closes over `entries`) -- cheap to tear down and reconnect, and
+  // simpler than threading a ref through to dodge that.
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (exhausted || loadingMore) return;
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      ([sentinelEntry]) => {
+        if (sentinelEntry?.isIntersecting) {
+          loadMore();
+        }
+      },
+      // Fires a bit before the sentinel is actually on screen, so the next
+      // page is usually ready by the time the admin scrolls to see it.
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [exhausted, loadingMore, loadMore]);
 
   return (
     <RequireAdmin>
@@ -441,16 +468,21 @@ export default function AdminAuditLogsPage() {
             </table>
           </div>
 
-          {!exhausted && (
-            <div className="mt-4">
-              <button
-                type="button"
-                disabled={loadingMore}
-                onClick={loadMore}
-                className={smallButtonClass}
-              >
-                {loadingMore ? "Loading…" : "Load more"}
-              </button>
+          {exhausted ? (
+            <p className="mt-4 text-center text-xs text-slate-500">
+              End of results
+            </p>
+          ) : (
+            // Invisible trigger, not a loading indicator on its own --
+            // the observer above fires loadMore() once this scrolls into
+            // (or near) view. loadingMore's own text is the only visible
+            // feedback while a page is in flight.
+            <div ref={sentinelRef} className="mt-4 h-4">
+              {loadingMore && (
+                <p className="text-center text-xs text-slate-500">
+                  Loading…
+                </p>
+              )}
             </div>
           )}
         </>
