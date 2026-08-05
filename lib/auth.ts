@@ -446,3 +446,12 @@ export async function listAuditLogs(
     "GET"
   );
 }
+
+/** The canonical event-type list, straight from the backend's own
+ * `audit_log::event::ALL` -- backs the "which events" filter dropdown so
+ * it can't drift from what the backend actually writes. */
+export async function listAuditLogEventTypes(): Promise<
+  AuthResult<{ event_types: string[] }>
+> {
+  return tryAuthFetch("/auth/audit-logs/event-types", undefined, "GET");
+}
