@@ -31,8 +31,12 @@ describe("LeftNav", () => {
     });
   });
 
-  it("renders the UnitPrep heading and a link per nav item", () => {
+  it("renders the UnitPrep heading and a link per nav item for an admin", () => {
     usePathname.mockReturnValue("/clients");
+    useCurrentUser.mockReturnValue({
+      user: { user_id: "u1", role: "admin", totp_enrolled: true },
+      signOut: vi.fn(),
+    });
 
     render(<LeftNav />);
 
@@ -44,8 +48,45 @@ describe("LeftNav", () => {
       screen.getByRole("link", { name: "Users" })
     ).toHaveAttribute("href", "/admin/users");
     expect(
+      screen.getByRole("link", { name: "Audit Logs" })
+    ).toHaveAttribute("href", "/admin/audit-logs");
+    expect(
       screen.getByRole("link", { name: "Account" })
     ).toHaveAttribute("href", "/account");
+  });
+
+  it("hides Users and Audit Logs for a signed-in non-admin role", () => {
+    usePathname.mockReturnValue("/clients");
+    useCurrentUser.mockReturnValue({
+      user: { user_id: "u2", role: "onboarding_manager", totp_enrolled: true },
+      signOut: vi.fn(),
+    });
+
+    render(<LeftNav />);
+
+    expect(
+      screen.queryByRole("link", { name: "Users" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Audit Logs" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Clients" })
+    ).toBeInTheDocument();
+  });
+
+  it("hides Users and Audit Logs when signed out", () => {
+    usePathname.mockReturnValue("/clients");
+    // Default beforeEach state: user: null.
+
+    render(<LeftNav />);
+
+    expect(
+      screen.queryByRole("link", { name: "Users" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Audit Logs" })
+    ).not.toBeInTheDocument();
   });
 
   it("renders its nav items regardless of which path is current", () => {

@@ -9,19 +9,20 @@ import { useCurrentUser } from "@/lib/currentUser";
 interface NavItem {
   label: string;
   href: string;
+  adminOnly?: boolean;
 }
 
 // Config-driven on purpose — the platform vision expects more top-level
 // sections later (e.g. Settings); adding one should mean adding an entry
-// here, not restructuring the nav.
+// here, not restructuring the nav. `adminOnly` exists because `Role` now
+// has a second variant (`onboarding_manager`) that carries no admin
+// capability at all -- every route these two items point at 403s for it
+// server-side already, so hiding them here is purely UX, not the actual
+// security boundary (see unitprep-api's `insufficient_role`).
 const NAV_ITEMS: NavItem[] = [
   { label: "Clients", href: "/clients" },
-  // Not actually role-gated yet -- Role has one variant (admin) in v1, so
-  // every signed-in caller qualifies. Listed explicitly rather than
-  // omitted so this is a visible decision to revisit once a second role
-  // exists, not a silent assumption.
-  { label: "Users", href: "/admin/users" },
-  { label: "Audit Logs", href: "/admin/audit-logs" },
+  { label: "Users", href: "/admin/users", adminOnly: true },
+  { label: "Audit Logs", href: "/admin/audit-logs", adminOnly: true },
   { label: "Account", href: "/account" },
 ];
 
@@ -37,6 +38,10 @@ export default function LeftNav() {
     router.replace("/login");
   }
 
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => !item.adminOnly || user?.role === "admin"
+  );
+
   return (
     <nav className="flex w-56 shrink-0 flex-col border-r border-slate-800 bg-slate-950 p-4">
       <div className="mb-6 px-2 text-lg font-semibold text-slate-100">
@@ -44,7 +49,7 @@ export default function LeftNav() {
       </div>
 
       <ul className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const active = pathname.startsWith(
             item.href
           );

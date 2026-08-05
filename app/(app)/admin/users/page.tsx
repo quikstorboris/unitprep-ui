@@ -14,6 +14,7 @@ import {
   type Role,
   type UserSummary,
 } from "@/lib/auth";
+import RequireAdmin from "@/components/auth/RequireAdmin";
 import { useCurrentUser } from "@/lib/currentUser";
 
 const primaryButtonClass =
@@ -33,6 +34,37 @@ const inputClass =
 
 function inviteLinkFor(token: string): string {
   return `${window.location.origin}/invites/${token}`;
+}
+
+// No ESP is wired up anywhere in this system (see AUTHENTICATION.md) --
+// there is nothing to push a real alert through yet. This in-app
+// indicator is the honest "for now" version: it costs nothing to build
+// and needs no new infrastructure, unlike an actual notification, which
+// waits on that same deferred ESP/webhook decision.
+const DORMANT_THRESHOLD_DAYS = 90;
+
+function daysSince(isoDate: string): number {
+  return (Date.now() - new Date(isoDate).getTime()) / (1000 * 60 * 60 * 24);
+}
+
+// Scoped to `active` accounts only -- an `invited` user who hasn't
+// enrolled yet has never had a session to go quiet on, which is a
+// different signal (and already visible via the Reissue action), and a
+// `deactivated` account being "dormant" on top of that is moot.
+function isDormant(user: UserSummary): boolean {
+  return (
+    user.status === "active" &&
+    user.last_seen_at !== null &&
+    daysSince(user.last_seen_at) >= DORMANT_THRESHOLD_DAYS
+  );
+}
+
+function formatLastActive(lastSeenAt: string | null): string {
+  if (!lastSeenAt) return "Never";
+  const days = Math.floor(daysSince(lastSeenAt));
+  if (days < 1) return "Today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
 }
 
 export default function AdminUsersPage() {
@@ -200,6 +232,7 @@ export default function AdminUsersPage() {
   }
 
   return (
+    <RequireAdmin>
     <div className="flex-1 p-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -382,6 +415,7 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-2 font-medium">Company</th>
                 <th className="px-4 py-2 font-medium">Role</th>
                 <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 font-medium">Last active</th>
                 <th className="px-4 py-2 font-medium">Passkeys</th>
                 <th className="px-4 py-2 font-medium">TOTP</th>
                 <th className="px-4 py-2 font-medium">Action</th>
@@ -441,6 +475,21 @@ export default function AdminUsersPage() {
                       }
                     >
                       {user.status}
+                    </td>
+                    <td
+                      className={
+                        isDormant(user)
+                          ? "px-4 py-2 text-amber-400"
+                          : "px-4 py-2 text-slate-400"
+                      }
+                      title={
+                        isDormant(user)
+                          ? `No activity for ${DORMANT_THRESHOLD_DAYS}+ days`
+                          : undefined
+                      }
+                    >
+                      {formatLastActive(user.last_seen_at)}
+                      {isDormant(user) && " ⚠"}
                     </td>
                     <td className="px-4 py-2 text-slate-400">
                       {user.credential_count}
@@ -541,5 +590,6 @@ export default function AdminUsersPage() {
         </div>
       )}
     </div>
+    </RequireAdmin>
   );
 }

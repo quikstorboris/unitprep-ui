@@ -312,6 +312,10 @@ export interface UserSummary {
   created_at: string;
   credential_count: number;
   totp_enrolled: boolean;
+  /** Most recent activity across every session this user has ever had,
+   * or `null` if they've never had one (still `invited`). Backs the
+   * admin Users table's dormant-account indicator. */
+  last_seen_at: string | null;
 }
 
 export async function listUsers(): Promise<

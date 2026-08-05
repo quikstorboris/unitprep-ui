@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import RequireAdmin from "@/components/auth/RequireAdmin";
 import { listAuditLogs, type AuditLogEntry } from "@/lib/auth";
 
 const primaryButtonClass =
@@ -137,6 +138,7 @@ export default function AdminAuditLogsPage() {
   }
 
   return (
+    <RequireAdmin>
     <div className="flex-1 p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-100">Audit Logs</h1>
@@ -251,5 +253,6 @@ export default function AdminAuditLogsPage() {
         </>
       )}
     </div>
+    </RequireAdmin>
   );
 }
