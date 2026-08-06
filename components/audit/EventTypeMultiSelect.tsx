@@ -10,6 +10,15 @@ import { useEffect, useRef, useState } from "react";
  *
  * `allEventTypes` is expected to come from `listAuditLogEventTypes()`
  * (the backend's own canonical list), not a hand-maintained copy.
+ *
+ * Keyboard-navigable (arrow up/down to move the highlight, Enter to
+ * toggle the highlighted checkbox, Escape to close) as well as click --
+ * same standing UI/UX expectation applied to UserMultiSelect's dropdown,
+ * not something to add only to whichever one happens to get asked for.
+ * Enter *toggles* rather than selecting-and-closing, unlike
+ * UserMultiSelect: this list is a set of independent on/off switches,
+ * not a pick-one-then-done combobox, so closing on every Enter would
+ * undo the point of being able to check several in a row.
  */
 export interface EventTypeMultiSelectProps {
   allEventTypes: string[];
@@ -44,7 +53,9 @@ export default function EventTypeMultiSelect({
 }: EventTypeMultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Array<HTMLLabelElement | null>>([]);
 
   // Closes on an outside click -- the one piece of dropdown behaviour with
   // no HTML primitive to lean on, unlike <select> or <details>, neither of
@@ -67,11 +78,35 @@ export default function EventTypeMultiSelect({
     eventType.toLowerCase().includes(search.trim().toLowerCase())
   );
 
+  useEffect(() => {
+    itemRefs.current[highlightedIndex]?.scrollIntoView({ block: "nearest" });
+  }, [highlightedIndex]);
+
   function toggle(eventType: string) {
     if (selectedSet.has(eventType)) {
       onChange(selected.filter((value) => value !== eventType));
     } else {
       onChange([...selected, eventType]);
+    }
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (!open || visibleEventTypes.length === 0) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlightedIndex((index) => (index + 1) % visibleEventTypes.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlightedIndex(
+        (index) => (index - 1 + visibleEventTypes.length) % visibleEventTypes.length
+      );
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const eventType = visibleEventTypes[highlightedIndex];
+      if (eventType) toggle(eventType);
+    } else if (event.key === "Escape") {
+      setOpen(false);
     }
   }
 
@@ -94,7 +129,15 @@ export default function EventTypeMultiSelect({
             type="text"
             autoFocus
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              // Reset here, in the same event, rather than in a
+              // useEffect keyed on `search` -- setState-in-effect causes
+              // an extra cascading render for a change that's already
+              // known at the point search itself changes.
+              setHighlightedIndex(0);
+            }}
+            onKeyDown={handleKeyDown}
             placeholder="Search events…"
             className={`${panelInputClass} mb-2`}
           />
@@ -122,10 +165,16 @@ export default function EventTypeMultiSelect({
                 No matching events.
               </p>
             ) : (
-              visibleEventTypes.map((eventType) => (
+              visibleEventTypes.map((eventType, index) => (
                 <label
                   key={eventType}
-                  className="flex items-center gap-2 rounded px-2 py-1 text-sm text-slate-200 hover:bg-slate-800"
+                  ref={(el) => {
+                    itemRefs.current[index] = el;
+                  }}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                  className={`flex items-center gap-2 rounded px-2 py-1 text-sm text-slate-200 ${
+                    index === highlightedIndex ? "bg-slate-800" : "hover:bg-slate-800"
+                  }`}
                 >
                   <input
                     type="checkbox"
