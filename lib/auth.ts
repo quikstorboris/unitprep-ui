@@ -327,16 +327,21 @@ export async function listUsers(): Promise<
 /** Same shape as AuthResult, but keeping the raw `Response` rather than
  * parsing it as JSON -- the caller reads it as a blob for download instead.
  * Mirrors parseAuthResult's 401/error handling since it can't reuse that
- * function directly (that one always calls response.json()). */
-export type ExportUsersResult =
+ * function directly (that one always calls response.json()). Shared by
+ * every file-download export (Users CSV, the audit-log PDF), not just
+ * the one that first needed it. */
+export type FileDownloadResult =
   | { kind: "ok"; response: Response }
   | { kind: "unauthorized"; message: string }
   | { kind: "error"; message: string };
 
-/** CSV export of every user field the admin Users table shows. */
-export async function exportUsersCsv(): Promise<ExportUsersResult> {
+async function fetchForDownload(
+  path: string,
+  body?: unknown,
+  method: "GET" | "POST" = "POST"
+): Promise<FileDownloadResult> {
   try {
-    const response = await authFetch("/auth/users/export", undefined, "GET");
+    const response = await authFetch(path, body, method);
 
     if (response.status === 401) {
       return {
@@ -351,6 +356,11 @@ export async function exportUsersCsv(): Promise<ExportUsersResult> {
   } catch (err) {
     return { kind: "error", message: describeFetchError(err) };
   }
+}
+
+/** CSV export of every user field the admin Users table shows. */
+export async function exportUsersCsv(): Promise<FileDownloadResult> {
+  return fetchForDownload("/auth/users/export", undefined, "GET");
 }
 
 /** Mirrors `VALID_COMPANIES` in unitprep-api's bootstrap.rs -- the two
@@ -483,4 +493,61 @@ export async function listAuditLogEventTypes(): Promise<
   AuthResult<{ event_types: string[] }>
 > {
   return tryAuthFetch("/auth/audit-logs/event-types", undefined, "GET");
+}
+
+/** Filters shared by the audit-log PDF export and its live preview --
+ * same shape, since both hit the identical backend filter query. Dates
+ * are plain YYYY-MM-DD (straight from a native `<input type="date">`);
+ * converted to UTC day bounds in `toExportRequestBody` so callers don't
+ * have to think about start/end-of-day. */
+export interface AuditLogExportRequest {
+  dateFrom: string;
+  dateTo: string;
+  eventTypes?: string[];
+  userIds?: string[];
+  ipAddress?: string;
+}
+
+function toExportRequestBody(request: AuditLogExportRequest) {
+  return {
+    date_from: `${request.dateFrom}T00:00:00Z`,
+    date_to: `${request.dateTo}T23:59:59Z`,
+    event_types: request.eventTypes ?? [],
+    user_ids: request.userIds ?? [],
+    ip_address: request.ipAddress || undefined,
+  };
+}
+
+export interface AuditLogPreviewRow {
+  id: number;
+  created_at: string;
+  event_type: string;
+  actor_label: string;
+  target_label: string;
+  ip_address: string | null;
+  details: string;
+}
+
+/** A small, JSON preview of what the PDF export would contain -- backs
+ * the export filters page's "what will be in the report" panel, without
+ * generating a full PDF on every filter change. */
+export async function previewAuditLogsExport(
+  request: AuditLogExportRequest
+): Promise<AuthResult<{ rows: AuditLogPreviewRow[]; truncated: boolean }>> {
+  return tryAuthFetch(
+    "/auth/audit-logs/export/preview",
+    toExportRequestBody(request)
+  );
+}
+
+/** The actual PDF deliverable -- same filters as the preview, but this
+ * one is audited (see AUDIT_LOG_EXPORTED) and has no row cap tuned for
+ * responsiveness. */
+export async function exportAuditLogsPdf(
+  request: AuditLogExportRequest
+): Promise<FileDownloadResult> {
+  return fetchForDownload(
+    "/auth/audit-logs/export",
+    toExportRequestBody(request)
+  );
 }

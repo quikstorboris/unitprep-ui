@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 import RequireAdmin from "@/components/auth/RequireAdmin";
 import EventTypeMultiSelect from "@/components/audit/EventTypeMultiSelect";
+import UserMultiSelect from "@/components/audit/UserMultiSelect";
 import {
   listAuditLogEventTypes,
   listAuditLogs,
@@ -12,30 +14,15 @@ import {
   type UserSummary,
 } from "@/lib/auth";
 
-const inputClass =
-  "rounded border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none";
+const smallButtonClass =
+  "rounded bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50";
 
-// Shared by the Event type and User ID filter controls so the two boxes
+// Shared by the Event type and User filter controls so the two boxes
 // are visually identical rather than sizing to their own content --
-// the difference Boris flagged.
+// the difference Boris originally flagged.
 const filterControlWidthClass = "w-64";
 
 const PAGE_SIZE = 50;
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** Name, email, or a UUID substring -- whatever the admin is most likely to
- * have on hand for a given user. */
-function matchesUserQuery(user: UserSummary, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return false;
-  return (
-    user.id.toLowerCase().includes(needle) ||
-    user.email.toLowerCase().includes(needle) ||
-    `${user.first_name} ${user.last_name}`.toLowerCase().includes(needle)
-  );
-}
 
 /**
  * Before/after diffing for the change-type events (`user_deactivated`,
@@ -146,58 +133,20 @@ export default function AdminAuditLogsPage() {
   const [allEventTypes, setAllEventTypes] = useState<string[]>([]);
   const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
 
-  // The user filter is a fuzzy-match autocomplete, not a raw UUID box:
-  // `userSearchText` is whatever the admin is typing/has typed, and
-  // `selectedUserId` is only set once they pick a suggestion (or it's
-  // resolved from a directly-pasted UUID -- see the UUID_PATTERN check in
-  // runQuery below). Typing again after a selection clears selectedUserId,
-  // since the previously-selected user no longer matches what's on screen.
-  const [userSearchText, setUserSearchText] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const userFilterRef = useRef<HTMLDivElement>(null);
+  // Multi-select, matching the export page's own User filter -- upgraded
+  // from a single-select autocomplete (see UserMultiSelect's doc comment
+  // for why that's shared with the export page while this page's own
+  // resolved-name display below isn't).
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
   // Keyed by id for the actor/target name+email resolution -- fetched once
   // up front rather than per-row, same as the Users page's own single
-  // listUsers() call. Also backs the user filter's fuzzy-match suggestions.
+  // listUsers() call. allUsers (below) is the same data as an array, for
+  // UserMultiSelect's fuzzy-match suggestions.
   const [usersById, setUsersById] = useState<Map<string, UserSummary>>(
     new Map()
   );
-
-  // Closes the user-filter dropdown on an outside click -- same pattern as
-  // EventTypeMultiSelect's own outside-click handling, but that component
-  // is self-contained and this filter isn't (it needs page-level state:
-  // selectedUserId feeds runQuery directly), so it's not reused as-is here.
-  useEffect(() => {
-    if (!userDropdownOpen) return;
-
-    function handleClickOutside(event: MouseEvent) {
-      if (!userFilterRef.current?.contains(event.target as Node)) {
-        setUserDropdownOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [userDropdownOpen]);
-
-  const userMatches = useMemo(() => {
-    if (selectedUserId || !userSearchText.trim()) return [];
-    return Array.from(usersById.values())
-      .filter((user) => matchesUserQuery(user, userSearchText))
-      .slice(0, 8);
-  }, [userSearchText, usersById, selectedUserId]);
-
-  function selectUser(user: UserSummary) {
-    setSelectedUserId(user.id);
-    setUserSearchText(`${user.first_name} ${user.last_name} (${user.email})`);
-    setUserDropdownOpen(false);
-  }
-
-  function clearUserFilter() {
-    setSelectedUserId(null);
-    setUserSearchText("");
-  }
+  const allUsers = useMemo(() => Array.from(usersById.values()), [usersById]);
 
   useEffect(() => {
     queueMicrotask(async () => {
@@ -239,19 +188,11 @@ export default function AdminAuditLogsPage() {
           ? undefined
           : selectedEventTypes.join(",");
 
-      // selectedUserId (a picked suggestion) wins; otherwise fall back to
-      // a directly-pasted UUID, so that capability isn't lost now that the
-      // box is primarily a name/email search rather than a raw UUID field.
-      const trimmedSearch = userSearchText.trim();
-      const userIdParam =
-        selectedUserId ??
-        (UUID_PATTERN.test(trimmedSearch) ? trimmedSearch : undefined);
-
       const result = await listAuditLogs({
         limit: PAGE_SIZE,
         beforeId,
         eventType: eventTypeParam,
-        userId: userIdParam,
+        userId: selectedUserIds.length > 0 ? selectedUserIds.join(",") : undefined,
       });
 
       if (result.kind !== "ok") {
@@ -262,7 +203,7 @@ export default function AdminAuditLogsPage() {
       setLoadError(null);
       return result.data.entries;
     },
-    [allEventTypes, selectedEventTypes, selectedUserId, userSearchText]
+    [allEventTypes, selectedEventTypes, selectedUserIds]
   );
 
   const loadFirstPage = useCallback(async () => {
@@ -331,11 +272,16 @@ export default function AdminAuditLogsPage() {
   return (
     <RequireAdmin>
     <div className="flex-1 p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-100">Audit Logs</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Every recorded authentication and admin event, newest first.
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-100">Audit Logs</h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Every recorded authentication and admin event, newest first.
+          </p>
+        </div>
+        <Link href="/admin/audit-logs/export" className={smallButtonClass}>
+          Export
+        </Link>
       </div>
 
       {/* No submit button -- every control here already reloads the list
@@ -352,50 +298,15 @@ export default function AdminAuditLogsPage() {
             className={filterControlWidthClass}
           />
         </label>
-        <div className="flex flex-col gap-1 text-sm text-slate-300">
+        <label className="flex flex-col gap-1 text-sm text-slate-300">
           User (actor or target)
-          <div ref={userFilterRef} className={`relative ${filterControlWidthClass}`}>
-            <input
-              value={userSearchText}
-              onChange={(event) => {
-                setUserSearchText(event.target.value);
-                setSelectedUserId(null);
-                setUserDropdownOpen(true);
-              }}
-              onFocus={() => setUserDropdownOpen(true)}
-              placeholder="Start typing a name or email, or paste a UUID…"
-              className={`${inputClass} w-full pr-7 ${selectedUserId ? "" : "text-xs"}`}
-            />
-            {(selectedUserId || userSearchText) && (
-              <button
-                type="button"
-                onClick={clearUserFilter}
-                aria-label="Clear user filter"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-              >
-                ×
-              </button>
-            )}
-
-            {userDropdownOpen && userMatches.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full rounded border border-slate-700 bg-slate-900 p-1 shadow-lg">
-                {userMatches.map((user) => (
-                  <button
-                    key={user.id}
-                    type="button"
-                    onClick={() => selectUser(user)}
-                    className="block w-full rounded px-2 py-1 text-left hover:bg-slate-800"
-                  >
-                    <div className="text-sm text-slate-200">
-                      {user.first_name} {user.last_name}
-                    </div>
-                    <div className="text-xs text-slate-500">{user.email}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+          <UserMultiSelect
+            users={allUsers}
+            selected={selectedUserIds}
+            onChange={setSelectedUserIds}
+            className={filterControlWidthClass}
+          />
+        </label>
       </div>
 
       {loadError && (
