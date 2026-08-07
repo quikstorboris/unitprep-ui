@@ -7,10 +7,12 @@ import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
  * either, the same reasoning `useSessionPost`/`useSessionAction` already
  * apply to the tool endpoints.
  */
+type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+
 async function authFetch(
   path: string,
   body?: unknown,
-  method: "GET" | "POST" = "POST"
+  method: HttpMethod = "POST"
 ): Promise<Response> {
   return fetch(`${API_URL}${path}`, {
     method,
@@ -57,7 +59,7 @@ async function parseAuthResult<T>(
 async function tryAuthFetch<T>(
   path: string,
   body?: unknown,
-  method: "GET" | "POST" = "POST"
+  method: HttpMethod = "POST"
 ): Promise<AuthResult<T>> {
   try {
     return await parseAuthResult<T>(await authFetch(path, body, method));
@@ -66,15 +68,33 @@ async function tryAuthFetch<T>(
   }
 }
 
-/** Mirrors unitprep-api's `Role` enum. `onboarding_manager` is schema-only
- * on the backend today -- nothing can grant it yet -- but the type exists
- * here so `WhoAmI`/`UserSummary` stop being a bare `string` for `role`. */
-export type Role = "admin" | "onboarding_manager";
+/** Role keys are real, open-ended data now (`auth.roles`), not a closed
+ * set -- see `listRoles()` for the live catalog. `string` rather than a
+ * union: a frontend-side union would need editing every time a role is
+ * added or renamed on the backend, exactly the hardcoding the backend's
+ * own move to data-driven roles/permissions was meant to avoid. */
+export type Role = string;
 
 export interface WhoAmI {
   user_id: string;
-  role: Role;
+  roles: Role[];
+  /** Every permission key `roles` currently grants, resolved server-side
+   * -- prefer checking this over hardcoding a role name in UI gating
+   * (`hasPermission(user, "users.manage")`, not `user.roles.includes("admin")`),
+   * so the frontend doesn't re-invent the same role->capability mapping
+   * the backend already owns. */
+  permissions: string[];
   totp_enrolled: boolean;
+}
+
+/** Whether `user` currently holds `permissionKey`, per the backend's own
+ * resolution -- the frontend's one place to ask this question, mirroring
+ * `AuthenticatedUser::has_permission` on the Rust side. */
+export function hasPermission(
+  user: WhoAmI | null,
+  permissionKey: string
+): boolean {
+  return user?.permissions.includes(permissionKey) ?? false;
 }
 
 /**
@@ -307,7 +327,7 @@ export interface UserSummary {
   last_name: string;
   company: string;
   job_title: string | null;
-  role: Role;
+  roles: Role[];
   status: string;
   created_at: string;
   credential_count: number;
@@ -368,12 +388,22 @@ export async function exportUsersCsv(): Promise<FileDownloadResult> {
  * silently wrong. */
 export const VALID_COMPANIES = ["trojan", "cobre", "quikstor"] as const;
 
-/** Mirrors `Role::from_db_text`'s accepted values in unitprep-api. Order
- * here is display order in both role dropdowns. */
-export const VALID_ROLES: { value: Role; label: string }[] = [
-  { value: "admin", label: "Admin" },
-  { value: "onboarding_manager", label: "Onboarding Manager" },
-];
+export interface RoleInfo {
+  key: string;
+  label: string;
+  description: string | null;
+  is_system: boolean;
+  permissions: string[];
+}
+
+/** The live role catalog straight from `auth.roles` -- replaces a
+ * hardcoded frontend role list, which would otherwise need editing every
+ * time a role is added, renamed, or (once the custom-role editor exists)
+ * created by an admin. Backs both role dropdowns/pickers and the Roles
+ * page's capability matrix. */
+export async function listRoles(): Promise<AuthResult<{ roles: RoleInfo[] }>> {
+  return tryAuthFetch("/auth/roles", undefined, "GET");
+}
 
 export interface CreateInviteRequest {
   email: string;
@@ -435,14 +465,36 @@ export async function reactivateUser(
   );
 }
 
-/** Changes an already-enrolled user's role -- distinct from picking a
- * role at invite-creation time (`createInvite`'s `role` field), which
- * only applies to a brand-new or not-yet-enrolled account. */
-export async function changeUserRole(
+export interface RoleChangeResult {
+  user_id: string;
+  roles: Role[];
+}
+
+/** Grants an additional role to an already-enrolled user -- distinct from
+ * picking a role at invite-creation time (`createInvite`'s `role` field),
+ * which only applies to a brand-new or not-yet-enrolled account. Never
+ * valid against the caller's own account -- refused both server-side
+ * (RLS) and by the backend handler with a clean 400. */
+export async function grantRole(
   userId: string,
   role: Role
-): Promise<AuthResult<{ user_id: string; role: Role }>> {
-  return tryAuthFetch(`/auth/users/${userId}/role`, { role }, "POST");
+): Promise<AuthResult<RoleChangeResult>> {
+  return tryAuthFetch(`/auth/users/${userId}/roles`, { role }, "POST");
+}
+
+/** `grantRole`'s counterpart. Refuses to leave the account with zero
+ * roles held only in the same narrow "last active admin" sense the
+ * backend already enforces -- otherwise any held role can be revoked
+ * freely. */
+export async function revokeRole(
+  userId: string,
+  role: Role
+): Promise<AuthResult<RoleChangeResult>> {
+  return tryAuthFetch(
+    `/auth/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(role)}`,
+    undefined,
+    "DELETE"
+  );
 }
 
 export interface AuditLogEntry {
@@ -549,5 +601,40 @@ export async function exportAuditLogsPdf(
   return fetchForDownload(
     "/auth/audit-logs/export",
     toExportRequestBody(request)
+  );
+}
+
+/** The one step-up-gated action that exists today -- mirrors
+ * unitprep-api's `ADD_PASSKEY` constant. Kept here, not fetched from the
+ * backend, for the same reason `VALID_COMPANIES` is a frontend constant:
+ * there's exactly one of these, and a dedicated "list known step-up
+ * actions" endpoint would be a lot of machinery for a list of one. */
+export const KNOWN_STEP_UP_ACTIONS: { value: string; label: string }[] = [
+  { value: "add_passkey", label: "Adding a new passkey to an already-enrolled account" },
+];
+
+export interface AuthConfiguration {
+  step_up_actions: string[];
+  updated_at: string;
+  updated_by: string | null;
+}
+
+/** Org-wide auth policy -- currently just which actions require a fresh
+ * step-up. `allowed_factors` exists in the schema but isn't surfaced
+ * here: nothing in unitprep-api reads it yet, so a control for it would
+ * edit a value with no effect on real behaviour. */
+export async function getAuthConfiguration(): Promise<
+  AuthResult<AuthConfiguration>
+> {
+  return tryAuthFetch("/auth/configuration", undefined, "GET");
+}
+
+export async function updateAuthConfiguration(
+  stepUpActions: string[]
+): Promise<AuthResult<{ step_up_actions: string[] }>> {
+  return tryAuthFetch(
+    "/auth/configuration",
+    { step_up_actions: stepUpActions },
+    "PUT"
   );
 }

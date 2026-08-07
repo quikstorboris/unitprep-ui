@@ -3,20 +3,22 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import {
-  changeUserRole,
   createInvite,
   disableUser,
   exportUsersCsv,
+  grantRole,
+  listRoles,
   listUsers,
   reactivateUser,
   recoverAccount,
+  revokeRole,
   VALID_COMPANIES,
-  VALID_ROLES,
   type InviteIssued,
   type Role,
+  type RoleInfo,
   type UserSummary,
 } from "@/lib/auth";
-import RequireAdmin from "@/components/auth/RequireAdmin";
+import RequirePermission from "@/components/auth/RequirePermission";
 import { useCurrentUser } from "@/lib/currentUser";
 import { downloadBlob } from "@/lib/useSessionAction";
 
@@ -83,8 +85,16 @@ export default function AdminUsersPage() {
     VALID_COMPANIES[0]
   );
   const [jobTitle, setJobTitle] = useState("");
-  const [role, setRole] = useState<Role>(VALID_ROLES[0].value);
+  const [availableRoles, setAvailableRoles] = useState<RoleInfo[] | null>(
+    null
+  );
+  const [role, setRole] = useState<Role>("");
   const [createError, setCreateError] = useState<string | null>(null);
+  // Per-row picker for the "add a role" control -- keyed by user id so
+  // more than one row's picker can be open independently, same shape as
+  // the confirmingXFor pieces of state below.
+  const [addingRoleFor, setAddingRoleFor] = useState<string | null>(null);
+  const [roleToAdd, setRoleToAdd] = useState<Role>("");
 
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   // Separate from pendingUserId (the in-flight network call) -- a row can
@@ -140,6 +150,17 @@ export default function AdminUsersPage() {
     setUsers(result.data.users);
   }
 
+  async function loadRoles() {
+    const result = await listRoles();
+    if (result.kind !== "ok") {
+      setLoadError(result.message);
+      return;
+    }
+    setAvailableRoles(result.data.roles);
+    setRole((current) => current || result.data.roles[0]?.key || "");
+    setRoleToAdd((current) => current || result.data.roles[0]?.key || "");
+  }
+
   // Deferred via queueMicrotask rather than calling loadUsers directly --
   // same reasoning as TotpEnrollForm's autoStart: the lint rule flags any
   // setState reachable from the effect body's own synchronous execution,
@@ -147,6 +168,7 @@ export default function AdminUsersPage() {
   useEffect(() => {
     queueMicrotask(() => {
       loadUsers();
+      loadRoles();
     });
   }, []);
 
@@ -180,7 +202,7 @@ export default function AdminUsersPage() {
     setFirstName("");
     setLastName("");
     setJobTitle("");
-    setRole(VALID_ROLES[0].value);
+    setRole(availableRoles?.[0]?.key ?? "");
     setShowCreateForm(false);
     await loadUsers();
   }
@@ -195,11 +217,14 @@ export default function AdminUsersPage() {
       last_name: user.last_name,
       company: user.company as (typeof VALID_COMPANIES)[number],
       job_title: user.job_title ?? undefined,
-      // Unchanged -- reissue has no role picker of its own; a wrong role
-      // assigned before enrolment is fixable by changing it on the row
-      // dropdown once reissued (or before, since the backend re-applies
-      // whatever role is submitted here too).
-      role: user.role,
+      // Reissue has no role picker of its own, and the backend's reissue
+      // path *replaces* the role set with whatever single role is
+      // submitted here (see auth_invites.rs) -- so this only resubmits
+      // the first role. An invited-but-not-yet-enrolled user who was
+      // granted more than one role before ever signing in would lose the
+      // others on reissue; edge case worth knowing about, not handled by
+      // this form.
+      role: user.roles[0],
     });
     setPendingUserId(null);
 
@@ -263,13 +288,29 @@ export default function AdminUsersPage() {
     await loadUsers();
   }
 
-  async function handleRoleChange(user: UserSummary, newRole: Role) {
-    if (newRole === user.role) return;
+  async function handleGrantRole(user: UserSummary, newRole: Role) {
+    if (!newRole || user.roles.includes(newRole)) return;
 
     setRowError(null);
     setPendingUserId(user.id);
 
-    const result = await changeUserRole(user.id, newRole);
+    const result = await grantRole(user.id, newRole);
+    setPendingUserId(null);
+    setAddingRoleFor(null);
+
+    if (result.kind !== "ok") {
+      setRowError(result.message);
+      return;
+    }
+
+    await loadUsers();
+  }
+
+  async function handleRevokeRole(user: UserSummary, roleToRemove: Role) {
+    setRowError(null);
+    setPendingUserId(user.id);
+
+    const result = await revokeRole(user.id, roleToRemove);
     setPendingUserId(null);
 
     if (result.kind !== "ok") {
@@ -281,7 +322,7 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <RequireAdmin>
+    <RequirePermission permission="users.manage">
     <div className="flex-1 p-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -415,11 +456,11 @@ export default function AdminUsersPage() {
               Role
               <select
                 value={role}
-                onChange={(event) => setRole(event.target.value as Role)}
+                onChange={(event) => setRole(event.target.value)}
                 className={inputClass}
               >
-                {VALID_ROLES.map(({ value, label }) => (
-                  <option key={value} value={value}>
+                {(availableRoles ?? []).map(({ key, label }) => (
+                  <option key={key} value={key}>
                     {label}
                   </option>
                 ))}
@@ -524,20 +565,83 @@ export default function AdminUsersPage() {
                       {user.company}
                     </td>
                     <td className="px-4 py-2">
-                      <select
-                        value={user.role}
-                        disabled={isSelf || isPending}
-                        onChange={(event) =>
-                          handleRoleChange(user, event.target.value as Role)
-                        }
-                        className={`${inputClass} py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50`}
-                      >
-                        {VALID_ROLES.map(({ value, label }) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {user.roles.map((roleKey) => (
+                          <span
+                            key={roleKey}
+                            className="flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-200"
+                          >
+                            {availableRoles?.find((r) => r.key === roleKey)
+                              ?.label ?? roleKey}
+                            {/* Self-role-edit is refused server-side (RLS
+                                and the handler both), so this is hidden
+                                rather than shown-disabled on your own
+                                row -- there's nothing it could ever do. */}
+                            {!isSelf && (
+                              <button
+                                type="button"
+                                disabled={isPending}
+                                onClick={() => handleRevokeRole(user, roleKey)}
+                                aria-label={`Remove ${roleKey} role`}
+                                className="text-slate-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </span>
                         ))}
-                      </select>
+
+                        {!isSelf &&
+                          (addingRoleFor === user.id ? (
+                            <span className="flex items-center gap-1">
+                              <select
+                                value={roleToAdd}
+                                onChange={(event) =>
+                                  setRoleToAdd(event.target.value)
+                                }
+                                className={`${inputClass} py-0.5 text-xs`}
+                              >
+                                {(availableRoles ?? [])
+                                  .filter((r) => !user.roles.includes(r.key))
+                                  .map(({ key, label }) => (
+                                    <option key={key} value={key}>
+                                      {label}
+                                    </option>
+                                  ))}
+                              </select>
+                              <button
+                                type="button"
+                                disabled={isPending || !roleToAdd}
+                                onClick={() => handleGrantRole(user, roleToAdd)}
+                                className={smallButtonClass}
+                              >
+                                Add
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setAddingRoleFor(null)}
+                                className={linkButtonClass}
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isPending}
+                              onClick={() => {
+                                const next = (availableRoles ?? []).find(
+                                  (r) => !user.roles.includes(r.key)
+                                );
+                                setRoleToAdd(next?.key ?? "");
+                                setAddingRoleFor(user.id);
+                              }}
+                              className="text-xs text-slate-500 hover:text-slate-300"
+                            >
+                              + Add role
+                            </button>
+                          ))}
+                      </div>
                     </td>
                     <td
                       className={
@@ -696,6 +800,6 @@ export default function AdminUsersPage() {
         </div>
       )}
     </div>
-    </RequireAdmin>
+    </RequirePermission>
   );
 }

@@ -19,6 +19,13 @@ vi.mock("@/lib/currentUser", () => ({
   useCurrentUser,
 }));
 
+const ADMIN_PERMISSIONS = [
+  "users.manage",
+  "users.manage_roles",
+  "audit_logs.read",
+  "security_policies.manage",
+];
+
 describe("LeftNav", () => {
   beforeEach(() => {
     useRouter.mockReturnValue({ replace: vi.fn() });
@@ -31,16 +38,21 @@ describe("LeftNav", () => {
     });
   });
 
-  it("renders the UnitPrep heading and a link per nav item for an admin", () => {
+  it("renders the logo and a link per nav item for an admin", () => {
     usePathname.mockReturnValue("/clients");
     useCurrentUser.mockReturnValue({
-      user: { user_id: "u1", role: "admin", totp_enrolled: true },
+      user: {
+        user_id: "u1",
+        roles: ["admin"],
+        permissions: ADMIN_PERMISSIONS,
+        totp_enrolled: true,
+      },
       signOut: vi.fn(),
     });
 
     render(<LeftNav />);
 
-    expect(screen.getByText("UnitPrep")).toBeInTheDocument();
+    expect(screen.getByAltText("Orchestrator")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Clients" })
     ).toHaveAttribute("href", "/clients");
@@ -48,45 +60,70 @@ describe("LeftNav", () => {
       screen.getByRole("link", { name: "Users" })
     ).toHaveAttribute("href", "/admin/users");
     expect(
+      screen.getByRole("link", { name: "Roles" })
+    ).toHaveAttribute("href", "/admin/roles");
+    expect(
       screen.getByRole("link", { name: "Audit Logs" })
     ).toHaveAttribute("href", "/admin/audit-logs");
+    expect(
+      screen.getByRole("link", { name: "Security Policies" })
+    ).toHaveAttribute("href", "/admin/security-policies");
     expect(
       screen.getByRole("link", { name: "Account" })
     ).toHaveAttribute("href", "/account");
   });
 
-  it("hides Users and Audit Logs for a signed-in non-admin role", () => {
+  it("hides every Administration link for a signed-in caller with no admin-shaped permissions", () => {
     usePathname.mockReturnValue("/clients");
     useCurrentUser.mockReturnValue({
-      user: { user_id: "u2", role: "onboarding_manager", totp_enrolled: true },
+      user: {
+        user_id: "u2",
+        roles: ["onboarding_manager"],
+        permissions: ["client_ops.perform"],
+        totp_enrolled: true,
+      },
+      signOut: vi.fn(),
+    });
+
+    render(<LeftNav />);
+
+    for (const label of ["Users", "Roles", "Audit Logs", "Security Policies"]) {
+      expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
+    }
+    expect(screen.getByRole("link", { name: "Clients" })).toBeInTheDocument();
+  });
+
+  it("shows only the Administration links a partial permission set covers", () => {
+    usePathname.mockReturnValue("/clients");
+    useCurrentUser.mockReturnValue({
+      user: {
+        user_id: "u3",
+        roles: ["district_manager_stand_in"],
+        permissions: ["audit_logs.read"],
+        totp_enrolled: true,
+      },
       signOut: vi.fn(),
     });
 
     render(<LeftNav />);
 
     expect(
-      screen.queryByRole("link", { name: "Users" })
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Audit Logs" })
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "Clients" })
+      screen.getByRole("link", { name: "Audit Logs" })
     ).toBeInTheDocument();
+    for (const label of ["Users", "Roles", "Security Policies"]) {
+      expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
+    }
   });
 
-  it("hides Users and Audit Logs when signed out", () => {
+  it("hides every Administration link when signed out", () => {
     usePathname.mockReturnValue("/clients");
     // Default beforeEach state: user: null.
 
     render(<LeftNav />);
 
-    expect(
-      screen.queryByRole("link", { name: "Users" })
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Audit Logs" })
-    ).not.toBeInTheDocument();
+    for (const label of ["Users", "Roles", "Audit Logs", "Security Policies"]) {
+      expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
+    }
   });
 
   it("renders its nav items regardless of which path is current", () => {
@@ -129,12 +166,34 @@ describe("LeftNav", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows every held role, joined, in the footer", () => {
+    usePathname.mockReturnValue("/clients");
+    useCurrentUser.mockReturnValue({
+      user: {
+        user_id: "u1",
+        roles: ["admin", "onboarding_manager"],
+        permissions: ADMIN_PERMISSIONS,
+        totp_enrolled: true,
+      },
+      signOut: vi.fn(),
+    });
+
+    render(<LeftNav />);
+
+    expect(screen.getByText("admin, onboarding_manager")).toBeInTheDocument();
+  });
+
   it("signs out and redirects to /login when signed in", async () => {
     usePathname.mockReturnValue("/clients");
     const signOut = vi.fn().mockResolvedValue(undefined);
     const replace = vi.fn();
     useCurrentUser.mockReturnValue({
-      user: { user_id: "u1", role: "admin", totp_enrolled: false },
+      user: {
+        user_id: "u1",
+        roles: ["admin"],
+        permissions: ADMIN_PERMISSIONS,
+        totp_enrolled: false,
+      },
       signOut,
     });
     useRouter.mockReturnValue({ replace });

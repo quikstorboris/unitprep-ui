@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
-import RequireAdmin from "@/components/auth/RequireAdmin";
+import RequirePermission from "@/components/auth/RequirePermission";
 import EventTypeMultiSelect from "@/components/audit/EventTypeMultiSelect";
 import UserMultiSelect from "@/components/audit/UserMultiSelect";
 import {
@@ -177,7 +177,7 @@ export default function AuditLogExportPage() {
       : undefined;
 
   return (
-    <RequireAdmin>
+    <RequirePermission permission="audit_logs.read">
       <div className="flex-1 p-8">
         <div className="mb-6">
           <Link href="/admin/audit-logs" className={linkButtonClass}>
@@ -336,6 +336,6 @@ export default function AuditLogExportPage() {
           </button>
         </div>
       </div>
-    </RequireAdmin>
+    </RequirePermission>
   );
 }

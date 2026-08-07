@@ -50,7 +50,8 @@ export default function AccountPage() {
       <div className="w-full max-w-sm">
         <h1 className="mb-1 text-2xl font-bold text-slate-100">Account</h1>
         <p className="mb-6 text-sm text-slate-400">
-          Signed in as a <span className="text-slate-300">{user.role}</span>.
+          Signed in as{" "}
+          <span className="text-slate-300">{user.roles.join(", ")}</span>.
         </p>
 
         <h2 className="mb-2 text-sm font-semibold text-slate-200">
