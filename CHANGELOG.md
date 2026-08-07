@@ -8,6 +8,47 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-07
+
+Frontend half of `unitprep-api`'s multi-role authorization work
+(v1.6.0): a user can hold more than one role, and every admin-gated page
+checks a real permission instead of a hardcoded role name.
+
+### Added
+- **Administration nav group.** `LeftNav` groups Users, Roles, Audit
+  Logs, and Security Policies under an "Administration" heading, each
+  individually gated by its own permission rather than one blanket
+  admin-only flag -- a caller only sees the sub-items their permissions
+  actually cover.
+- **Roles page** (`/admin/roles`) -- read-only view of the role/
+  permission catalog. No editor: creating custom roles isn't built yet.
+- **Security Policies page** (`/admin/security-policies`) -- step-up
+  requirement toggles, backed by the new `auth.auth_configuration`
+  endpoints. `allowed_factors` has no control here on purpose (see
+  `unitprep-api`'s v1.6.0 changelog entry).
+- **Audit Logs category tabs** -- All/Authentication/Permissions &
+  Roles/Users & Access presets layered on top of the existing event-type
+  multi-select, so the filter doesn't stay one long flat list as the
+  event catalog keeps growing.
+- Users page: the single role dropdown is replaced by per-user role
+  chips, each individually removable (except on your own row, where
+  self-role-edit is refused server-side and the controls are hidden
+  rather than shown disabled), plus a per-row "add role" picker sourced
+  live from `GET /auth/roles` instead of a hardcoded role list.
+
+### Changed
+- `RequireAdmin` replaced by `RequirePermission`, which checks a
+  permission prop against the signed-in user's resolved permissions
+  instead of comparing a role string.
+- `WhoAmI`/`UserSummary` carry `roles: string[]` and (on `WhoAmI`)
+  `permissions: string[]` instead of a single `role` field.
+
+### Fixed
+- **`<li>` nested inside `<li>` in `LeftNav`**, a real hydration error
+  Next.js flagged live -- the Account link was wrapped in an extra `<li>`
+  around a component that already renders its own. `NavItem` now takes
+  an optional `className` for spacing instead.
+
 ## [1.3.1] - 2026-08-04
 
 ### Fixed
