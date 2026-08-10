@@ -46,6 +46,16 @@ const ADMINISTRATION_LINKS: NavLink[] = [
     href: "/admin/security-policies",
     permission: "security_policies.manage",
   },
+  {
+    label: "QMS Tags",
+    href: "/admin/client-ops/qms-tags",
+    // Not admin-exclusive -- onboarding_manager and department_manager
+    // hold client_ops.manage_tags too (Boris's call: maintaining this
+    // reference catalog reads as system configuration, not a client
+    // operation, so all three client-ops-adjacent roles share it rather
+    // than following client_ops.perform's usual admin-excluded shape).
+    permission: "client_ops.manage_tags",
+  },
 ];
 
 const ACCOUNT_LINK: NavLink = { label: "Account", href: "/account" };

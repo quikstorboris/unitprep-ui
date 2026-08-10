@@ -24,6 +24,7 @@ const ADMIN_PERMISSIONS = [
   "users.manage_roles",
   "audit_logs.read",
   "security_policies.manage",
+  "client_ops.manage_tags",
 ];
 
 describe("LeftNav", () => {
@@ -69,6 +70,9 @@ describe("LeftNav", () => {
       screen.getByRole("link", { name: "Security Policies" })
     ).toHaveAttribute("href", "/admin/security-policies");
     expect(
+      screen.getByRole("link", { name: "QMS Tags" })
+    ).toHaveAttribute("href", "/admin/client-ops/qms-tags");
+    expect(
       screen.getByRole("link", { name: "Account" })
     ).toHaveAttribute("href", "/account");
   });
@@ -87,7 +91,13 @@ describe("LeftNav", () => {
 
     render(<LeftNav />);
 
-    for (const label of ["Users", "Roles", "Audit Logs", "Security Policies"]) {
+    for (const label of [
+      "Users",
+      "Roles",
+      "Audit Logs",
+      "Security Policies",
+      "QMS Tags",
+    ]) {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: "Clients" })).toBeInTheDocument();
@@ -121,7 +131,13 @@ describe("LeftNav", () => {
 
     render(<LeftNav />);
 
-    for (const label of ["Users", "Roles", "Audit Logs", "Security Policies"]) {
+    for (const label of [
+      "Users",
+      "Roles",
+      "Audit Logs",
+      "Security Policies",
+      "QMS Tags",
+    ]) {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
   });
