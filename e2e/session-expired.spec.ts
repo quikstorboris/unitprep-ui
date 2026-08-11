@@ -10,12 +10,12 @@ test("a 404 from /validate shows Session Expired, and Home returns to client inf
 }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonPost(page, "http://127.0.0.1:8080/validate", () => ({
+  await mockJsonPost(page, "http://localhost:8080/validate", () => ({
     status: 404,
     json: { error: "not_found", message: "session not found" },
   }));
 
-  await mockJsonPost(page, "http://127.0.0.1:8080/session/cancel", () => ({
+  await mockJsonPost(page, "http://localhost:8080/session/cancel", () => ({
     json: {},
   }));
 

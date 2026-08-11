@@ -19,11 +19,11 @@ const analyzeResponse = {
 test("reviewing analysis and downloading the export ZIP", async ({ page }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonPost(page, "http://127.0.0.1:8080/analyze", () => ({
+  await mockJsonPost(page, "http://localhost:8080/analyze", () => ({
     json: analyzeResponse,
   }));
 
-  await mockBinaryPost(page, "http://127.0.0.1:8080/export", {
+  await mockBinaryPost(page, "http://localhost:8080/export", {
     body: Buffer.from("fake zip bytes"),
     contentType: "application/zip",
     filename: "UnitPrep_Output.zip",
@@ -49,7 +49,7 @@ test("an analysis failure shows an error instead of the review screen", async ({
 }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonPost(page, "http://127.0.0.1:8080/analyze", () => ({
+  await mockJsonPost(page, "http://localhost:8080/analyze", () => ({
     status: 500,
     json: { message: "analysis engine unavailable" },
   }));

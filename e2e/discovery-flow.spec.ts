@@ -44,7 +44,7 @@ async function mockUpload(
   sessionId: string
 ) {
   await page.route(
-    "http://127.0.0.1:8080/upload",
+    "http://localhost:8080/upload",
     async (route: Route) => {
       if (route.request().method() === "OPTIONS") {
         await route.fulfill({ status: 204, headers: CORS_HEADERS });
@@ -106,7 +106,7 @@ test("upload through discover, confirm unit files, confirm format, and reach sca
   await seedClient(page, CLIENT_ID);
   await mockUpload(page, sessionId);
 
-  await mockJsonPost(page, "http://127.0.0.1:8080/discover", () => ({
+  await mockJsonPost(page, "http://localhost:8080/discover", () => ({
     json: baseDiscovery(),
   }));
 
@@ -126,7 +126,7 @@ test("upload through discover, confirm unit files, confirm format, and reach sca
 
   // Now that unit-file selection is showing, re-mock /discover's
   // successor endpoints for the rest of the pipeline.
-  await mockJsonPost(page, "http://127.0.0.1:8080/unit-file/select", () => ({
+  await mockJsonPost(page, "http://localhost:8080/unit-file/select", () => ({
     json: {
       ...baseDiscovery(),
       requires_unit_file_selection: false,
@@ -146,7 +146,7 @@ test("upload through discover, confirm unit files, confirm format, and reach sca
 
   await mockJsonPost(
     page,
-    "http://127.0.0.1:8080/unit-file/resolve-format",
+    "http://localhost:8080/unit-file/resolve-format",
     () => ({
       json: {
         ...baseDiscovery(),
@@ -171,7 +171,7 @@ test("upload through discover, confirm unit files, confirm format, and reach sca
   // no request involved).
   await page.getByRole("button", { name: "Net New Client" }).click();
 
-  await mockJsonPost(page, "http://127.0.0.1:8080/validate", () => ({
+  await mockJsonPost(page, "http://localhost:8080/validate", () => ({
     json: {
       files_checked: 1,
       issue_count: 0,
@@ -202,7 +202,7 @@ test("reopening unit file selection and clicking Cancel returns to the confirmed
   await seedClient(page, CLIENT_ID);
   await mockUpload(page, sessionId);
 
-  await mockJsonPost(page, "http://127.0.0.1:8080/discover", () => ({
+  await mockJsonPost(page, "http://localhost:8080/discover", () => ({
     json: baseDiscovery(),
   }));
 
@@ -216,7 +216,7 @@ test("reopening unit file selection and clicking Cancel returns to the confirmed
 
   await expect(page.getByText("Select Unit Files")).toBeVisible();
 
-  await mockJsonPost(page, "http://127.0.0.1:8080/unit-file/select", () => ({
+  await mockJsonPost(page, "http://localhost:8080/unit-file/select", () => ({
     json: {
       ...baseDiscovery(),
       requires_unit_file_selection: false,

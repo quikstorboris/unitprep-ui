@@ -1,5 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+import { seedAuthenticatedSession } from "./helpers";
+
 /**
  * Regression coverage for the state-scoping bug class this app has now
  * fixed four separate times across different routes (see brain/Gotchas
@@ -34,6 +36,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Credentials": "true",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Expose-Headers": "Content-Disposition",
 };
 
 async function mockValidateBySession(
@@ -68,6 +71,8 @@ test("switching sessions via browser back/forward does not leak stale results", 
 }) => {
   const sessionA = "session-a";
   const sessionB = "session-b";
+
+  await seedAuthenticatedSession(page);
 
   // Clients are frontend-only state, scoped per tab in sessionStorage
   // (see lib/clients.tsx) -- no backend entity exists yet. addInitScript

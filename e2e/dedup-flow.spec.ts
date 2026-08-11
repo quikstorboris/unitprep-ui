@@ -35,11 +35,11 @@ test("reviewing flagged groups and downloading a CSV export", async ({
 }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonPost(page, "http://127.0.0.1:8080/dedup/report", () => ({
+  await mockJsonPost(page, "http://localhost:8080/dedup/report", () => ({
     json: dedupReport,
   }));
 
-  await mockBinaryPost(page, "http://127.0.0.1:8080/dedup/export", {
+  await mockBinaryPost(page, "http://localhost:8080/dedup/export", {
     body: Buffer.from("name,units\nSmith Family,101;102"),
     contentType: "text/csv",
     filename: "duplicate_tenant_check.csv",
@@ -63,7 +63,7 @@ test("no flagged groups, typo variants, or related tenants shows the all-clear m
 }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonPost(page, "http://127.0.0.1:8080/dedup/report", () => ({
+  await mockJsonPost(page, "http://localhost:8080/dedup/report", () => ({
     json: {
       total_rows: 10,
       unique_tenants: 10,
