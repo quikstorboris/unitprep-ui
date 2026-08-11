@@ -299,3 +299,37 @@ export type DedupCheckResponse = {
 
 /** `"both"` returns a ZIP containing both files in one download. */
 export type DedupExportFormat = "csv" | "xlsx" | "both";
+
+// QMS Template Tagging Assistant contracts — mirror unitprep-api's
+// enriched view types 1:1:
+//   TaggerCheckResponse, CandidateView, RegionView, TierView
+//     -> unitprep-api/src/api/tagger.rs
+// RegionView is externally-tagged with a unit "body" variant: a bare
+// string for Body, an object for TableCell.
+
+export type RegionView =
+  | "body"
+  | { table_cell: { index: number } };
+
+export type TierView = "auto" | "needs_review";
+
+export type CandidateView = {
+  /** This candidate's position in the session's own candidate list —
+   * /tagger/apply references a candidate by this same index. */
+  index: number;
+  region: RegionView;
+  tag_key: string;
+  matched_text: string;
+  tier: TierView;
+  snippet: string;
+};
+
+export type TaggerCheckResponse = {
+  session_id: string;
+  candidates: CandidateView[];
+};
+
+export type ConfirmedSubstitution = {
+  candidate_index: number;
+  tag_key: string;
+};

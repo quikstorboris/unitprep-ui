@@ -20,6 +20,11 @@ const TABS: TabItem[] = [
     label: "Unit Groups",
     segment: "unit-groups",
   },
+  {
+    key: "template-tagger",
+    label: "Template Tagger",
+    segment: "template-tagger",
+  },
 ];
 
 export default function ClientTabs({

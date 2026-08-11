@@ -26,6 +26,9 @@ describe("ClientTabs", () => {
     expect(
       screen.getByRole("link", { name: "Unit Groups" })
     ).toHaveAttribute("href", "/clients/c1/unit-groups");
+    expect(
+      screen.getByRole("link", { name: "Template Tagger" })
+    ).toHaveAttribute("href", "/clients/c1/template-tagger");
   });
 
   it("points every tab at the given client id", () => {
@@ -42,14 +45,17 @@ describe("ClientTabs", () => {
     expect(
       screen.getByRole("link", { name: "Unit Groups" })
     ).toHaveAttribute("href", "/clients/c2/unit-groups");
+    expect(
+      screen.getByRole("link", { name: "Template Tagger" })
+    ).toHaveAttribute("href", "/clients/c2/template-tagger");
   });
 
-  it("renders all three tabs regardless of which path is current", () => {
+  it("renders all four tabs regardless of which path is current", () => {
     usePathname.mockReturnValue("/clients/c1");
 
     render(<ClientTabs clientId="c1" />);
 
-    expect(screen.getAllByRole("link")).toHaveLength(3);
+    expect(screen.getAllByRole("link")).toHaveLength(4);
   });
 
   it("marks only the active tab with aria-current", () => {
@@ -65,6 +71,9 @@ describe("ClientTabs", () => {
     ).not.toHaveAttribute("aria-current");
     expect(
       screen.getByRole("link", { name: "Unit Groups" })
+    ).not.toHaveAttribute("aria-current");
+    expect(
+      screen.getByRole("link", { name: "Template Tagger" })
     ).not.toHaveAttribute("aria-current");
   });
 });
