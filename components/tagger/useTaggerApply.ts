@@ -10,7 +10,10 @@ interface UseTaggerApplyResult {
   downloadComplete: boolean;
   error: string | null;
   sessionExpired: boolean;
-  handleApply: (confirmed: ConfirmedSubstitution[]) => Promise<void>;
+  handleApply: (
+    confirmed: ConfirmedSubstitution[],
+    preserveBlanks: boolean
+  ) => Promise<void>;
 }
 
 const FALLBACK_FILENAME = "tagged.docx";
@@ -36,7 +39,8 @@ export function useTaggerApply(
   const applyInFlight = useRef(false);
 
   const handleApply = async (
-    confirmed: ConfirmedSubstitution[]
+    confirmed: ConfirmedSubstitution[],
+    preserveBlanks: boolean
   ) => {
     if (applyInFlight.current) return;
     applyInFlight.current = true;
@@ -46,7 +50,10 @@ export function useTaggerApply(
     setDownloadComplete(false);
 
     try {
-      const result = await run({ confirmed });
+      const result = await run({
+        confirmed,
+        preserve_blanks: preserveBlanks,
+      });
 
       if (result.kind !== "ok") return;
 

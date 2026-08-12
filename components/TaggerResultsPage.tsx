@@ -55,6 +55,12 @@ export default function TaggerResultsPage({
 
   const [tags, setTags] = useState<QmsTag[]>([]);
   const [review, setReview] = useState<Map<number, ReviewState>>(new Map());
+  // OM-facing style choice, applied to the whole apply call -- default
+  // off (replace outright) matches the original, no-underscores-left
+  // behavior; some OMs may prefer keeping the visual blank instead
+  // (e.g. a signature-line convention already seen in the corpus:
+  // /s/{{e.name}}______________).
+  const [preserveBlanks, setPreserveBlanks] = useState(false);
 
   // The full catalog to search over in each row's TagPicker -- fetched
   // once, independent of the candidate list itself.
@@ -200,8 +206,17 @@ export default function TaggerResultsPage({
 
       {!downloadComplete && candidates && candidates.length > 0 && (
         <div className="mt-8 rounded border border-slate-700 p-4">
+          <label className="mb-4 flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={preserveBlanks}
+              onChange={(event) => setPreserveBlanks(event.target.checked)}
+            />
+            Preserve underscores (insert the tag before the blank instead of replacing it)
+          </label>
+
           <button
-            onClick={() => handleApply(confirmedSubstitutions())}
+            onClick={() => handleApply(confirmedSubstitutions(), preserveBlanks)}
             disabled={applying || confirmedCount === 0}
             className="rounded bg-blue-600 px-5 py-3 disabled:opacity-50"
           >

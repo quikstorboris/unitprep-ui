@@ -125,3 +125,53 @@ test("the tag picker lets a reviewer override a candidate's guessed tag", async 
     page.getByTestId("candidate-row-2").getByRole("button", { name: /^l\.ptd/ })
   ).toBeVisible();
 });
+
+test("the preserve-underscores checkbox is sent through to /tagger/apply", async ({
+  page,
+}) => {
+  await seedClient(page, CLIENT_ID);
+
+  await mockJsonGet(page, "http://localhost:8080/client-ops/qms-tags", tagCatalog);
+  await mockJsonPost(page, "http://localhost:8080/tagger/report", () => ({
+    json: taggerReport,
+  }));
+
+  const captured: { body: { preserve_blanks?: boolean } | null } = { body: null };
+  await page.route("http://localhost:8080/tagger/apply", async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "http://127.0.0.1:3100",
+          "Access-Control-Allow-Credentials": "true",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+      return;
+    }
+    captured.body = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      body: Buffer.from("fake docx bytes"),
+      headers: {
+        "Access-Control-Allow-Origin": "http://127.0.0.1:3100",
+        "Access-Control-Allow-Credentials": "true",
+        "Content-Type": "application/octet-stream",
+        "Content-Disposition": 'attachment; filename="tagged.docx"',
+      },
+    });
+  });
+
+  await page.goto(`/clients/${CLIENT_ID}/template-tagger/${SESSION_ID}`);
+
+  await page
+    .getByRole("checkbox", { name: /Preserve underscores/ })
+    .check();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Apply 1 Substitution/ }).click();
+  await downloadPromise;
+
+  expect(captured.body?.preserve_blanks).toBe(true);
+});
