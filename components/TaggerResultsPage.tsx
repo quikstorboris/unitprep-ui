@@ -212,7 +212,7 @@ export default function TaggerResultsPage({
               checked={preserveBlanks}
               onChange={(event) => setPreserveBlanks(event.target.checked)}
             />
-            Preserve underscores (insert the tag before the blank instead of replacing it)
+            Preserve underscores (center the tag inside the blank instead of replacing it)
           </label>
 
           <button
