@@ -266,6 +266,41 @@ describe("MasterGroupFileSection", () => {
     expect(init.method).toBe("POST");
   });
 
+  // Regression test: this handler's manual-upload fetch is hand-rolled
+  // rather than routed through useSessionAction (see its sibling
+  // confirm/select actions above), and used to only check for a 404,
+  // unlike every other action in this component. Now that passkey auth
+  // has actually shipped, a session lapsing mid-upload is a real,
+  // reachable case and must show the same session-expired treatment as
+  // every other action here, not a raw error banner.
+  it("treats a 401 on manual upload as a session expiry", async () => {
+    const onSessionExpired = vi.fn();
+
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      text: async () => "",
+    });
+
+    const { container } = render(
+      <MasterGroupFileSection
+        {...baseProps({ onSessionExpired })}
+      />
+    );
+
+    const fileInput = container.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+    const file = new File(["a,b,c"], "manual.csv", { type: "text/csv" });
+
+    const user = userEvent.setup();
+    await user.upload(fileInput, file);
+
+    await waitFor(() =>
+      expect(onSessionExpired).toHaveBeenCalledTimes(1)
+    );
+  });
+
   it("calls onReturnToFormat when its button is clicked", async () => {
     const user = userEvent.setup();
     const onReturnToFormat = vi.fn();

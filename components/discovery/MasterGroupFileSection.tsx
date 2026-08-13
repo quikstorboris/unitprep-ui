@@ -137,7 +137,7 @@ export function MasterGroupFileSection({
           }
         );
 
-        if (response.status === 404) {
+        if (response.status === 404 || response.status === 401) {
           onSessionExpired();
           return;
         }
