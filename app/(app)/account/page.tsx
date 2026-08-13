@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { useCurrentUser } from "@/lib/currentUser";
+import { passkeyReverify } from "@/lib/auth";
 import TotpEnrollForm from "@/components/auth/TotpEnrollForm";
 
 const primaryButtonClass =
@@ -14,10 +15,37 @@ export default function AccountPage() {
   const { user, checked, refresh } = useCurrentUser();
 
   const [mode, setMode] = useState<Mode>("status");
+  const [reverifying, setReverifying] = useState(false);
+  const [reverifyError, setReverifyError] = useState<string | null>(null);
 
   async function handleEnrolled() {
     setMode("status");
     await refresh();
+  }
+
+  // Replacing TOTP requires proving the *other* factor first -- a
+  // passkey assertion -- the same way replacing a passkey already
+  // requires a TOTP code. Only gates re-enrolment (an account that
+  // already has a confirmed factor); first-time setup below has nothing
+  // yet for this to protect.
+  async function handleUpdateAuthenticatorClick() {
+    setReverifying(true);
+    setReverifyError(null);
+
+    const result = await passkeyReverify();
+
+    setReverifying(false);
+
+    if (result.kind !== "ok" || !result.data.verified) {
+      setReverifyError(
+        result.kind === "ok"
+          ? "Passkey verification did not complete."
+          : result.message
+      );
+      return;
+    }
+
+    setMode("updating");
   }
 
   if (!checked) {
@@ -78,13 +106,20 @@ export default function AccountPage() {
               // the new one is confirmed.
               <button
                 type="button"
-                onClick={() => setMode("updating")}
+                onClick={handleUpdateAuthenticatorClick}
+                disabled={reverifying}
                 className={primaryButtonClass}
               >
-                Update authenticator app
+                {reverifying
+                  ? "Verify your passkey…"
+                  : "Update authenticator app"}
               </button>
             ) : (
               <TotpEnrollForm onEnrolled={handleEnrolled} />
+            )}
+
+            {reverifyError && (
+              <p className="text-sm text-red-400">{reverifyError}</p>
             )}
           </div>
         )}

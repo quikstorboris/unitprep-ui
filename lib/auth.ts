@@ -308,6 +308,60 @@ export async function totpStepUp(
   });
 }
 
+/**
+ * Passkey-based step-up for an already-signed-in session -- the mirror
+ * of `totpStepUp`, proving the *other* factor. Gates self-service TOTP
+ * re-enrolment the same way `totpStepUp` gates replacing a passkey: each
+ * factor step-up-verifies changes to the other one, so a hijacked
+ * session can't silently replace both using only itself. One function
+ * rather than a begin/finish pair like login's, since there's no
+ * intermediate user input (an email) between them here -- the whole
+ * ceremony is one uninterrupted round trip through the browser's
+ * passkey prompt.
+ */
+export async function passkeyReverify(): Promise<
+  AuthResult<{ verified: boolean }>
+> {
+  if (!webauthnGetSupported()) {
+    return { kind: "error", message: UNSUPPORTED_BROWSER_MESSAGE };
+  }
+
+  const begin = await tryAuthFetch<ChallengeResponse>("/auth/reverify/begin");
+
+  if (begin.kind !== "ok") return begin;
+
+  const requestOptions = PublicKeyCredential.parseRequestOptionsFromJSON(
+    begin.data.challenge.publicKey as Parameters<
+      typeof PublicKeyCredential.parseRequestOptionsFromJSON
+    >[0]
+  );
+
+  let credential: Credential | null;
+  try {
+    credential = await navigator.credentials.get({
+      publicKey: requestOptions,
+    });
+  } catch (err) {
+    return {
+      kind: "error",
+      message:
+        err instanceof Error
+          ? err.message
+          : "The passkey could not be verified.",
+    };
+  }
+
+  if (!credential || !("toJSON" in credential)) {
+    return { kind: "error", message: "No passkey response was produced." };
+  }
+
+  return tryAuthFetch<{ verified: boolean }>("/auth/reverify/finish", {
+    credential: (
+      credential as PublicKeyCredential & { toJSON(): unknown }
+    ).toJSON(),
+  });
+}
+
 export async function logout(): Promise<
   AuthResult<{ success: boolean; revoked_count: number }>
 > {
