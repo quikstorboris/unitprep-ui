@@ -270,16 +270,31 @@ export type RelatedTenantMemberView = {
 };
 
 /**
- * Two or more tenants (different name keys) sharing a specific,
- * non-blank value — evidence of a real relationship (business + owner,
- * family, subdivided unit) that neither exact-name grouping nor
- * typo-variant similarity could catch, since both hinge on name
- * similarity. Always advisory, same as `TypoVariantView`.
+ * One piece of a household's evidence — `members` is the specific
+ * subset of the household that shares `shared_value` under `signal`,
+ * which can be smaller than the household's full member list (not
+ * every member necessarily shares every piece of evidence with every
+ * other member directly, only transitively — see `RelatedTenantView`).
+ */
+export type RelatedTenantEvidenceView = {
+  signal: RelatednessSignal;
+  shared_value: string;
+  members: RelatedTenantMemberView[];
+};
+
+/**
+ * A household: two or more tenants (different name keys) connected by
+ * one or more pieces of shared-value evidence — evidence of a real
+ * relationship (business + owner, family, subdivided unit) that
+ * neither exact-name grouping nor typo-variant similarity could catch,
+ * since both hinge on name similarity. Always advisory, same as
+ * `TypoVariantView`. `members` is the full household (the union across
+ * every entry in `evidence`); `note` is one combined account of every
+ * piece of evidence, not one note per signal.
  */
 export type RelatedTenantView = {
   members: RelatedTenantMemberView[];
-  signal: RelatednessSignal;
-  shared_value: string;
+  evidence: RelatedTenantEvidenceView[];
   note: string;
 };
 

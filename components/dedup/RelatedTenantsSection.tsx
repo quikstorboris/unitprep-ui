@@ -1,5 +1,10 @@
 import { formatUnits } from "@/lib/format";
-import type { RelatedTenantView, RelatednessSignal } from "@/types/api";
+import type {
+  RelatedTenantEvidenceView,
+  RelatedTenantMemberView,
+  RelatedTenantView,
+  RelatednessSignal,
+} from "@/types/api";
 
 interface RelatedTenantsSectionProps {
   candidates: RelatedTenantView[];
@@ -11,6 +16,49 @@ const SIGNAL_LABELS: Record<RelatednessSignal, string> = {
   SharedAlternateContact: "Shared alternate contact",
   SharedHomeAddress: "Shared home address",
 };
+
+function membersPhrase(members: RelatedTenantMemberView[]): string {
+  return members
+    .map((member) => `${member.display_name} (${formatUnits(member.units)})`)
+    .join(", ");
+}
+
+/**
+ * One household can have multiple pieces of evidence (a spousal pair
+ * sharing phone, email, and alternate contact all at once), and
+ * different pieces of evidence in a larger household don't
+ * necessarily connect the same members (A-B share a phone; B-C share
+ * an email; A and C share nothing directly) — each evidence row names
+ * only the specific members it applies to, not the whole household,
+ * unless they happen to be the same set.
+ */
+function EvidenceList({
+  evidence,
+  household,
+}: {
+  evidence: RelatedTenantEvidenceView[];
+  household: RelatedTenantMemberView[];
+}) {
+  return (
+    <ul className="space-y-1">
+      {evidence.map((item, index) => {
+        const isWholeHousehold = item.members.length === household.length;
+        return (
+          <li key={`${item.signal}-${item.shared_value}-${index}`}>
+            <span className="font-medium">{SIGNAL_LABELS[item.signal]}:</span>{" "}
+            {item.shared_value}
+            {!isWholeHousehold && (
+              <span className="text-slate-400">
+                {" "}
+                ({membersPhrase(item.members)})
+              </span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 export default function RelatedTenantsSection({
   candidates,
@@ -34,15 +82,11 @@ export default function RelatedTenantsSection({
               <thead>
                 <tr className="bg-slate-800">
                   <th className="p-3 text-left">
-                    Signal
-                  </th>
-
-                  <th className="p-3 text-left">
-                    Shared Value
-                  </th>
-
-                  <th className="p-3 text-left">
                     Tenants
+                  </th>
+
+                  <th className="p-3 text-left">
+                    Evidence
                   </th>
 
                   <th className="p-3 text-left">
@@ -61,27 +105,14 @@ export default function RelatedTenantsSection({
                       className="border-t border-slate-800"
                     >
                       <td className="p-3">
-                        {
-                          SIGNAL_LABELS[
-                            candidate
-                              .signal
-                          ]
-                        }
+                        {membersPhrase(candidate.members)}
                       </td>
 
                       <td className="p-3">
-                        {
-                          candidate.shared_value
-                        }
-                      </td>
-
-                      <td className="p-3">
-                        {candidate.members
-                          .map(
-                            (member) =>
-                              `${member.display_name} (${formatUnits(member.units)})`
-                          )
-                          .join(", ")}
+                        <EvidenceList
+                          evidence={candidate.evidence}
+                          household={candidate.members}
+                        />
                       </td>
 
                       <td className="p-3">
