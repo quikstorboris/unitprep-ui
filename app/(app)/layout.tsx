@@ -50,7 +50,15 @@ export default function AppLayout({
     }
   }, [isSignedOut, needsTotpOnboarding, router]);
 
-  if (isSignedOut || needsTotpOnboarding) {
+  if (!checked || isSignedOut || needsTotpOnboarding) {
+    // `!checked` first: while whoAmI() is still in flight, `user` is null
+    // but neither isSignedOut nor needsTotpOnboarding is true yet (both
+    // are gated on `checked`), so without this branch the shell -- and
+    // everything mounted under it, including RequirePermission -- used to
+    // render one frame with user === null. RequirePermission's own doc
+    // comment assumes that can't happen; it could, and a direct/refreshed
+    // load of an admin route got silently bounced to /clients as a result.
+    //
     // Avoid rendering the real shell (and the data fetches its children
     // would kick off) for the instant before the redirect above lands.
     return (
