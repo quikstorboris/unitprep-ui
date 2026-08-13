@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   title: "UnitPrep",
   description:
     "Storage facility unit-import preparation and validation.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 // Deliberately minimal -- CurrentUserProvider is the only thing every
