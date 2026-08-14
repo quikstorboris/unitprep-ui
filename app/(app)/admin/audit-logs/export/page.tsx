@@ -8,12 +8,10 @@ import EventTypeMultiSelect from "@/components/audit/EventTypeMultiSelect";
 import UserMultiSelect from "@/components/audit/UserMultiSelect";
 import {
   exportAuditLogsPdf,
-  listAuditLogEventTypes,
-  listUsers,
   previewAuditLogsExport,
   type AuditLogPreviewRow,
-  type UserSummary,
 } from "@/lib/auth";
+import { useAuditLogFilterData } from "@/lib/useAuditLogFilterData";
 import { downloadBlob } from "@/lib/useSessionAction";
 
 const primaryButtonClass =
@@ -49,11 +47,18 @@ export default function AuditLogExportPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const [allEventTypes, setAllEventTypes] = useState<string[]>([]);
-  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
-
-  const [allUsers, setAllUsers] = useState<UserSummary[]>([]);
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  // Canonical event-type list, Users list, and the live filter
+  // selections -- shared with the inline Audit Logs page, which fetches/
+  // manages the exact same data.
+  const {
+    allEventTypes,
+    selectedEventTypes,
+    setSelectedEventTypes,
+    noEventsSelected,
+    allUsers,
+    selectedUserIds,
+    setSelectedUserIds,
+  } = useAuditLogFilterData();
 
   const [ipAddress, setIpAddress] = useState("");
 
@@ -66,28 +71,6 @@ export default function AuditLogExportPage() {
   const [exportError, setExportError] = useState<string | null>(null);
 
   const dateRangeSet = dateFrom !== "" && dateTo !== "";
-  // Same fix as the inline Audit Logs page: zero selected must mean "show
-  // nothing", not "no filter" -- an empty event_types array reads as
-  // unfiltered on the backend.
-  const noEventsSelected =
-    allEventTypes.length > 0 && selectedEventTypes.length === 0;
-
-  useEffect(() => {
-    queueMicrotask(async () => {
-      const result = await listAuditLogEventTypes();
-      if (result.kind !== "ok") return;
-      setAllEventTypes(result.data.event_types);
-      setSelectedEventTypes(result.data.event_types);
-    });
-  }, []);
-
-  useEffect(() => {
-    queueMicrotask(async () => {
-      const result = await listUsers();
-      if (result.kind !== "ok") return;
-      setAllUsers(result.data.users);
-    });
-  }, []);
 
   const runPreview = useCallback(async () => {
     if (!dateRangeSet || noEventsSelected) {

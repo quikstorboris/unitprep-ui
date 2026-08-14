@@ -1,18 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 import RequirePermission from "@/components/auth/RequirePermission";
 import EventTypeMultiSelect from "@/components/audit/EventTypeMultiSelect";
 import UserMultiSelect from "@/components/audit/UserMultiSelect";
-import {
-  listAuditLogEventTypes,
-  listAuditLogs,
-  listUsers,
-  type AuditLogEntry,
-  type UserSummary,
-} from "@/lib/auth";
+import { listAuditLogs, type AuditLogEntry, type UserSummary } from "@/lib/auth";
+import { useAuditLogFilterData } from "@/lib/useAuditLogFilterData";
 
 const smallButtonClass =
   "rounded bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50";
@@ -178,53 +173,33 @@ export default function AdminAuditLogsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [exhausted, setExhausted] = useState(false);
 
-  // Empty until the canonical list loads -- see the effect below. Until
-  // then, allEventTypes.length === 0 and the "all selected" check in
-  // runQuery treats that as no filter, not "select nothing".
-  const [allEventTypes, setAllEventTypes] = useState<string[]>([]);
-  const [selectedEventTypes, setSelectedEventTypes] = useState<string[]>([]);
-
-  // Multi-select, matching the export page's own User filter -- upgraded
-  // from a single-select autocomplete (see UserMultiSelect's doc comment
-  // for why that's shared with the export page while this page's own
-  // resolved-name display below isn't).
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-
-  // Keyed by id for the actor/target name+email resolution -- fetched once
-  // up front rather than per-row, same as the Users page's own single
-  // listUsers() call. allUsers (below) is the same data as an array, for
-  // UserMultiSelect's fuzzy-match suggestions.
-  const [usersById, setUsersById] = useState<Map<string, UserSummary>>(
-    new Map()
-  );
-  const allUsers = useMemo(() => Array.from(usersById.values()), [usersById]);
-
-  useEffect(() => {
-    queueMicrotask(async () => {
-      const result = await listAuditLogEventTypes();
-      if (result.kind !== "ok") return;
-      setAllEventTypes(result.data.event_types);
-      setSelectedEventTypes(result.data.event_types);
-    });
-  }, []);
-
-  useEffect(() => {
-    queueMicrotask(async () => {
-      const result = await listUsers();
-      if (result.kind !== "ok") return;
-      setUsersById(new Map(result.data.users.map((user) => [user.id, user])));
-    });
-  }, []);
+  // Canonical event-type list, the Users list (both as an array for
+  // UserMultiSelect and keyed by id for this page's own actor/target
+  // name+email resolution below), and the live filter selections --
+  // shared with the export page, which fetches/manages the exact same
+  // data. Empty until each list loads; until then allEventTypes.length
+  // === 0 and the "all selected" check in runQuery treats that as no
+  // filter, not "select nothing".
+  const {
+    allEventTypes,
+    selectedEventTypes,
+    setSelectedEventTypes,
+    noEventsSelected,
+    allUsers,
+    usersById,
+    selectedUserIds,
+    setSelectedUserIds,
+  } = useAuditLogFilterData();
 
   const runQuery = useCallback(
     async (beforeId?: number) => {
       // Zero selected means "show nothing", not "no filter" -- an omitted
       // event_type param and an empty one are indistinguishable to the
       // backend (both mean "don't filter"), so this has to be handled here
-      // rather than by sending anything at all. Checked against
-      // allEventTypes.length > 0 so it doesn't fire before the canonical
-      // list has loaded, when selectedEventTypes is also still empty.
-      if (allEventTypes.length > 0 && selectedEventTypes.length === 0) {
+      // rather than by sending anything at all. noEventsSelected is false
+      // (not true) before the canonical list has loaded, when
+      // selectedEventTypes is also still empty.
+      if (noEventsSelected) {
         setLoadError(null);
         return [];
       }
@@ -254,7 +229,7 @@ export default function AdminAuditLogsPage() {
       setLoadError(null);
       return result.data.entries;
     },
-    [allEventTypes, selectedEventTypes, selectedUserIds]
+    [allEventTypes, selectedEventTypes, noEventsSelected, selectedUserIds]
   );
 
   const loadFirstPage = useCallback(async () => {
