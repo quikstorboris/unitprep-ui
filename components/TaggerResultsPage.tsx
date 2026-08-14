@@ -54,6 +54,7 @@ export default function TaggerResultsPage({
   } = useTaggerApply(sessionId);
 
   const [tags, setTags] = useState<QmsTag[]>([]);
+  const [tagsError, setTagsError] = useState<string | null>(null);
   const [review, setReview] = useState<Map<number, ReviewState>>(new Map());
   // OM-facing style choice, applied to the whole apply call -- default
   // off (replace outright) matches the original, no-underscores-left
@@ -63,10 +64,19 @@ export default function TaggerResultsPage({
   const [preserveBlanks, setPreserveBlanks] = useState(false);
 
   // The full catalog to search over in each row's TagPicker -- fetched
-  // once, independent of the candidate list itself.
+  // once, independent of the candidate list itself. A failure here used
+  // to be silently swallowed (the catch-all `if (result.kind === "ok")`
+  // left every TagPicker with an empty, unexplained catalog) -- surfaced
+  // now as the same inline error banner reportError/applyError already
+  // use below, since the rest of the page still works fine without it.
   useEffect(() => {
     listQmsTags().then((result) => {
-      if (result.kind === "ok") setTags(result.data.tags);
+      if (result.kind === "ok") {
+        setTags(result.data.tags);
+        setTagsError(null);
+      } else {
+        setTagsError(result.message);
+      }
     });
   }, []);
 
@@ -146,6 +156,13 @@ export default function TaggerResultsPage({
   return (
     <div className="mx-auto max-w-4xl text-slate-100">
       <h1 className="mb-8 text-4xl font-bold">Template Tagger Results</h1>
+
+      {tagsError && (
+        <div className="mb-4 rounded bg-red-900 p-3 text-red-200">
+          Couldn&apos;t load the QMS tag catalog: {tagsError} — tag search
+          in the picker below may be unavailable until this succeeds.
+        </div>
+      )}
 
       {candidates && candidates.length === 0 && (
         <div className="rounded bg-slate-900 p-4 text-slate-400">
