@@ -61,7 +61,7 @@ export default function TaggerResultsPage({
   // behavior; some OMs may prefer keeping the visual blank instead
   // (e.g. a signature-line convention already seen in the corpus:
   // /s/{{e.name}}______________).
-  const [preserveBlanks, setPreserveBlanks] = useState(false);
+  const [preserveUnderscores, setPreserveUnderscores] = useState(false);
 
   // The full catalog to search over in each row's TagPicker -- fetched
   // once, independent of the candidate list itself. A failure here used
@@ -226,14 +226,14 @@ export default function TaggerResultsPage({
           <label className="mb-4 flex items-center gap-2 text-sm text-slate-300">
             <input
               type="checkbox"
-              checked={preserveBlanks}
-              onChange={(event) => setPreserveBlanks(event.target.checked)}
+              checked={preserveUnderscores}
+              onChange={(event) => setPreserveUnderscores(event.target.checked)}
             />
             Preserve underscores (center the tag inside the blank instead of replacing it)
           </label>
 
           <button
-            onClick={() => handleApply(confirmedSubstitutions(), preserveBlanks)}
+            onClick={() => handleApply(confirmedSubstitutions(), preserveUnderscores)}
             disabled={applying || confirmedCount === 0}
             className="rounded bg-blue-600 px-5 py-3 disabled:opacity-50"
           >

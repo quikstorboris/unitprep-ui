@@ -12,7 +12,7 @@ interface UseTaggerApplyResult {
   sessionExpired: boolean;
   handleApply: (
     confirmed: ConfirmedSubstitution[],
-    preserveBlanks: boolean
+    preserveUnderscores: boolean
   ) => Promise<void>;
 }
 
@@ -40,7 +40,7 @@ export function useTaggerApply(
 
   const handleApply = async (
     confirmed: ConfirmedSubstitution[],
-    preserveBlanks: boolean
+    preserveUnderscores: boolean
   ) => {
     if (applyInFlight.current) return;
     applyInFlight.current = true;
@@ -50,9 +50,12 @@ export function useTaggerApply(
     setDownloadComplete(false);
 
     try {
+      // preserve_blanks is the wire field name (see tagger.rs's
+      // TaggerApplyRequest) -- kept as-is at the API boundary while the
+      // local name matches the checkbox copy the user actually sees.
       const result = await run({
         confirmed,
-        preserve_blanks: preserveBlanks,
+        preserve_blanks: preserveUnderscores,
       });
 
       if (result.kind !== "ok") return;
