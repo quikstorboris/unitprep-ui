@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
+import { useFileUploadAction } from "@/lib/useFileUploadAction";
 import { useSessionAction } from "@/lib/useSessionAction";
 import { GroupFileCandidatePicker } from "@/components/discovery/GroupFileCandidatePicker";
 import { GroupFileSummary } from "@/components/discovery/GroupFileSummary";
@@ -40,15 +40,11 @@ export function MasterGroupFileSection({
   const manualGroupFileInputRef =
     useRef<HTMLInputElement>(null);
 
-  const [
-    manualGroupFileUploading,
-    setManualGroupFileUploading,
-  ] = useState(false);
-
-  const [
-    manualGroupFileError,
-    setManualGroupFileError,
-  ] = useState<string | null>(null);
+  const {
+    pending: manualGroupFileUploading,
+    error: manualGroupFileError,
+    run: runManualGroupFileUpload,
+  } = useFileUploadAction("/group-file/upload");
 
   const {
     pending: confirmingGroupFile,
@@ -108,63 +104,37 @@ export function MasterGroupFileSection({
         return;
       }
 
-      try {
-        setManualGroupFileUploading(
-          true
-        );
-        setManualGroupFileError(null);
+      const formData = new FormData();
+      formData.append(
+        "session_id",
+        sessionId
+      );
+      formData.append(
+        "file",
+        file,
+        file.name
+      );
 
-        const formData = new FormData();
-        formData.append(
-          "session_id",
-          sessionId
-        );
-        formData.append(
-          "file",
-          file,
-          file.name
-        );
-
-        const response = await fetch(
-          `${API_URL}/group-file/upload`,
-          {
-            method: "POST",
-            // The API is a different origin (different port), so cookies
-            // are withheld unless this is explicit -- without it, every
-            // request looks signed-out regardless of a valid session.
-            credentials: "include",
-            body: formData,
-          }
+      const result =
+        await runManualGroupFileUpload(
+          formData
         );
 
-        if (response.status === 404 || response.status === 401) {
-          onSessionExpired();
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            await errorMessageFrom(
-              response
-            )
-          );
-        }
-
-        onDiscoveryUpdated(
-          await response.json()
-        );
-      } catch (err) {
-        setManualGroupFileError(
-          describeFetchError(
-            err,
-            "Failed to upload the selected file."
-          )
-        );
-      } finally {
-        setManualGroupFileUploading(
-          false
-        );
+      if (
+        result.kind ===
+        "sessionExpired"
+      ) {
+        onSessionExpired();
+        return;
       }
+
+      if (result.kind === "error") {
+        return;
+      }
+
+      onDiscoveryUpdated(
+        await result.response.json()
+      );
     };
 
   const handleConfirmGroupFile =

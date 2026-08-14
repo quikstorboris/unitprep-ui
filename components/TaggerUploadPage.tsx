@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { API_URL, errorMessageFrom } from "@/lib/api";
+import { useFileUploadAction } from "@/lib/useFileUploadAction";
 import { stashTaggerCheck } from "@/lib/taggerReportCache";
 import type { TaggerCheckResponse } from "@/types/api";
 
@@ -24,8 +24,9 @@ export default function TaggerUploadPage({
   onChecked,
 }: TaggerUploadPageProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+
+  const { pending: loading, run } = useFileUploadAction("/tagger/check");
 
   const handleFileSelection = (files: FileList | null) => {
     const file = files && files.length > 0 ? files[0] : null;
@@ -48,41 +49,33 @@ export default function TaggerUploadPage({
       return;
     }
 
-    try {
-      setLoading(true);
-      setApiError(null);
+    setApiError(null);
 
-      const formData = new FormData();
-      formData.append("file", selectedFile, selectedFile.name);
+    const formData = new FormData();
+    formData.append("file", selectedFile, selectedFile.name);
 
-      const response = await fetch(`${API_URL}/tagger/check`, {
-        method: "POST",
-        // The API is a different origin (different port), so cookies
-        // are withheld unless this is explicit -- without it, every
-        // request looks signed-out regardless of a valid session.
-        credentials: "include",
-        body: formData,
-      });
+    const result = await run(formData);
 
-      if (!response.ok) {
-        throw new Error(await errorMessageFrom(response));
-      }
-
-      const data: TaggerCheckResponse = await response.json();
-
-      // The results page (a moment away, via onChecked's navigation)
-      // would otherwise re-fetch this exact candidate list over POST
-      // /tagger/report -- stash it so useTaggerReport can use it
-      // directly instead of a second round trip for data already in
-      // hand.
-      stashTaggerCheck(data);
-
-      onChecked(data.session_id);
-    } catch (error) {
-      setApiError(error instanceof Error ? error.message : "Unknown error");
-    } finally {
-      setLoading(false);
+    if (result.kind === "sessionExpired") {
+      setApiError("Your session has expired — please try again.");
+      return;
     }
+
+    if (result.kind === "error") {
+      setApiError(result.message);
+      return;
+    }
+
+    const data: TaggerCheckResponse = await result.response.json();
+
+    // The results page (a moment away, via onChecked's navigation)
+    // would otherwise re-fetch this exact candidate list over POST
+    // /tagger/report -- stash it so useTaggerReport can use it
+    // directly instead of a second round trip for data already in
+    // hand.
+    stashTaggerCheck(data);
+
+    onChecked(data.session_id);
   };
 
   return (

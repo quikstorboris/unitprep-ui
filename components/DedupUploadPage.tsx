@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { API_URL, errorMessageFrom } from "@/lib/api";
+import { useFileUploadAction } from "@/lib/useFileUploadAction";
 import { stashDedupReport } from "@/lib/dedupReportCache";
 import type { DedupCheckResponse } from "@/types/api";
 
@@ -40,11 +40,11 @@ export default function DedupUploadPage({
   const [selectedFile, setSelectedFile] =
     useState<File | null>(null);
 
-  const [loading, setLoading] =
-    useState(false);
-
   const [apiError, setApiError] =
     useState<string | null>(null);
+
+  const { pending: loading, run } =
+    useFileUploadAction("/dedup/check");
 
   const handleFileSelection = (
     files: FileList | null
@@ -75,55 +75,41 @@ export default function DedupUploadPage({
       return;
     }
 
-    try {
-      setLoading(true);
-      setApiError(null);
+    setApiError(null);
 
-      const formData = new FormData();
+    const formData = new FormData();
 
-      formData.append(
-        "file",
-        selectedFile,
-        selectedFile.name
-      );
+    formData.append(
+      "file",
+      selectedFile,
+      selectedFile.name
+    );
 
-      const response = await fetch(
-        `${API_URL}/dedup/check`,
-        {
-          method: "POST",
-          // The API is a different origin (different port), so cookies
-          // are withheld unless this is explicit -- without it, every
-          // request looks signed-out regardless of a valid session.
-          credentials: "include",
-          body: formData,
-        }
-      );
+    const result = await run(formData);
 
-      if (!response.ok) {
-        throw new Error(
-          await errorMessageFrom(response)
-        );
-      }
-
-      const data: DedupCheckResponse =
-        await response.json();
-
-      // The results page (a moment away, via onChecked's navigation)
-      // would otherwise re-fetch this exact report over POST
-      // /dedup/report -- stash it so useDedupReport can use it directly
-      // instead of a second round trip for data already in hand.
-      stashDedupReport(data.session_id, data.report);
-
-      onChecked(data.session_id);
-    } catch (error) {
+    if (result.kind === "sessionExpired") {
       setApiError(
-        error instanceof Error
-          ? error.message
-          : "Unknown error"
+        "Your session has expired — please try again."
       );
-    } finally {
-      setLoading(false);
+
+      return;
     }
+
+    if (result.kind === "error") {
+      setApiError(result.message);
+      return;
+    }
+
+    const data: DedupCheckResponse =
+      await result.response.json();
+
+    // The results page (a moment away, via onChecked's navigation)
+    // would otherwise re-fetch this exact report over POST
+    // /dedup/report -- stash it so useDedupReport can use it directly
+    // instead of a second round trip for data already in hand.
+    stashDedupReport(data.session_id, data.report);
+
+    onChecked(data.session_id);
   };
 
   return (
