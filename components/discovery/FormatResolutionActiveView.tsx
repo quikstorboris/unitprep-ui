@@ -21,6 +21,30 @@ interface FormatResolutionActiveViewProps {
   onSubmitMapping: () => void;
 }
 
+/** The "Confirm {vendor}" button, identical whether shown above the
+ * manual-mapping table or beside it once it's open. */
+function ConfirmVendorButton({
+  vendorName,
+  resolving,
+  disabled,
+  onClick,
+}: {
+  vendorName: string;
+  resolving: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded bg-green-600 px-4 py-2 disabled:opacity-50"
+    >
+      {resolving ? "Confirming..." : `Confirm ${vendorName}`}
+    </button>
+  );
+}
+
 /**
  * The confirm/map-manually UI shown while
  * `discovery.requires_format_resolution` is true — extracted from
@@ -138,22 +162,19 @@ export function FormatResolutionActiveView({
       {!showManualMapping && (
         <div className="flex gap-3">
           {discovery.detected_vendor_name && (
-            <button
-              onClick={
-                onConfirmVendor
+            <ConfirmVendorButton
+              vendorName={
+                discovery.detected_vendor_name
               }
+              resolving={resolving}
               disabled={
                 resolving ||
                 discovery
                   .mismatched_header_files
                   .length > 0
               }
-              className="rounded bg-green-600 px-4 py-2 disabled:opacity-50"
-            >
-              {resolving
-                ? "Confirming..."
-                : `Confirm ${discovery.detected_vendor_name}`}
-            </button>
+              onClick={onConfirmVendor}
+            />
           )}
 
           <button
@@ -172,22 +193,19 @@ export function FormatResolutionActiveView({
         <div className="mt-4">
           <div className="mb-3 flex gap-3">
             {discovery.detected_vendor_name && (
-              <button
-                onClick={
-                  onConfirmVendor
+              <ConfirmVendorButton
+                vendorName={
+                  discovery.detected_vendor_name
                 }
+                resolving={resolving}
                 disabled={
                   resolving ||
                   discovery
                     .mismatched_header_files
                     .length > 0
                 }
-                className="rounded bg-green-600 px-4 py-2 disabled:opacity-50"
-              >
-                {resolving
-                  ? "Confirming..."
-                  : `Confirm ${discovery.detected_vendor_name}`}
-              </button>
+                onClick={onConfirmVendor}
+              />
             )}
 
             <button
