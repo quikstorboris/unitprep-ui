@@ -2,7 +2,11 @@
 
 import { useReducer, useRef } from "react";
 
-import { API_URL, describeFetchError } from "@/lib/api";
+import {
+  API_URL,
+  describeFetchError,
+  errorMessageFrom,
+} from "@/lib/api";
 import type {
   DiscoverResponse,
   UploadResponse,
@@ -263,7 +267,7 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
 
       if (!uploadResponse.ok) {
         throw new Error(
-          `Upload failed (${uploadResponse.status})`
+          await errorMessageFrom(uploadResponse)
         );
       }
 
@@ -325,7 +329,7 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
 
       if (!discoverResponse.ok) {
         throw new Error(
-          `Discover failed (${discoverResponse.status})`
+          await errorMessageFrom(discoverResponse)
         );
       }
 

@@ -265,7 +265,7 @@ describe("useDiscoveryFlow", () => {
       await result.current.handleDiscover();
     });
 
-    expect(result.current.apiError).toBe("Upload failed (500)");
+    expect(result.current.apiError).toBe("HTTP 500");
     expect(result.current.loading).toBe(false);
   });
 
@@ -297,7 +297,7 @@ describe("useDiscoveryFlow", () => {
       await result.current.handleDiscover();
     });
 
-    expect(result.current.apiError).toBe("Discover failed (404)");
+    expect(result.current.apiError).toBe("HTTP 404");
     expect(result.current.loading).toBe(false);
   });
 
