@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import RequirePermission from "@/components/auth/RequirePermission";
-import { listRoles, type RoleInfo } from "@/lib/auth";
+import { listRoles, type RoleInfo } from "@/lib/auth-users";
 
 /**
  * Read-only view of the role/permission catalog -- who can do what,

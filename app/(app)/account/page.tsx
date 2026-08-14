@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { useCurrentUser } from "@/lib/currentUser";
-import { passkeyReverify } from "@/lib/auth";
+import { passkeyReverify } from "@/lib/auth-session";
 import TotpEnrollForm from "@/components/auth/TotpEnrollForm";
 
 const primaryButtonClass =

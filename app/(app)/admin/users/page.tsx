@@ -1,325 +1,41 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState } from "react";
 
-import {
-  createInvite,
-  disableUser,
-  exportUsersCsv,
-  grantRole,
-  listRoles,
-  listUsers,
-  reactivateUser,
-  recoverAccount,
-  revokeRole,
-  VALID_COMPANIES,
-  type InviteIssued,
-  type Role,
-  type RoleInfo,
-  type UserSummary,
-} from "@/lib/auth";
 import RequirePermission from "@/components/auth/RequirePermission";
 import { useCurrentUser } from "@/lib/currentUser";
-import { downloadBlob } from "@/lib/useSessionAction";
-
-const primaryButtonClass =
-  "rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
-
-const dangerButtonClass =
-  "rounded bg-red-900 px-3 py-1.5 text-xs font-medium text-red-100 transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50";
-
-const linkButtonClass =
-  "text-sm text-slate-400 transition-colors hover:text-slate-200 hover:underline";
-
-const smallButtonClass =
-  "rounded bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50";
-
-const inputClass =
-  "rounded border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none";
+import InviteUserForm from "./InviteUserForm";
+import UserRow from "./UserRow";
+import { useUsersAdmin } from "./useUsersAdmin";
+import { inputClass, linkButtonClass, primaryButtonClass, smallButtonClass } from "./styles";
 
 function inviteLinkFor(token: string): string {
   return `${window.location.origin}/invites/${token}`;
 }
 
-// No ESP is wired up anywhere in this system (see AUTHENTICATION.md) --
-// there is nothing to push a real alert through yet. This in-app
-// indicator is the honest "for now" version: it costs nothing to build
-// and needs no new infrastructure, unlike an actual notification, which
-// waits on that same deferred ESP/webhook decision.
-const DORMANT_THRESHOLD_DAYS = 90;
-
-function daysSince(isoDate: string): number {
-  return (Date.now() - new Date(isoDate).getTime()) / (1000 * 60 * 60 * 24);
-}
-
-// Scoped to `active` accounts only -- an `invited` user who hasn't
-// enrolled yet has never had a session to go quiet on, which is a
-// different signal (and already visible via the Reissue action), and a
-// `deactivated` account being "dormant" on top of that is moot.
-function isDormant(user: UserSummary): boolean {
-  return (
-    user.status === "active" &&
-    user.last_seen_at !== null &&
-    daysSince(user.last_seen_at) >= DORMANT_THRESHOLD_DAYS
-  );
-}
-
-function formatLastActive(lastSeenAt: string | null): string {
-  if (!lastSeenAt) return "Never";
-  const days = Math.floor(daysSince(lastSeenAt));
-  if (days < 1) return "Today";
-  if (days === 1) return "1 day ago";
-  return `${days} days ago`;
-}
-
 export default function AdminUsersPage() {
   const { user: currentUser } = useCurrentUser();
-  const [users, setUsers] = useState<UserSummary[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [email, setEmail] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [company, setCompany] = useState<(typeof VALID_COMPANIES)[number]>(
-    VALID_COMPANIES[0]
-  );
-  const [jobTitle, setJobTitle] = useState("");
-  const [availableRoles, setAvailableRoles] = useState<RoleInfo[] | null>(
-    null
-  );
-  const [role, setRole] = useState<Role>("");
-  const [createError, setCreateError] = useState<string | null>(null);
-  // Per-row picker for the "add a role" control -- keyed by user id so
-  // more than one row's picker can be open independently, same shape as
-  // the confirmingXFor pieces of state below.
-  const [addingRoleFor, setAddingRoleFor] = useState<string | null>(null);
-  const [roleToAdd, setRoleToAdd] = useState<Role>("");
 
-  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
-  // Separate from pendingUserId (the in-flight network call) -- a row can
-  // be awaiting confirmation without anything having been requested yet.
-  const [confirmingRecoveryFor, setConfirmingRecoveryFor] = useState<
-    string | null
-  >(null);
-  // Same "click to arm, click again to confirm" shape as recovery, kept
-  // as its own piece of state rather than reusing confirmingRecoveryFor --
-  // the two actions are independent and a row could otherwise show both
-  // confirmations open from one flag.
-  const [confirmingDisableFor, setConfirmingDisableFor] = useState<
-    string | null
-  >(null);
-  // Same shape again, for the same reason -- reactivate is independent of
-  // both disable and recovery and could otherwise show more than one row
-  // confirmation open at once.
-  const [confirmingReactivateFor, setConfirmingReactivateFor] = useState<
-    string | null
-  >(null);
-  const [rowError, setRowError] = useState<string | null>(null);
-  const [issued, setIssued] = useState<InviteIssued | null>(null);
-
-  const [exportingUsers, setExportingUsers] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-
-  async function handleExportUsers() {
-    setExportError(null);
-    setExportingUsers(true);
-    const result = await exportUsersCsv();
-    setExportingUsers(false);
-
-    if (result.kind !== "ok") {
-      setExportError(result.message);
-      return;
-    }
-
-    const blob = await result.response.blob();
-    downloadBlob(
-      blob,
-      result.response.headers.get("Content-Disposition"),
-      "unitprep-users.csv"
-    );
-  }
-
-  async function loadUsers() {
-    const result = await listUsers();
-    if (result.kind !== "ok") {
-      setLoadError(result.message);
-      return;
-    }
-    setLoadError(null);
-    setUsers(result.data.users);
-  }
-
-  async function loadRoles() {
-    const result = await listRoles();
-    if (result.kind !== "ok") {
-      setLoadError(result.message);
-      return;
-    }
-    setAvailableRoles(result.data.roles);
-    setRole((current) => current || result.data.roles[0]?.key || "");
-    setRoleToAdd((current) => current || result.data.roles[0]?.key || "");
-  }
-
-  // Deferred via queueMicrotask rather than calling loadUsers directly --
-  // same reasoning as TotpEnrollForm's autoStart: the lint rule flags any
-  // setState reachable from the effect body's own synchronous execution,
-  // even one that only actually runs after an await completes.
-  useEffect(() => {
-    queueMicrotask(() => {
-      loadUsers();
-      loadRoles();
-    });
-  }, []);
-
-  async function handleCreateSubmit(event: FormEvent) {
-    event.preventDefault();
-    setCreateError(null);
-
-    const trimmedEmail = email.trim();
-    const trimmedFirst = firstName.trim();
-    const trimmedLast = lastName.trim();
-    if (!trimmedEmail || !trimmedFirst || !trimmedLast) return;
-
-    setPendingUserId("__create__");
-    const result = await createInvite({
-      email: trimmedEmail,
-      first_name: trimmedFirst,
-      last_name: trimmedLast,
-      company,
-      job_title: jobTitle.trim() || undefined,
-      role,
-    });
-    setPendingUserId(null);
-
-    if (result.kind !== "ok") {
-      setCreateError(result.message);
-      return;
-    }
-
-    setIssued(result.data);
-    setEmail("");
-    setFirstName("");
-    setLastName("");
-    setJobTitle("");
-    setRole(availableRoles?.[0]?.key ?? "");
-    setShowCreateForm(false);
-    await loadUsers();
-  }
-
-  async function handleReissue(user: UserSummary) {
-    setRowError(null);
-    setPendingUserId(user.id);
-
-    const result = await createInvite({
-      email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      company: user.company as (typeof VALID_COMPANIES)[number],
-      job_title: user.job_title ?? undefined,
-      // Reissue has no role picker of its own, and the backend's reissue
-      // path *replaces* the role set with whatever single role is
-      // submitted here (see auth_invites.rs) -- so this only resubmits
-      // the first role. An invited-but-not-yet-enrolled user who was
-      // granted more than one role before ever signing in would lose the
-      // others on reissue; edge case worth knowing about, not handled by
-      // this form.
-      role: user.roles[0],
-    });
-    setPendingUserId(null);
-
-    if (result.kind !== "ok") {
-      setRowError(result.message);
-      return;
-    }
-
-    setIssued(result.data);
-    await loadUsers();
-  }
-
-  async function handleRecover(user: UserSummary) {
-    setRowError(null);
-    setPendingUserId(user.id);
-
-    const result = await recoverAccount(user.email);
-    setPendingUserId(null);
-    setConfirmingRecoveryFor(null);
-
-    if (result.kind !== "ok") {
-      setRowError(result.message);
-      return;
-    }
-
-    setIssued(result.data);
-    await loadUsers();
-  }
-
-  async function handleDisable(user: UserSummary) {
-    setRowError(null);
-    setPendingUserId(user.id);
-
-    const result = await disableUser(user.id);
-    setPendingUserId(null);
-    setConfirmingDisableFor(null);
-
-    if (result.kind !== "ok") {
-      setRowError(result.message);
-      return;
-    }
-
-    await loadUsers();
-  }
-
-  async function handleReactivate(user: UserSummary) {
-    setRowError(null);
-    setPendingUserId(user.id);
-
-    const result = await reactivateUser(user.id);
-    setPendingUserId(null);
-    setConfirmingReactivateFor(null);
-
-    if (result.kind !== "ok") {
-      setRowError(result.message);
-      return;
-    }
-
-    // Same as create/reissue/recover -- a fresh invite token, shown once.
-    setIssued(result.data);
-    await loadUsers();
-  }
-
-  async function handleGrantRole(user: UserSummary, newRole: Role) {
-    if (!newRole || user.roles.includes(newRole)) return;
-
-    setRowError(null);
-    setPendingUserId(user.id);
-
-    const result = await grantRole(user.id, newRole);
-    setPendingUserId(null);
-    setAddingRoleFor(null);
-
-    if (result.kind !== "ok") {
-      setRowError(result.message);
-      return;
-    }
-
-    await loadUsers();
-  }
-
-  async function handleRevokeRole(user: UserSummary, roleToRemove: Role) {
-    setRowError(null);
-    setPendingUserId(user.id);
-
-    const result = await revokeRole(user.id, roleToRemove);
-    setPendingUserId(null);
-
-    if (result.kind !== "ok") {
-      setRowError(result.message);
-      return;
-    }
-
-    await loadUsers();
-  }
+  const {
+    users,
+    loadError,
+    availableRoles,
+    pendingUserId,
+    rowError,
+    issued,
+    setIssued,
+    exportingUsers,
+    exportError,
+    handleExportUsers,
+    handleCreateUser,
+    handleReissue,
+    handleRecover,
+    handleDisable,
+    handleReactivate,
+    handleGrantRole,
+    handleRevokeRole,
+  } = useUsersAdmin();
 
   return (
     <RequirePermission permission="users.manage">
@@ -344,10 +60,7 @@ export default function AdminUsersPage() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setCreateError(null);
-              setShowCreateForm((value) => !value);
-            }}
+            onClick={() => setShowCreateForm((value) => !value)}
             className={primaryButtonClass}
           >
             {showCreateForm ? "Cancel" : "Invite a user"}
@@ -396,105 +109,11 @@ export default function AdminUsersPage() {
       )}
 
       {showCreateForm && (
-        <form
-          onSubmit={handleCreateSubmit}
-          className="mb-6 flex flex-col gap-4 rounded border border-slate-800 bg-slate-900 p-4"
-        >
-          <div className="grid grid-cols-2 gap-4">
-            <label className="flex flex-col gap-1 text-sm text-slate-300">
-              First name
-              <input
-                required
-                value={firstName}
-                onChange={(event) => setFirstName(event.target.value)}
-                className={inputClass}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-300">
-              Last name
-              <input
-                required
-                value={lastName}
-                onChange={(event) => setLastName(event.target.value)}
-                className={inputClass}
-              />
-            </label>
-          </div>
-
-          <label className="flex flex-col gap-1 text-sm text-slate-300">
-            Email
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className={inputClass}
-              placeholder="name@quikstor.com"
-            />
-          </label>
-
-          <div className="grid grid-cols-3 gap-4">
-            <label className="flex flex-col gap-1 text-sm text-slate-300">
-              Company
-              <select
-                value={company}
-                onChange={(event) =>
-                  setCompany(
-                    event.target.value as (typeof VALID_COMPANIES)[number]
-                  )
-                }
-                className={inputClass}
-              >
-                {VALID_COMPANIES.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-300">
-              Role
-              <select
-                value={role}
-                onChange={(event) => setRole(event.target.value)}
-                className={inputClass}
-              >
-                {(availableRoles ?? []).map(({ key, label }) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-300">
-              Job title (optional)
-              <input
-                value={jobTitle}
-                onChange={(event) => setJobTitle(event.target.value)}
-                className={inputClass}
-              />
-            </label>
-          </div>
-
-          {createError && (
-            <p role="alert" className="text-sm text-red-400">
-              {createError}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={
-              pendingUserId === "__create__" ||
-              !email.trim() ||
-              !firstName.trim() ||
-              !lastName.trim()
-            }
-            className={`${primaryButtonClass} self-start`}
-          >
-            {pendingUserId === "__create__" ? "Sending…" : "Create invite"}
-          </button>
-        </form>
+        <InviteUserForm
+          availableRoles={availableRoles}
+          onSubmit={handleCreateUser}
+          onCreated={() => setShowCreateForm(false)}
+        />
       )}
 
       {loadError && (
@@ -528,273 +147,21 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => {
-                const isPending = pendingUserId === user.id;
-                const isSelf = user.id === currentUser?.user_id;
-                const canReissue =
-                  user.status === "invited" && user.credential_count === 0;
-                // Never on your own row: recovery revokes every live
-                // session on the target account, including -- if you
-                // could trigger it on yourself -- the one you're using
-                // right now to click the button. Recovering your own
-                // account also makes no sense on its own terms: reaching
-                // this page at all means you aren't locked out.
-                const canRecover = user.status === "active" && !isSelf;
-                // Never on your own row, for the same reason as
-                // recovery -- and never on an already-deactivated user,
-                // which the backend refuses anyway (set_user_status is
-                // still called on a no-op transition otherwise, and the
-                // resulting "conflict" error would be a confusing UI
-                // dead end when the row already shows deactivated).
-                const canDisable = user.status !== "deactivated" && !isSelf;
-                // The counterpart to canDisable -- never true at the same
-                // time as it, since they're opposite ends of the same
-                // status check. No isSelf guard needed: a deactivated
-                // account can't be the caller's own (deactivating your own
-                // account is already refused server-side), so this can
-                // never be reached for isSelf in practice.
-                const canReactivate = user.status === "deactivated";
-
-                return (
-                  <tr key={user.id} className="border-t border-slate-800">
-                    <td className="px-4 py-2 text-slate-200">
-                      {user.first_name} {user.last_name}
-                    </td>
-                    <td className="px-4 py-2 text-slate-400">{user.email}</td>
-                    <td className="px-4 py-2 text-slate-400">
-                      {user.company}
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex flex-wrap items-center gap-1">
-                        {user.roles.map((roleKey) => (
-                          <span
-                            key={roleKey}
-                            className="flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-200"
-                          >
-                            {availableRoles?.find((r) => r.key === roleKey)
-                              ?.label ?? roleKey}
-                            {/* Self-role-edit is refused server-side (RLS
-                                and the handler both), so this is hidden
-                                rather than shown-disabled on your own
-                                row -- there's nothing it could ever do. */}
-                            {!isSelf && (
-                              <button
-                                type="button"
-                                disabled={isPending}
-                                onClick={() => handleRevokeRole(user, roleKey)}
-                                aria-label={`Remove ${roleKey} role`}
-                                className="text-slate-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                ×
-                              </button>
-                            )}
-                          </span>
-                        ))}
-
-                        {!isSelf &&
-                          (addingRoleFor === user.id ? (
-                            <span className="flex items-center gap-1">
-                              <select
-                                value={roleToAdd}
-                                onChange={(event) =>
-                                  setRoleToAdd(event.target.value)
-                                }
-                                className={`${inputClass} py-0.5 text-xs`}
-                              >
-                                {(availableRoles ?? [])
-                                  .filter((r) => !user.roles.includes(r.key))
-                                  .map(({ key, label }) => (
-                                    <option key={key} value={key}>
-                                      {label}
-                                    </option>
-                                  ))}
-                              </select>
-                              <button
-                                type="button"
-                                disabled={isPending || !roleToAdd}
-                                onClick={() => handleGrantRole(user, roleToAdd)}
-                                className={smallButtonClass}
-                              >
-                                Add
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setAddingRoleFor(null)}
-                                className={linkButtonClass}
-                              >
-                                Cancel
-                              </button>
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={isPending}
-                              onClick={() => {
-                                const next = (availableRoles ?? []).find(
-                                  (r) => !user.roles.includes(r.key)
-                                );
-                                setRoleToAdd(next?.key ?? "");
-                                setAddingRoleFor(user.id);
-                              }}
-                              className="text-xs text-slate-500 hover:text-slate-300"
-                            >
-                              + Add role
-                            </button>
-                          ))}
-                      </div>
-                    </td>
-                    <td
-                      className={
-                        user.status === "deactivated"
-                          ? "px-4 py-2 text-red-400"
-                          : "px-4 py-2 text-slate-400"
-                      }
-                    >
-                      {user.status}
-                    </td>
-                    <td
-                      className={
-                        isDormant(user)
-                          ? "px-4 py-2 text-amber-400"
-                          : "px-4 py-2 text-slate-400"
-                      }
-                      title={
-                        isDormant(user)
-                          ? `No activity for ${DORMANT_THRESHOLD_DAYS}+ days`
-                          : undefined
-                      }
-                    >
-                      {formatLastActive(user.last_seen_at)}
-                      {isDormant(user) && " ⚠"}
-                    </td>
-                    <td className="px-4 py-2 text-slate-400">
-                      {user.credential_count}
-                    </td>
-                    <td className="px-4 py-2 text-slate-400">
-                      {user.totp_enrolled ? "Enrolled" : "—"}
-                    </td>
-                    <td className="px-4 py-2">
-                      {canReissue && (
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => handleReissue(user)}
-                          className={smallButtonClass}
-                        >
-                          {isPending ? "Sending…" : "Reissue invite"}
-                        </button>
-                      )}
-
-                      {canRecover && confirmingRecoveryFor !== user.id && (
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => setConfirmingRecoveryFor(user.id)}
-                          className={dangerButtonClass}
-                        >
-                          Recover account
-                        </button>
-                      )}
-
-                      {canRecover && confirmingRecoveryFor === user.id && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-400">
-                            Revokes their passkeys, TOTP, and sessions —
-                            sure?
-                          </span>
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => handleRecover(user)}
-                            className={dangerButtonClass}
-                          >
-                            {isPending ? "Recovering…" : "Yes, recover"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmingRecoveryFor(null)}
-                            className={linkButtonClass}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
-
-                      {canDisable && confirmingDisableFor !== user.id && (
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => setConfirmingDisableFor(user.id)}
-                          className={`${dangerButtonClass} ml-2`}
-                        >
-                          Disable
-                        </button>
-                      )}
-
-                      {canDisable && confirmingDisableFor === user.id && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <span className="text-xs text-slate-400">
-                            Deactivates this account — sure?
-                          </span>
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => handleDisable(user)}
-                            className={dangerButtonClass}
-                          >
-                            {isPending ? "Disabling…" : "Yes, disable"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmingDisableFor(null)}
-                            className={linkButtonClass}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
-
-                      {canReactivate && confirmingReactivateFor !== user.id && (
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => setConfirmingReactivateFor(user.id)}
-                          className={smallButtonClass}
-                        >
-                          Reactivate
-                        </button>
-                      )}
-
-                      {canReactivate && confirmingReactivateFor === user.id && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <span className="text-xs text-slate-400">
-                            Issues a fresh setup link — sure?
-                          </span>
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => handleReactivate(user)}
-                            className={smallButtonClass}
-                          >
-                            {isPending ? "Reactivating…" : "Yes, reactivate"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmingReactivateFor(null)}
-                            className={linkButtonClass}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
-
-                      {isSelf && !canReissue && (
-                        <span className="text-xs text-slate-500">You</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {users.map((user) => (
+                <UserRow
+                  key={user.id}
+                  user={user}
+                  isSelf={user.id === currentUser?.user_id}
+                  isPending={pendingUserId === user.id}
+                  availableRoles={availableRoles}
+                  onReissue={handleReissue}
+                  onRecover={handleRecover}
+                  onDisable={handleDisable}
+                  onReactivate={handleReactivate}
+                  onGrantRole={handleGrantRole}
+                  onRevokeRole={handleRevokeRole}
+                />
+              ))}
             </tbody>
           </table>
         </div>

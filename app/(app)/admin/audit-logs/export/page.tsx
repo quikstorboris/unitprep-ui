@@ -10,7 +10,7 @@ import {
   exportAuditLogsPdf,
   previewAuditLogsExport,
   type AuditLogPreviewRow,
-} from "@/lib/auth";
+} from "@/lib/auth-audit";
 import { useAuditLogFilterData } from "@/lib/useAuditLogFilterData";
 import { downloadBlob } from "@/lib/useSessionAction";
 

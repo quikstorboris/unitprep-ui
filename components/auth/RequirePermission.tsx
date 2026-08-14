@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-import { hasPermission } from "@/lib/auth";
+import { hasPermission } from "@/lib/auth-session";
 import { useCurrentUser } from "@/lib/currentUser";
 
 /**

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { listAuditLogEventTypes, listUsers, type UserSummary } from "@/lib/auth";
+import { listAuditLogEventTypes } from "@/lib/auth-audit";
+import { listUsers, type UserSummary } from "@/lib/auth-users";
 
 interface UseAuditLogFilterDataResult {
   allEventTypes: string[];

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import { registerPasskey, UNSUPPORTED_BROWSER_MESSAGE } from "@/lib/auth";
+import { registerPasskey, UNSUPPORTED_BROWSER_MESSAGE } from "@/lib/auth-session";
 import { useCurrentUser } from "@/lib/currentUser";
 
 const primaryButtonClass =

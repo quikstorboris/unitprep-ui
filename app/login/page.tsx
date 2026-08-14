@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
-import { loginBegin, loginFinish, UNSUPPORTED_BROWSER_MESSAGE } from "@/lib/auth";
+import { loginBegin, loginFinish, UNSUPPORTED_BROWSER_MESSAGE } from "@/lib/auth-session";
 import { useCurrentUser } from "@/lib/currentUser";
 
 const inputClass =

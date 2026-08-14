@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import QRCode from "qrcode";
 
-import { totpEnrollBegin, totpEnrollConfirm, type TotpEnrollment } from "@/lib/auth";
+import { totpEnrollBegin, totpEnrollConfirm, type TotpEnrollment } from "@/lib/auth-session";
 
 const primaryButtonClass =
   "rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50";

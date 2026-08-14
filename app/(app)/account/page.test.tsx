@@ -11,7 +11,7 @@ vi.mock("@/lib/currentUser", () => ({
   useCurrentUser,
 }));
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/lib/auth-session", () => ({
   passkeyReverify,
 }));
 

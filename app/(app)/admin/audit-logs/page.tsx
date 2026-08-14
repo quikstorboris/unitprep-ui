@@ -6,7 +6,8 @@ import Link from "next/link";
 import RequirePermission from "@/components/auth/RequirePermission";
 import EventTypeMultiSelect from "@/components/audit/EventTypeMultiSelect";
 import UserMultiSelect from "@/components/audit/UserMultiSelect";
-import { listAuditLogs, type AuditLogEntry, type UserSummary } from "@/lib/auth";
+import { listAuditLogs, type AuditLogEntry } from "@/lib/auth-audit";
+import type { UserSummary } from "@/lib/auth-users";
 import { useAuditLogFilterData } from "@/lib/useAuditLogFilterData";
 
 const smallButtonClass =

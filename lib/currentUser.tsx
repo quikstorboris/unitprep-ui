@@ -13,7 +13,7 @@ import {
   logoutEverywhere,
   whoAmI,
   type WhoAmI,
-} from "@/lib/auth";
+} from "@/lib/auth-session";
 
 // Named around "the signed-in user", not "session" -- this app already
 // uses "session" throughout for *tool* sessions (useSessionPost,

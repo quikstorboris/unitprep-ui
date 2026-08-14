@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { UserSummary } from "@/lib/auth";
+import type { UserSummary } from "@/lib/auth-users";
 
 /**
  * Fuzzy-search-to-chips multi-select for a User filter -- shared by the
