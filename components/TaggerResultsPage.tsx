@@ -3,11 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 
 import CandidateRow from "./tagger/CandidateRow";
+import PreserveUnderscoresDialog from "./tagger/PreserveUnderscoresDialog";
 import { useTaggerApply } from "./tagger/useTaggerApply";
 import { useTaggerReport } from "./tagger/useTaggerReport";
 import SessionExpiredPage from "./SessionExpiredPage";
 import { listQmsTags, type QmsTag } from "@/lib/clientOps";
 import type { CandidateView, ConfirmedSubstitution } from "@/types/api";
+
+/** Same definition `tagger-pipeline` itself uses (`is_underscore_run`):
+ * a candidate whose matched text is a run of underscores rather than an
+ * already-filled value -- e.g. a blank template's own "________". */
+function isUnderscoreRun(text: string): boolean {
+  return text.length > 0 && [...text].every((char) => char === "_");
+}
 
 interface TaggerResultsPageProps {
   sessionId: string;
@@ -56,12 +64,12 @@ export default function TaggerResultsPage({
   const [tags, setTags] = useState<QmsTag[]>([]);
   const [tagsError, setTagsError] = useState<string | null>(null);
   const [review, setReview] = useState<Map<number, ReviewState>>(new Map());
-  // OM-facing style choice, applied to the whole apply call -- default
-  // off (replace outright) matches the original, no-underscores-left
-  // behavior; some OMs may prefer keeping the visual blank instead
-  // (e.g. a signature-line convention already seen in the corpus:
-  // /s/{{e.name}}______________).
-  const [preserveUnderscores, setPreserveUnderscores] = useState(false);
+  // Whether Apply should ask "preserve underscores or not" first --
+  // only a real question when the document actually has a blank to
+  // preserve. A document with none (already-filled documents, or one
+  // where every candidate came from a known-value match) never shows
+  // the dialog and just applies outright, same as it always has.
+  const [showPreserveDialog, setShowPreserveDialog] = useState(false);
 
   // The full catalog to search over in each row's TagPicker -- fetched
   // once, independent of the candidate list itself. A failure here used
@@ -130,6 +138,26 @@ export default function TaggerResultsPage({
         candidate_index: index,
         tag_key: state.tagKey,
       }));
+  }
+
+  // Document-level, not selection-level -- the dialog is about whether
+  // this document has a blank worth asking about at all, independent of
+  // which candidates end up checked.
+  const hasBlankCandidates = (candidates ?? []).some((candidate) =>
+    isUnderscoreRun(candidate.matched_text)
+  );
+
+  function handleApplyClick() {
+    if (hasBlankCandidates) {
+      setShowPreserveDialog(true);
+      return;
+    }
+    handleApply(confirmedSubstitutions(), false);
+  }
+
+  function handlePreserveChoice(preserve: boolean) {
+    setShowPreserveDialog(false);
+    handleApply(confirmedSubstitutions(), preserve);
   }
 
   if (reportExpired || applyExpired) {
@@ -223,17 +251,8 @@ export default function TaggerResultsPage({
 
       {!downloadComplete && candidates && candidates.length > 0 && (
         <div className="mt-8 rounded border border-slate-700 p-4">
-          <label className="mb-4 flex items-center gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
-              checked={preserveUnderscores}
-              onChange={(event) => setPreserveUnderscores(event.target.checked)}
-            />
-            Preserve underscores (center the tag inside the blank instead of replacing it)
-          </label>
-
           <button
-            onClick={() => handleApply(confirmedSubstitutions(), preserveUnderscores)}
+            onClick={handleApplyClick}
             disabled={applying || confirmedCount === 0}
             className="rounded bg-blue-600 px-5 py-3 disabled:opacity-50"
           >
@@ -242,6 +261,13 @@ export default function TaggerResultsPage({
               : `Apply ${confirmedCount} Substitution${confirmedCount === 1 ? "" : "s"}`}
           </button>
         </div>
+      )}
+
+      {showPreserveDialog && (
+        <PreserveUnderscoresDialog
+          onChoose={handlePreserveChoice}
+          onCancel={() => setShowPreserveDialog(false)}
+        />
       )}
 
       {downloadComplete && (

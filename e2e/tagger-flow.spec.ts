@@ -84,8 +84,14 @@ test("reviewing candidates by tier and applying confirmed substitutions", async 
     filename: "lease-tagged.docx",
   });
 
-  const downloadPromise = page.waitForEvent("download");
+  // Every candidate here is an underscore blank, so Apply opens the
+  // preserve-underscores dialog first; this test isn't about that
+  // choice, so just pick "replace outright" (the previous default) and
+  // move on.
   await page.getByRole("button", { name: /Apply 2 Substitutions/ }).click();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Replace outright/ }).click();
   const download = await downloadPromise;
 
   expect(download.suggestedFilename()).toBe("lease-tagged.docx");
@@ -126,7 +132,7 @@ test("the tag picker lets a reviewer override a candidate's guessed tag", async 
   ).toBeVisible();
 });
 
-test("the preserve-underscores checkbox is sent through to /tagger/apply", async ({
+test("the preserve-underscores dialog choice is sent through to /tagger/apply", async ({
   page,
 }) => {
   await seedClient(page, CLIENT_ID);
@@ -165,12 +171,12 @@ test("the preserve-underscores checkbox is sent through to /tagger/apply", async
 
   await page.goto(`/clients/${CLIENT_ID}/template-tagger/${SESSION_ID}`);
 
-  await page
-    .getByRole("checkbox", { name: /Preserve underscores/ })
-    .check();
+  // Every candidate in `taggerReport` is an underscore blank, so Apply
+  // opens the preserve-underscores dialog instead of applying directly.
+  await page.getByRole("button", { name: /Apply 1 Substitution/ }).click();
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: /Apply 1 Substitution/ }).click();
+  await page.getByRole("button", { name: /Preserve underscores/ }).click();
   await downloadPromise;
 
   expect(captured.body?.preserve_blanks).toBe(true);
