@@ -70,15 +70,14 @@ export default function TypoVariantsSection({
                       </td>
 
                       <td className="p-3">
-                        {candidate.contact_info_matches ? (
+                        {candidate.differing_categories.length === 0 ? (
                           <span className="text-green-400">
-                            Contact info
-                            matches
+                            Contact info matches
                           </span>
                         ) : (
                           <span className="text-yellow-400">
-                            Contact info
-                            differs
+                            Contact info differs:{" "}
+                            {candidate.differing_categories.join(", ")}
                           </span>
                         )}
                       </td>

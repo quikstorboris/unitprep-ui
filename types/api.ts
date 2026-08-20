@@ -255,6 +255,11 @@ export type TypoVariantView = {
   display_name_b: string;
   units_b: string[];
   contact_info_matches: boolean;
+  /** Which non-Name categories actually differ across the combined
+   * pair — empty when `contact_info_matches` is true. Render this
+   * instead of a bare matches/differs label so a pair that matches on
+   * most fields and differs on one doesn't read as "nothing matches." */
+  differing_categories: FieldCategory[];
   note: string;
 };
 

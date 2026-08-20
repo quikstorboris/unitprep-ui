@@ -13,6 +13,7 @@ function makeCandidate(
     display_name_b: "John Smith",
     units_b: ["2"],
     contact_info_matches: true,
+    differing_categories: [],
     note: "Names differ by one letter.",
     ...overrides,
   };
@@ -55,25 +56,35 @@ describe("TypoVariantsSection", () => {
     expect(screen.getByText("Names differ by one letter.")).toBeInTheDocument();
   });
 
-  it('shows "Contact info matches" when contact_info_matches is true', () => {
+  it('shows "Contact info matches" when nothing differs', () => {
     render(
       <TypoVariantsSection
-        candidates={[makeCandidate({ contact_info_matches: true })]}
+        candidates={[makeCandidate({ differing_categories: [] })]}
       />
     );
 
     expect(screen.getByText("Contact info matches")).toBeInTheDocument();
-    expect(screen.queryByText("Contact info differs")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Contact info differs/)
+    ).not.toBeInTheDocument();
   });
 
-  it('shows "Contact info differs" when contact_info_matches is false', () => {
+  // Regression test for a real bug: a bare "Contact info differs" reads
+  // as "nothing matches" even when a pair matches on every field but
+  // one -- naming the actual differing category(ies) is the fix.
+  it("names which categories differ instead of a bare \"differs\"", () => {
     render(
       <TypoVariantsSection
-        candidates={[makeCandidate({ contact_info_matches: false })]}
+        candidates={[
+          makeCandidate({ differing_categories: ["Company"] }),
+        ]}
       />
     );
 
-    expect(screen.getByText("Contact info differs")).toBeInTheDocument();
+    expect(
+      screen.getByText((text) => text.startsWith("Contact info differs:"))
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Company/)).toBeInTheDocument();
     expect(screen.queryByText("Contact info matches")).not.toBeInTheDocument();
   });
 

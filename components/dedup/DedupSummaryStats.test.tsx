@@ -60,6 +60,7 @@ describe("DedupSummaryStats", () => {
               display_name_b: "B",
               units_b: ["2"],
               contact_info_matches: true,
+              differing_categories: [],
               note: "note",
             },
           ],
