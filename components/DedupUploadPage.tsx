@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { useFileUploadAction } from "@/lib/useFileUploadAction";
 import { stashDedupReport } from "@/lib/dedupReportCache";
-import type { DedupCheckResponse } from "@/types/api";
+import type { DedupCheckResponse, DedupDetectVendorResponse } from "@/types/api";
 
 // Extensions the backend can actually parse — `DedupSessionService::
 // create_session` (unitprep-api/src/application/dedup_session_service.rs)
@@ -43,8 +43,44 @@ export default function DedupUploadPage({
   const [apiError, setApiError] =
     useState<string | null>(null);
 
+  // `undefined` = not checked yet for the current file, `null` =
+  // checked and no registered vendor matched. Distinct from `apiError`
+  // (a real request failure) -- an unrecognized file is a normal,
+  // expected outcome of detection succeeding, not an error.
+  const [vendorName, setVendorName] =
+    useState<string | null | undefined>(undefined);
+
+  const [vendorConfirmed, setVendorConfirmed] =
+    useState(false);
+
   const { pending: loading, run } =
     useFileUploadAction("/dedup/check");
+
+  const { pending: detecting, run: runDetectVendor } =
+    useFileUploadAction("/dedup/detect-vendor");
+
+  const detectVendor = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+
+    const result = await runDetectVendor(formData);
+
+    if (result.kind === "sessionExpired") {
+      // Vendor detection doesn't touch a session, so this can only mean
+      // the caller themselves is no longer authenticated -- surfaced the
+      // same way the check itself would.
+      setApiError("Your session has expired — please try again.");
+      return;
+    }
+
+    if (result.kind === "error") {
+      setApiError(result.message);
+      return;
+    }
+
+    const data: DedupDetectVendorResponse = await result.response.json();
+    setVendorName(data.vendor_name);
+  };
 
   const handleFileSelection = (
     files: FileList | null
@@ -53,6 +89,9 @@ export default function DedupUploadPage({
       files && files.length > 0
         ? files[0]
         : null;
+
+    setVendorName(undefined);
+    setVendorConfirmed(false);
 
     if (file && !isSupportedFile(file)) {
       setSelectedFile(null);
@@ -64,6 +103,13 @@ export default function DedupUploadPage({
 
     setSelectedFile(file);
     setApiError(null);
+
+    if (file) {
+      // Fire-and-forget: `detectVendor` owns its own error/state
+      // handling, and the user can't do anything else with this file
+      // (Run Check stays disabled) until it settles anyway.
+      void detectVendor(file);
+    }
   };
 
   const handleCheck = async () => {
@@ -112,6 +158,15 @@ export default function DedupUploadPage({
     onChecked(data.session_id);
   };
 
+  // Run Check stays disabled until the user has explicitly confirmed a
+  // recognized vendor -- mirrors Group Prep's own recognize-then-confirm
+  // flow, applied consistently here rather than treating dedup's common
+  // case (QSX) as needing no confirmation. `/dedup/check` re-detects the
+  // vendor itself when it runs regardless -- this gate is a UX
+  // checkpoint, not something the backend trusts.
+  const canRunCheck =
+    !loading && !!selectedFile && vendorConfirmed;
+
   return (
     <div>
       <h1 className="mb-8 text-4xl font-bold">
@@ -151,11 +206,43 @@ export default function DedupUploadPage({
           </strong>
         </div>
 
+        {selectedFile && detecting && (
+          <div className="mt-2 text-sm text-slate-400">
+            Checking vendor format...
+          </div>
+        )}
+
+        {selectedFile && !detecting && vendorName !== undefined && (
+          <div className="mt-2 text-sm">
+            {vendorName ? (
+              <>
+                <div className="text-slate-300">
+                  Vendor: <strong>{vendorName}</strong>
+                </div>
+                <label className="mt-2 flex items-center gap-2 text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={vendorConfirmed}
+                    onChange={(e) =>
+                      setVendorConfirmed(e.target.checked)
+                    }
+                  />
+                  This is the correct vendor
+                </label>
+              </>
+            ) : (
+              <div className="text-amber-400">
+                Unrecognized file — this file&apos;s columns don&apos;t
+                match a known vendor format (QSX, Easy Storage
+                Solutions). Run Check is disabled.
+              </div>
+            )}
+          </div>
+        )}
+
         <button
           onClick={handleCheck}
-          disabled={
-            loading || !selectedFile
-          }
+          disabled={!canRunCheck}
           className="mt-6 rounded bg-blue-600 px-4 py-2 disabled:opacity-50"
         >
           {loading

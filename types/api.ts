@@ -312,6 +312,13 @@ export type DedupCheckResponse = {
   report: DedupReportView;
 };
 
+/** Mirrors `DedupDetectVendorResponse` (unitprep-api/src/api/dedup.rs) --
+ * `vendor_name` is `null` when the file doesn't match any registered
+ * vendor's column signature. */
+export type DedupDetectVendorResponse = {
+  vendor_name: string | null;
+};
+
 /** `"both"` returns a ZIP containing both files in one download. */
 export type DedupExportFormat = "csv" | "xlsx" | "both";
 
