@@ -45,8 +45,10 @@ export default function TagRow({
 }: TagRowProps) {
   const [editLabel, setEditLabel] = useState(tag.label);
   const [editCategory, setEditCategory] = useState(tag.category);
+  const [justCopied, setJustCopied] = useState(false);
 
   const isPending = pendingKey === tag.tag_key;
+  const tagPlaceholder = `{{${tag.tag_key}}}`;
 
   function handleStartEdit() {
     setEditLabel(tag.label);
@@ -54,9 +56,43 @@ export default function TagRow({
     onStartEdit(tag.tag_key);
   }
 
+  function handleCopy() {
+    navigator.clipboard.writeText(tagPlaceholder);
+    setJustCopied(true);
+    setTimeout(() => setJustCopied(false), 1500);
+  }
+
   return (
     <tr className="border-t border-slate-800">
-      <td className="px-4 py-2 font-mono text-slate-300">{tag.tag_key}</td>
+      <td className="px-4 py-2 font-mono text-slate-300">
+        <div className="flex items-center gap-2">
+          <span>{tagPlaceholder}</span>
+          <button
+            type="button"
+            onClick={handleCopy}
+            title={justCopied ? "Copied!" : "Copy tag placeholder"}
+            aria-label={
+              justCopied ? "Copied!" : `Copy ${tagPlaceholder} to clipboard`
+            }
+            className="text-slate-500 transition-colors hover:text-slate-200"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          </button>
+        </div>
+      </td>
       <td className="px-4 py-2 text-slate-200">
         {isEditing ? (
           <input
