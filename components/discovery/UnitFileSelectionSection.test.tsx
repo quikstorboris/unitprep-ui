@@ -224,4 +224,70 @@ describe("UnitFileSelectionSection", () => {
     await user.click(cancelButton);
     expect(onSelectionConfirmed).toHaveBeenCalledTimes(1);
   });
+
+  it("offers a manual upload when nothing was auto-detected and nothing is selected, instead of a misleading zero-files summary", () => {
+    render(
+      <UnitFileSelectionSection
+        {...baseProps({
+          showSelectionSection: false,
+          discovery: baseDiscovery({
+            unit_file_candidates: [],
+            selected_unit_file_names: [],
+            requires_unit_file_selection: false,
+          }),
+        })}
+      />
+    );
+
+    expect(screen.queryByText(/Unit Files Selected/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Select File" })
+    ).toBeInTheDocument();
+  });
+
+  it("posts a manually selected file to /unit-file/upload and forwards the updated discovery", async () => {
+    const onDiscoveryUpdated = vi.fn();
+    const updatedDiscovery = baseDiscovery({
+      unit_file_candidates: [],
+      selected_unit_file_names: ["boris_units.csv"],
+      requires_unit_file_selection: false,
+      requires_format_resolution: true,
+    });
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => updatedDiscovery,
+    });
+
+    const { container } = render(
+      <UnitFileSelectionSection
+        {...baseProps({
+          onDiscoveryUpdated,
+          showSelectionSection: false,
+          discovery: baseDiscovery({
+            unit_file_candidates: [],
+            selected_unit_file_names: [],
+            requires_unit_file_selection: false,
+          }),
+        })}
+      />
+    );
+
+    const file = new File(["a,b\n1,2"], "boris_units.csv", {
+      type: "text/csv",
+    });
+    const input = container.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+
+    await userEvent.upload(input, file);
+
+    await waitFor(() =>
+      expect(onDiscoveryUpdated).toHaveBeenCalledWith(updatedDiscovery)
+    );
+
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toContain("/unit-file/upload");
+  });
 });
