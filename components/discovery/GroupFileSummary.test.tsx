@@ -104,6 +104,25 @@ describe("GroupFileSummary", () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
+  it("shows a neutral checking-format message and hides Confirm when validity is null, instead of treating null as valid", () => {
+    render(
+      <GroupFileSummary
+        {...baseProps({
+          discovery: baseDiscovery({ group_file_format_valid: null }),
+        })}
+      />
+    );
+
+    expect(screen.getByText(/Checking file format/)).toBeInTheDocument();
+    expect(screen.queryByText(/Master file is good/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Master file confirmed/)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Confirm/ })
+    ).not.toBeInTheDocument();
+  });
+
   it('shows "Confirming..." on the Confirm button while confirming', () => {
     render(<GroupFileSummary {...baseProps({ confirming: true })} />);
 
