@@ -10,6 +10,8 @@ export type { Role };
 
 export interface WhoAmI {
   user_id: string;
+  first_name: string;
+  last_name: string;
   roles: Role[];
   /** Every permission key `roles` currently grants, resolved server-side
    * -- prefer checking this over hardcoding a role name in UI gating

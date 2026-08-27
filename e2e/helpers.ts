@@ -54,6 +54,8 @@ async function seedWhoAmI(page: Page) {
     await route.fulfill({
       json: {
         user_id: "00000000-0000-0000-0000-000000000001",
+        first_name: "E2E",
+        last_name: "Admin",
         roles: ["admin"],
         permissions: [],
         totp_enrolled: true,

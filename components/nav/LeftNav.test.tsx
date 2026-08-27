@@ -44,6 +44,8 @@ describe("LeftNav", () => {
     useCurrentUser.mockReturnValue({
       user: {
         user_id: "u1",
+        first_name: "Ada",
+        last_name: "Lovelace",
         roles: ["admin"],
         permissions: ADMIN_PERMISSIONS,
         totp_enrolled: true,
@@ -82,6 +84,8 @@ describe("LeftNav", () => {
     useCurrentUser.mockReturnValue({
       user: {
         user_id: "u2",
+        first_name: "Grace",
+        last_name: "Hopper",
         roles: ["onboarding_manager"],
         permissions: ["client_ops.perform"],
         totp_enrolled: true,
@@ -108,6 +112,8 @@ describe("LeftNav", () => {
     useCurrentUser.mockReturnValue({
       user: {
         user_id: "u3",
+        first_name: "Katherine",
+        last_name: "Johnson",
         roles: ["district_manager_stand_in"],
         permissions: ["audit_logs.read"],
         totp_enrolled: true,
@@ -182,11 +188,13 @@ describe("LeftNav", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows every held role, joined, in the footer", () => {
+  it("shows the signed-in user's name in the footer", () => {
     usePathname.mockReturnValue("/clients");
     useCurrentUser.mockReturnValue({
       user: {
         user_id: "u1",
+        first_name: "Ada",
+        last_name: "Lovelace",
         roles: ["admin", "onboarding_manager"],
         permissions: ADMIN_PERMISSIONS,
         totp_enrolled: true,
@@ -196,7 +204,7 @@ describe("LeftNav", () => {
 
     render(<LeftNav />);
 
-    expect(screen.getByText("admin, onboarding_manager")).toBeInTheDocument();
+    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
   });
 
   it("signs out and redirects to /login when signed in", async () => {
@@ -206,6 +214,8 @@ describe("LeftNav", () => {
     useCurrentUser.mockReturnValue({
       user: {
         user_id: "u1",
+        first_name: "Ada",
+        last_name: "Lovelace",
         roles: ["admin"],
         permissions: ADMIN_PERMISSIONS,
         totp_enrolled: false,

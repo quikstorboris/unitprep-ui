@@ -164,13 +164,8 @@ export default function LeftNav() {
           page shares. */}
       {user && (
         <div className="mt-auto border-t border-slate-800 pt-4">
-          {/* Shows roles, not a name/email, because WhoAmI doesn't carry
-              either -- auth.users has first_name/last_name/email, but
-              /auth/whoami never surfaces them. Open product question
-              (worth showing a name here? PII-in-an-auth-check-response
-              tradeoff?), not a frontend fix. */}
           <p className="mb-2 truncate px-2 text-xs text-slate-500">
-            {user.roles.join(", ")}
+            {user.first_name} {user.last_name}
           </p>
           <button
             type="button"
