@@ -55,12 +55,15 @@ function breadcrumbFor(
 }
 
 /**
- * Inline Dropbox folder browser -- navigate by clicking a subfolder,
- * "Up" to go back, "Select this folder" to commit. Starts browsing at
- * `value` if one is already set (editing an existing selection), or at
- * the server's configured root otherwise (creating a client for the
- * first time should land the user among the top-level client folders,
- * not pre-guess a facility inside one of them).
+ * Inline Dropbox folder browser -- navigate by clicking a subfolder's
+ * name, "Up" to go back. In "select-folder" mode, each folder row also
+ * has its own "Select" action to commit that exact folder without
+ * entering it, plus a "Select this folder" button to commit whichever
+ * folder is currently open. Starts browsing at `value` if one is already
+ * set (editing an existing selection), or at the server's configured
+ * root otherwise (creating a client for the first time should land the
+ * user among the top-level client folders, not pre-guess a facility
+ * inside one of them).
  *
  * Also supports searching by name across the whole tree (not just the
  * currently browsed folder) -- important because a facility's name is
@@ -276,13 +279,37 @@ export function DropboxFolderPicker({
           {entries.map((entry) => (
             <li key={entry.path_display}>
               {entry.is_folder ? (
-                <button
-                  type="button"
-                  onClick={() => load(entry.path_display)}
-                  className="w-full rounded px-2 py-1 text-left text-sm text-slate-200 transition-colors hover:bg-slate-800"
-                >
-                  📁 {entry.name}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => load(entry.path_display)}
+                    className="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-sm text-slate-200 transition-colors hover:bg-slate-800"
+                  >
+                    📁 {entry.name}
+                  </button>
+
+                  {/* Selecting a folder can't require entering it first --
+                      that only lets you commit whatever folder you
+                      currently happen to be standing in (the bottom
+                      "Select this folder" button, for that one case).
+                      This is the direct "yes, this exact row" action a
+                      folder picker needs -- without it, the only way to
+                      stop drilling down was to descend one level too far,
+                      then walk back out, which read as an actual bug,
+                      not just an awkward extra click. */}
+                  {!isFileMode && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onChange(entry.path_display);
+                        setOpen(false);
+                      }}
+                      className="shrink-0 rounded border border-slate-700 px-2 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800"
+                    >
+                      Select
+                    </button>
+                  )}
+                </div>
               ) : isFileMode ? (
                 // Clicking a file commits it immediately -- there's no
                 // separate "Select this folder"-style confirm step for a
