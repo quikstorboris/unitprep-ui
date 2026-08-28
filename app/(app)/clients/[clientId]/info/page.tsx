@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 
+import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
 import {
   useClients,
   type ClientDraft,
@@ -92,24 +93,20 @@ export default function ClientInfoPage() {
             Source Files
           </h2>
 
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="text-slate-400">
-              Dropbox folder path (manual reference
-              only, for now)
+              Dropbox folder
             </span>
 
-            <input
-              type="text"
+            <DropboxFolderPicker
               value={client.dropboxPath}
-              onChange={(e) =>
+              onChange={(path) =>
                 updateClient(clientId, {
-                  dropboxPath: e.target.value,
+                  dropboxPath: path,
                 })
               }
-              placeholder="e.g. /Clients/Acme Storage/Onboarding"
-              className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100 placeholder:text-slate-500"
             />
-          </label>
+          </div>
         </section>
 
         <section className="rounded border border-slate-800 bg-slate-950/50 p-6">

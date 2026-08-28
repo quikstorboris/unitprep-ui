@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
 import { useClients } from "@/lib/clients";
 
 export default function ClientsPage() {
@@ -12,11 +13,20 @@ export default function ClientsPage() {
     useClients();
 
   const [name, setName] = useState("");
+  // Picked here (not left for the info page alone) specifically to
+  // reduce folder-selection ambiguity up front -- still editable
+  // afterward on the client's info page via the same picker.
+  const [dropboxPath, setDropboxPath] =
+    useState("");
 
   const handleCreate = () => {
-    const client = createClient({ name });
+    const client = createClient({
+      name,
+      dropboxPath,
+    });
 
     setName("");
+    setDropboxPath("");
 
     router.push(
       `/clients/${client.id}/info`
@@ -65,6 +75,19 @@ export default function ClientsPage() {
             >
               Pull from Zoho (coming soon)
             </button>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-1 text-sm">
+            <span className="text-slate-400">
+              Dropbox folder (optional here — can
+              also be set on the client&apos;s info
+              page)
+            </span>
+
+            <DropboxFolderPicker
+              value={dropboxPath}
+              onChange={setDropboxPath}
+            />
           </div>
         </div>
 
