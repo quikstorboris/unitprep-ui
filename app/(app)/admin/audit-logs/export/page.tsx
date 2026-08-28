@@ -58,6 +58,7 @@ export default function AuditLogExportPage() {
     allUsers,
     selectedUserIds,
     setSelectedUserIds,
+    filterDataError,
   } = useAuditLogFilterData();
 
   const [ipAddress, setIpAddress] = useState("");
@@ -245,6 +246,12 @@ export default function AuditLogExportPage() {
             </button>
           </div>
         </div>
+
+        {filterDataError && (
+          <p role="alert" className="mb-4 text-sm text-red-400">
+            {filterDataError}
+          </p>
+        )}
 
         {exportError && (
           <p role="alert" className="mb-4 text-sm text-red-400">

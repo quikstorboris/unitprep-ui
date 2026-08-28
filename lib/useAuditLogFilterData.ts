@@ -22,6 +22,13 @@ interface UseAuditLogFilterDataResult {
   usersById: Map<string, UserSummary>;
   selectedUserIds: string[];
   setSelectedUserIds: (userIds: string[]) => void;
+  /** Set if either the event-type list or the users list failed to load
+   * -- previously dropped silently, leaving both filter dropdowns just
+   * render empty with no indication why. Null once both have loaded
+   * (or on the next successful retry, since neither effect re-runs on
+   * its own -- a remount, e.g. navigating away and back, is what
+   * retries today). */
+  filterDataError: string | null;
 }
 
 /**
@@ -42,11 +49,15 @@ export function useAuditLogFilterData(): UseAuditLogFilterDataResult {
     new Map()
   );
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [filterDataError, setFilterDataError] = useState<string | null>(null);
 
   useEffect(() => {
     queueMicrotask(async () => {
       const result = await listAuditLogEventTypes();
-      if (result.kind !== "ok") return;
+      if (result.kind !== "ok") {
+        setFilterDataError(`Could not load event types: ${result.message}`);
+        return;
+      }
       setAllEventTypes(result.data.event_types);
       setSelectedEventTypes(result.data.event_types);
     });
@@ -55,7 +66,10 @@ export function useAuditLogFilterData(): UseAuditLogFilterDataResult {
   useEffect(() => {
     queueMicrotask(async () => {
       const result = await listUsers();
-      if (result.kind !== "ok") return;
+      if (result.kind !== "ok") {
+        setFilterDataError(`Could not load users: ${result.message}`);
+        return;
+      }
       setUsersById(new Map(result.data.users.map((user) => [user.id, user])));
     });
   }, []);
@@ -74,5 +88,6 @@ export function useAuditLogFilterData(): UseAuditLogFilterDataResult {
     usersById,
     selectedUserIds,
     setSelectedUserIds,
+    filterDataError,
   };
 }

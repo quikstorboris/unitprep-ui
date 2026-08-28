@@ -190,6 +190,7 @@ export default function AdminAuditLogsPage() {
     usersById,
     selectedUserIds,
     setSelectedUserIds,
+    filterDataError,
   } = useAuditLogFilterData();
 
   const runQuery = useCallback(
@@ -381,6 +382,12 @@ export default function AdminAuditLogsPage() {
           />
         </label>
       </div>
+
+      {filterDataError && (
+        <p role="alert" className="mb-4 text-sm text-red-400">
+          {filterDataError}
+        </p>
+      )}
 
       {loadError && (
         <p role="alert" className="mb-4 text-sm text-red-400">

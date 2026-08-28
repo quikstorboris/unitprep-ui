@@ -82,19 +82,28 @@ export async function errorMessageFrom(
 ): Promise<string> {
   const text = await response.text();
 
+  let message: string;
+
   try {
     const body = JSON.parse(text) as {
       message?: string;
     };
 
-    if (body.message) {
-      return body.message;
-    }
+    message = body.message || text || `HTTP ${response.status}`;
   } catch {
     // Not JSON — fall through to the raw text below.
+    message = text || `HTTP ${response.status}`;
   }
 
-  return text || `HTTP ${response.status}`;
+  // The backend stamps every response with this (see unitprep-api's
+  // router). Appended so a user hitting an error has one exact id to
+  // hand over, instead of a developer having to grep the backend log by
+  // timestamp and guesswork. Optional chaining because plenty of this
+  // codebase's existing tests mock a bare {ok, status, text} object with
+  // no `headers` at all -- this must degrade quietly on those, not throw.
+  const requestId = response.headers?.get?.("x-request-id");
+
+  return requestId ? `${message} (request: ${requestId})` : message;
 }
 
 /**
