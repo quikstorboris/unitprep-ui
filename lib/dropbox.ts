@@ -61,3 +61,26 @@ export async function listDropboxFolder(
 
   return tryDropboxFetch(`/dropbox/list${query}`);
 }
+
+/** Mirrors `SearchFoldersResponse` in `unitprep-api`'s `api::dropbox_browse`. */
+export interface DropboxSearchResult {
+  entries: DropboxEntry[];
+}
+
+/**
+ * Searches folder names recursively under the configured root -- e.g. a
+ * facility name alone finds it even without knowing which client it
+ * belongs to. Backend-filtered to folders only; a query under 2
+ * characters always comes back empty rather than erroring (matches the
+ * backend's own guard, kept here too so a caller doesn't need to
+ * duplicate the length check to avoid firing it needlessly).
+ */
+export async function searchDropboxFolders(
+  query: string
+): Promise<DropboxResult<DropboxSearchResult>> {
+  if (query.trim().length < 2) {
+    return { kind: "ok", data: { entries: [] } };
+  }
+
+  return tryDropboxFetch(`/dropbox/search?q=${encodeURIComponent(query.trim())}`);
+}
