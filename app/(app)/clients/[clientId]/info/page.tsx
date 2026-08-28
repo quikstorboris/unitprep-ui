@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 
 import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
+import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import {
   useClients,
   type ClientDraft,
@@ -89,7 +90,8 @@ export default function ClientInfoPage() {
         </section>
 
         <section className="rounded border border-slate-700 p-6">
-          <h2 className="mb-4 text-xl font-semibold">
+          <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold">
+            <DropboxLogo className="h-5 w-5 text-blue-400" />
             Source Files
           </h2>
 
