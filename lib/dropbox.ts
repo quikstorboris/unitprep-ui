@@ -53,13 +53,22 @@ export interface DropboxListFolderResult {
  * QMS Onboarding folder) -- what a folder picker's first render wants.
  * The backend enforces every path stays under that root; this never
  * needs to duplicate that check client-side.
+ *
+ * `includeFiles` defaults to folders-only (the client-setup picker's
+ * need) -- pass `true` for a file-picker use case like Dedup's "Import
+ * from Dropbox", which needs to see and select files too.
  */
 export async function listDropboxFolder(
-  path?: string
+  path?: string,
+  includeFiles?: boolean
 ): Promise<DropboxResult<DropboxListFolderResult>> {
-  const query = path ? `?path=${encodeURIComponent(path)}` : "";
+  const params = new URLSearchParams();
+  if (path) params.set("path", path);
+  if (includeFiles) params.set("include_files", "true");
 
-  return tryDropboxFetch(`/dropbox/list${query}`);
+  const query = params.toString();
+
+  return tryDropboxFetch(`/dropbox/list${query ? `?${query}` : ""}`);
 }
 
 /** Mirrors `SearchFoldersResponse` in `unitprep-api`'s `api::dropbox_browse`. */

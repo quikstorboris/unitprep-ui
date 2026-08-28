@@ -15,7 +15,7 @@ interface UseDedupExportResult {
   ) => Promise<void>;
 }
 
-const FALLBACK_FILENAMES: Record<
+export const FALLBACK_FILENAMES: Record<
   DedupExportFormat,
   string
 > = {

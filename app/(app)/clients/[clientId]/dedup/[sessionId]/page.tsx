@@ -20,6 +20,7 @@ export default function DedupResultsRoute() {
         // remount so this page's local fetch/export state can't leak
         // from a session this page previously rendered.
         key={sessionId}
+        clientId={clientId}
         sessionId={sessionId}
         onHome={() => {
           cancelSession(sessionId);

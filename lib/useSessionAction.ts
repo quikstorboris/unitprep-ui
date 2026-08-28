@@ -23,32 +23,28 @@ export type SessionActionResult =
   | { kind: "sessionExpired" }
   | { kind: "error"; message: string };
 
-interface UseSessionActionResult {
+interface UseJsonPostActionResult {
   pending: boolean;
   error: string | null;
   sessionExpired: boolean;
-  /**
-   * Fires the action. `extraBody` is merged alongside `session_id` in
-   * the request body.
-   */
+  /** Fires one POST of `body` (verbatim, no field merged in) to `path`. */
   run: (
-    extraBody?: Record<string, unknown>
+    body: Record<string, unknown>
   ) => Promise<SessionActionResult>;
 }
 
 /**
- * Fires one POST `{session_id: sessionId, ...extraBody}` to `path` on
- * demand (unlike useSessionPost, which fires on mount/sessionId
- * change). Shared shape for the "user clicked a button" family of
- * actions: the export/dedup-export download hooks, and the per-row
- * action components on ScanResultsPage (correct, exempt, exclude,
- * acknowledge) that each previously carried their own copy of this
- * exact fetch/404/error handling.
+ * Fires one JSON POST to `path` on demand, folding 401/404 into the same
+ * "sessionExpired" result and handling network/HTTP errors -- the fetch
+ * plumbing `useSessionAction` below builds on. Split out so a caller with
+ * no `sessionId` yet (Dedup's Dropbox-source detect-vendor/import calls,
+ * which create the session server-side rather than acting on one that
+ * already exists) can reuse the exact same 401/404/error handling
+ * without a hook that forces a `session_id` field into every body.
  */
-export function useSessionAction(
-  sessionId: string,
+export function useJsonPostAction(
   path: string
-): UseSessionActionResult {
+): UseJsonPostActionResult {
   const [pending, setPending] =
     useState(false);
 
@@ -61,7 +57,7 @@ export function useSessionAction(
   ] = useState(false);
 
   const run = async (
-    extraBody?: Record<string, unknown>
+    body: Record<string, unknown>
   ): Promise<SessionActionResult> => {
     try {
       setPending(true);
@@ -81,10 +77,7 @@ export function useSessionAction(
             "Content-Type":
               "application/json",
           },
-          body: JSON.stringify({
-            session_id: sessionId,
-            ...extraBody,
-          }),
+          body: JSON.stringify(body),
         }
       );
 
@@ -123,6 +116,55 @@ export function useSessionAction(
       setPending(false);
     }
   };
+
+  return {
+    pending,
+    error,
+    sessionExpired,
+    run,
+  };
+}
+
+interface UseSessionActionResult {
+  pending: boolean;
+  error: string | null;
+  sessionExpired: boolean;
+  /**
+   * Fires the action. `extraBody` is merged alongside `session_id` in
+   * the request body.
+   */
+  run: (
+    extraBody?: Record<string, unknown>
+  ) => Promise<SessionActionResult>;
+}
+
+/**
+ * Fires one POST `{session_id: sessionId, ...extraBody}` to `path` on
+ * demand (unlike useSessionPost, which fires on mount/sessionId
+ * change). Shared shape for the "user clicked a button" family of
+ * actions: the export/dedup-export download hooks, and the per-row
+ * action components on ScanResultsPage (correct, exempt, exclude,
+ * acknowledge) that each previously carried their own copy of this
+ * exact fetch/404/error handling.
+ */
+export function useSessionAction(
+  sessionId: string,
+  path: string
+): UseSessionActionResult {
+  const {
+    pending,
+    error,
+    sessionExpired,
+    run: runJsonPost,
+  } = useJsonPostAction(path);
+
+  const run = (
+    extraBody?: Record<string, unknown>
+  ): Promise<SessionActionResult> =>
+    runJsonPost({
+      session_id: sessionId,
+      ...extraBody,
+    });
 
   return {
     pending,

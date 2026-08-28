@@ -12,6 +12,24 @@ interface DropboxFolderPickerProps {
   /** Currently selected path, shown read-only until "Browse" is opened. */
   value: string;
   onChange: (path: string) => void;
+  /**
+   * "select-folder" (default): browse-and-commit, exactly today's
+   * client-setup behavior -- files are listed but not selectable, a
+   * separate "Select this folder" button commits `currentPath`.
+   * "select-file": also lists files (via `includeFiles`), and clicking
+   * one commits it immediately -- there's no notion of "select the
+   * current folder" when picking a specific file, e.g. Dedup's "Import
+   * from Dropbox".
+   */
+  mode?: "select-folder" | "select-file";
+  /**
+   * Where to start browsing when `value` is empty -- e.g. a client's
+   * already-known `dropboxPath`, so the picker doesn't force navigating
+   * all the way down from the QMS Onboarding root every time. Ignored
+   * once `value` is set (editing an existing selection always resumes
+   * there instead).
+   */
+  initialPath?: string;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -53,7 +71,10 @@ function breadcrumbFor(
 export function DropboxFolderPicker({
   value,
   onChange,
+  mode = "select-folder",
+  initialPath,
 }: DropboxFolderPickerProps) {
+  const isFileMode = mode === "select-file";
   const [open, setOpen] = useState(false);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [entries, setEntries] = useState<DropboxEntry[]>([]);
@@ -74,11 +95,11 @@ export function DropboxFolderPicker({
   useEffect(() => {
     if (!open) return;
 
-    // Re-browse from `value` (or the root) every time the picker is
-    // opened, rather than resuming wherever it was last left inside a
-    // single session -- opening it fresh each time is easier to reason
-    // about than persisting scroll/navigation state.
-    load(value || undefined);
+    // Re-browse from `value` (or `initialPath`, or the root) every time
+    // the picker is opened, rather than resuming wherever it was last
+    // left inside a single session -- opening it fresh each time is
+    // easier to reason about than persisting scroll/navigation state.
+    load(value || initialPath || undefined);
 
     // A second, independent call -- `load` above may resolve `value`,
     // not the root, so this is the only reliable way to learn the root
@@ -121,7 +142,7 @@ export function DropboxFolderPicker({
     setLoading(true);
     setError(null);
 
-    const result = await listDropboxFolder(path);
+    const result = await listDropboxFolder(path, isFileMode);
 
     setLoading(false);
 
@@ -156,7 +177,7 @@ export function DropboxFolderPicker({
     return (
       <div className="flex flex-wrap items-center gap-3">
         <span className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-300">
-          {value || "No folder selected"}
+          {value || (isFileMode ? "No file selected" : "No folder selected")}
         </span>
 
         <button
@@ -262,6 +283,21 @@ export function DropboxFolderPicker({
                 >
                   📁 {entry.name}
                 </button>
+              ) : isFileMode ? (
+                // Clicking a file commits it immediately -- there's no
+                // separate "Select this folder"-style confirm step for a
+                // file pick, since the click itself already names the
+                // exact thing being selected.
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(entry.path_display);
+                    setOpen(false);
+                  }}
+                  className="w-full rounded px-2 py-1 text-left text-sm text-slate-200 transition-colors hover:bg-slate-800"
+                >
+                  📄 {entry.name}
+                </button>
               ) : (
                 <span className="block px-2 py-1 text-sm text-slate-600">
                   {entry.name}
@@ -301,23 +337,25 @@ export function DropboxFolderPicker({
             Cancel
           </button>
 
-          <button
-            type="button"
-            disabled={!currentPath || isSearchActive}
-            title={
-              isSearchActive
-                ? "Click a search result to navigate there first"
-                : undefined
-            }
-            onClick={() => {
-              if (!currentPath) return;
-              onChange(currentPath);
-              setOpen(false);
-            }}
-            className="rounded bg-blue-600 px-3 py-2 text-sm font-medium transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Select this folder
-          </button>
+          {!isFileMode && (
+            <button
+              type="button"
+              disabled={!currentPath || isSearchActive}
+              title={
+                isSearchActive
+                  ? "Click a search result to navigate there first"
+                  : undefined
+              }
+              onClick={() => {
+                if (!currentPath) return;
+                onChange(currentPath);
+                setOpen(false);
+              }}
+              className="rounded bg-blue-600 px-3 py-2 text-sm font-medium transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Select this folder
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -14,6 +14,7 @@ export default function DedupHome() {
     <main className="p-8">
       <div className="mx-auto max-w-4xl">
         <DedupUploadPage
+          clientId={clientId}
           onChecked={(sessionId) =>
             router.push(
               `/clients/${clientId}/dedup/${sessionId}`

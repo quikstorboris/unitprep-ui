@@ -2,16 +2,21 @@
 
 import { useState } from "react";
 
+import { DropboxFolderPicker } from "./clients/DropboxFolderPicker";
+import { DropboxLogo } from "./icons/DropboxLogo";
 import DedupSummaryStats from "./dedup/DedupSummaryStats";
 import FlaggedGroupsSection from "./dedup/FlaggedGroupsSection";
 import RelatedTenantsSection from "./dedup/RelatedTenantsSection";
 import TypoVariantsSection from "./dedup/TypoVariantsSection";
 import { useDedupExport } from "./dedup/useDedupExport";
 import { useDedupReport } from "./dedup/useDedupReport";
+import { useDedupSaveToDropbox } from "./dedup/useDedupSaveToDropbox";
 import SessionExpiredPage from "./SessionExpiredPage";
+import { useClients } from "@/lib/clients";
 import type { DedupExportFormat } from "@/types/api";
 
 interface DedupResultsPageProps {
+  clientId: string;
   sessionId: string;
   onHome: () => void;
 }
@@ -29,9 +34,13 @@ const FORMAT_OPTIONS: Array<{
 ];
 
 export default function DedupResultsPage({
+  clientId,
   sessionId,
   onHome,
 }: DedupResultsPageProps) {
+  const { getClient } = useClients();
+  const client = getClient(clientId);
+
   const {
     report,
     loading,
@@ -47,6 +56,14 @@ export default function DedupResultsPage({
     handleExport,
   } = useDedupExport(sessionId);
 
+  const {
+    saving,
+    savedPath,
+    error: saveError,
+    sessionExpired: saveExpired,
+    handleSave,
+  } = useDedupSaveToDropbox(sessionId);
+
   const [
     exportFormat,
     setExportFormat,
@@ -54,7 +71,7 @@ export default function DedupResultsPage({
     "csv"
   );
 
-  if (reportExpired || exportExpired) {
+  if (reportExpired || exportExpired || saveExpired) {
     return (
       <SessionExpiredPage
         onHome={onHome}
@@ -237,6 +254,41 @@ export default function DedupResultsPage({
           </div>
         </div>
       )}
+
+      {saveError && (
+        <div className="mt-4 rounded bg-red-900 p-3 text-red-200">
+          {saveError}
+        </div>
+      )}
+
+      <div className="mt-4 rounded border border-slate-700 p-4">
+        <div className="mb-3 flex items-center gap-2 font-semibold">
+          <DropboxLogo className="h-5 w-5 text-blue-400" />
+          Save to Dropbox
+        </div>
+
+        {savedPath ? (
+          <div className="text-sm text-green-400">
+            Saved to{" "}
+            <span className="font-mono">{savedPath}</span>
+          </div>
+        ) : (
+          <DropboxFolderPicker
+            value=""
+            mode="select-folder"
+            initialPath={client?.dropboxPath}
+            onChange={(folderPath) =>
+              handleSave(exportFormat, folderPath)
+            }
+          />
+        )}
+
+        {saving && (
+          <div className="mt-2 text-sm text-slate-400">
+            Saving to Dropbox…
+          </div>
+        )}
+      </div>
     </div>
   );
 }
