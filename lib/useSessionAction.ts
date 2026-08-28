@@ -7,6 +7,7 @@ import {
   describeFetchError,
   errorMessageFrom,
 } from "@/lib/api";
+import { notifyUnauthorized } from "@/lib/sessionExpiry";
 
 /**
  * What `run` resolved to, checked by the caller immediately after
@@ -82,14 +83,17 @@ export function useJsonPostAction(
       );
 
       // 401 (not authenticated) is folded into the same
-      // "sessionExpired" result as 404 (session gone) -- both mean
-      // "nothing to act on, start over" from this hook's point of
-      // view, and there's no dedicated login-required UI yet to
-      // route a 401 to instead.
+      // "sessionExpired" result as 404 (session gone) for this hook's
+      // own local UI purposes -- both mean "nothing to act on, start
+      // over" here. But only a real 401 means the *auth* session is
+      // gone; notifyUnauthorized() (unlike setSessionExpired) must not
+      // fire on a 404, which just means this one tool session expired
+      // while the user is still genuinely signed in.
       if (
         response.status === 404 ||
         response.status === 401
       ) {
+        if (response.status === 401) notifyUnauthorized();
         setSessionExpired(true);
         return { kind: "sessionExpired" };
       }

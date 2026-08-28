@@ -1,4 +1,5 @@
 import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
+import { notifyUnauthorized } from "@/lib/sessionExpiry";
 
 /**
  * Client-ops-domain API calls (`/client-ops/*`) -- kept in its own module
@@ -35,6 +36,7 @@ async function parseClientOpsResult<T>(
   response: Response
 ): Promise<ClientOpsResult<T>> {
   if (response.status === 401) {
+    notifyUnauthorized();
     return { kind: "unauthorized", message: await errorMessageFrom(response) };
   }
 

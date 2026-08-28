@@ -7,6 +7,7 @@ import {
   describeFetchError,
   errorMessageFrom,
 } from "@/lib/api";
+import { notifyUnauthorized } from "@/lib/sessionExpiry";
 
 interface UseSessionPostResult<TResponse> {
   data: TResponse | null;
@@ -106,14 +107,16 @@ export function useSessionPost<TResponse>(
         if (ignore) return;
 
         // 401 (not authenticated) is folded into the same
-        // "sessionExpired" path as 404 (session gone) -- both mean
-        // "nothing to show, start over" from this hook's point of view,
-        // and there's no dedicated login-required UI yet to send a 401
-        // to instead.
+        // "sessionExpired" path as 404 (session gone) for this hook's
+        // own local UI purposes -- both mean "nothing to show, start
+        // over" here. Only a real 401 means the *auth* session itself
+        // is gone, so only that one calls notifyUnauthorized() -- a 404
+        // just means this one tool session expired.
         if (
           response.status === 404 ||
           response.status === 401
         ) {
+          if (response.status === 401) notifyUnauthorized();
           setSessionExpired(true);
           return;
         }

@@ -1,4 +1,5 @@
 import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
+import { notifyUnauthorized } from "@/lib/sessionExpiry";
 
 /**
  * Dropbox-folder-browsing API calls (`/dropbox/*`) -- kept in its own
@@ -16,6 +17,7 @@ async function tryDropboxFetch<T>(
     });
 
     if (response.status === 401) {
+      notifyUnauthorized();
       return { kind: "unauthorized", message: await errorMessageFrom(response) };
     }
 

@@ -7,6 +7,7 @@ import {
   describeFetchError,
   errorMessageFrom,
 } from "@/lib/api";
+import { notifyUnauthorized } from "@/lib/sessionExpiry";
 import type { SessionActionResult } from "@/lib/useSessionAction";
 
 interface UseFileUploadActionResult {
@@ -67,8 +68,10 @@ export function useFileUploadAction(
       // 401 (not authenticated) is folded into the same "sessionExpired"
       // result as 404 (session gone) -- same reasoning as
       // useSessionAction: both mean "nothing to act on, start over" from
-      // this hook's point of view.
+      // this hook's point of view, but only a real 401 means the *auth*
+      // session is gone, so only that one calls notifyUnauthorized().
       if (response.status === 404 || response.status === 401) {
+        if (response.status === 401) notifyUnauthorized();
         setSessionExpired(true);
         return { kind: "sessionExpired" };
       }

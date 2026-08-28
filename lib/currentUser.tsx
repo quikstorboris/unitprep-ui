@@ -14,6 +14,7 @@ import {
   whoAmI,
   type WhoAmI,
 } from "@/lib/auth-session";
+import { onUnauthorized } from "@/lib/sessionExpiry";
 
 // Named around "the signed-in user", not "session" -- this app already
 // uses "session" throughout for *tool* sessions (useSessionPost,
@@ -85,6 +86,16 @@ export async function refreshCurrentUser(): Promise<void> {
   const result = await whoAmI();
   commit(result.kind === "ok" ? result.data : null, true);
 }
+
+// Registered once, at module load -- same singleton reasoning as the
+// module-level `cache`/`listeners` above (this module only ever loads
+// once per page load). Any fetch wrapper anywhere in the app reporting a
+// real 401 flips this shared state to "signed out, checked" immediately,
+// which `app/(app)/layout.tsx`'s existing `isSignedOut` effect turns
+// into an actual `/login` redirect on the very next render -- see
+// `lib/sessionExpiry.ts`'s own doc comment for why this listens there
+// instead of every fetch wrapper importing this module directly.
+onUnauthorized(() => commit(null, true));
 
 interface CurrentUserContextValue {
   user: WhoAmI | null;

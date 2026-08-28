@@ -1,4 +1,5 @@
 import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
+import { notifyUnauthorized } from "@/lib/sessionExpiry";
 
 /**
  * Every `/auth/*` fetch needs `credentials: "include"` (the session/
@@ -51,6 +52,7 @@ export async function parseAuthResult<T>(
   response: Response
 ): Promise<AuthResult<T>> {
   if (response.status === 401) {
+    notifyUnauthorized();
     return { kind: "unauthorized", message: await errorMessageFrom(response) };
   }
 
@@ -103,6 +105,7 @@ export async function fetchForDownload(
     const response = await authFetch(path, body, method);
 
     if (response.status === 401) {
+      notifyUnauthorized();
       return {
         kind: "unauthorized",
         message: await errorMessageFrom(response),
