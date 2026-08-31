@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import Link from "next/link";
+
 import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
 import { useClients } from "@/lib/clients";
 
@@ -67,6 +69,13 @@ export default function ClientsPage() {
             >
               Create Client
             </button>
+
+            <Link
+              href="/clients/search"
+              className="rounded bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:bg-slate-700"
+            >
+              Search Process Street
+            </Link>
 
             <button
               disabled
