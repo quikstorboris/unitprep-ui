@@ -58,6 +58,17 @@ const ADMINISTRATION_LINKS: NavLink[] = [
   },
 ];
 
+const INTEGRATIONS_LINKS: NavLink[] = [
+  {
+    label: "Process Street",
+    href: "/integrations/process-street",
+    // Same gate as the manual "Sync Now" trigger and the settings
+    // update it configures -- operational client-ops configuration, not
+    // admin territory (admin deliberately doesn't hold client_ops.perform).
+    permission: "client_ops.perform",
+  },
+];
+
 const ACCOUNT_LINK: NavLink = { label: "Account", href: "/account" };
 
 function visibleLinks(links: NavLink[], permissions: string[]): NavLink[] {
@@ -111,6 +122,7 @@ export default function LeftNav() {
 
   const permissions = user?.permissions ?? [];
   const visibleAdminLinks = visibleLinks(ADMINISTRATION_LINKS, permissions);
+  const visibleIntegrationsLinks = visibleLinks(INTEGRATIONS_LINKS, permissions);
 
   return (
     <nav className="flex w-56 shrink-0 flex-col border-r border-slate-800 bg-slate-950 p-4">
@@ -133,6 +145,23 @@ export default function LeftNav() {
             active={pathname.startsWith(link.href)}
           />
         ))}
+
+        {visibleIntegrationsLinks.length > 0 && (
+          <li className="mt-3">
+            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+              Integrations
+            </p>
+            <ul className="flex flex-col gap-1">
+              {visibleIntegrationsLinks.map((link) => (
+                <NavItem
+                  key={link.href}
+                  link={link}
+                  active={pathname.startsWith(link.href)}
+                />
+              ))}
+            </ul>
+          </li>
+        )}
 
         {visibleAdminLinks.length > 0 && (
           <li className="mt-3">
