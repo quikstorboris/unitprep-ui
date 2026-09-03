@@ -56,7 +56,7 @@ export default function FieldReferenceHelp() {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded border border-slate-700 bg-slate-900 p-6">
+          <div className="flex max-h-[85vh] w-full max-w-[95vw] flex-col overflow-hidden rounded border border-slate-700 bg-slate-900 p-6 xl:max-w-7xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-slate-100">Field Reference</h2>
@@ -117,31 +117,41 @@ export default function FieldReferenceHelp() {
             {visible.length === 0 ? (
               <p className="text-sm text-slate-400">No fields match the current search/filters.</p>
             ) : (
-              <div className="overflow-auto rounded border border-slate-800">
-                <table className="w-full text-left text-sm">
+              <div className="overflow-y-auto overflow-x-hidden rounded border border-slate-800">
+                {/* `table-fixed` + an explicit width per narrow column
+                    (the rest split what's left) forces every cell to wrap
+                    within its own column instead of the table growing to
+                    fit its widest unbreakable string -- several real PS
+                    field keys are one long underscore-joined identifier
+                    with no spaces at all, which a plain `auto`-layout
+                    table can't wrap and used to force a horizontal
+                    scrollbar on the whole modal. */}
+                <table className="w-full table-fixed text-left text-sm">
                   <thead className="sticky top-0 bg-slate-900 text-slate-400">
                     <tr>
-                      <th className="px-3 py-2 font-medium">OO Section</th>
-                      <th className="px-3 py-2 font-medium">OO Field</th>
-                      <th className="px-3 py-2 font-medium">PS Workflow</th>
-                      <th className="px-3 py-2 font-medium">PS Step</th>
+                      <th className="w-[12%] px-3 py-2 font-medium">OO Section</th>
+                      <th className="w-[16%] px-3 py-2 font-medium">OO Field</th>
+                      <th className="w-[10%] px-3 py-2 font-medium">PS Workflow</th>
+                      <th className="w-[14%] px-3 py-2 font-medium">PS Step</th>
                       <th className="px-3 py-2 font-medium">PS Field</th>
-                      <th className="px-3 py-2 font-medium">Status</th>
+                      <th className="w-24 px-3 py-2 font-medium">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {visible.map((entry, index) => (
                       <tr key={index} className="border-t border-slate-800 align-top">
-                        <td className="px-3 py-2 text-slate-400">{entry.ooSection}</td>
-                        <td className="px-3 py-2 font-medium text-slate-100">{entry.ooField}</td>
-                        <td className="px-3 py-2 text-slate-400">{entry.psWorkflow}</td>
-                        <td className="px-3 py-2 text-slate-400">{entry.psStep}</td>
+                        <td className="break-words px-3 py-2 text-slate-400">{entry.ooSection}</td>
+                        <td className="break-words px-3 py-2 font-medium text-slate-100">{entry.ooField}</td>
+                        <td className="break-words px-3 py-2 text-slate-400">{entry.psWorkflow}</td>
+                        <td className="break-words px-3 py-2 text-slate-400">{entry.psStep}</td>
                         <td className="px-3 py-2">
-                          <div className="text-slate-200">{entry.psFieldLabel}</div>
+                          <div className="break-words text-slate-200">{entry.psFieldLabel}</div>
                           {entry.psFieldKey && (
-                            <div className="mt-0.5 font-mono text-xs text-slate-500">{entry.psFieldKey}</div>
+                            <div className="mt-0.5 break-all font-mono text-xs text-slate-500">
+                              {entry.psFieldKey}
+                            </div>
                           )}
-                          {entry.notes && <div className="mt-1 text-xs text-slate-500">{entry.notes}</div>}
+                          {entry.notes && <div className="mt-1 break-words text-xs text-slate-500">{entry.notes}</div>}
                         </td>
                         <td className="px-3 py-2">
                           <span className={statusBadgeClass(entry.status)}>
