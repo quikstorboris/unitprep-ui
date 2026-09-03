@@ -22,7 +22,7 @@ interface NavLink {
 // restructuring the nav. Administration groups everything gated by an
 // admin-shaped permission under one heading rather than four flat items
 // mixed in with Clients/Account, now that there's enough of them (Users,
-// Roles, Audit Logs, Security Policies) for that to matter.
+// Roles, Security Logs, Activity Logs, Security Policies) for that to matter.
 const TOP_LEVEL_LINKS: NavLink[] = [{ label: "Clients", href: "/clients" }];
 
 const ADMINISTRATION_LINKS: NavLink[] = [
@@ -37,9 +37,21 @@ const ADMINISTRATION_LINKS: NavLink[] = [
     permission: "users.manage_roles",
   },
   {
-    label: "Audit Logs",
-    href: "/admin/audit-logs",
+    // The security audit trail (logins, role changes, authorization
+    // failures) -- renamed from "Audit Logs" (2026-09-02) once "Activity
+    // Logs" below existed as a genuinely separate operations trail, so
+    // the two names don't read as the same thing.
+    label: "Security Logs",
+    href: "/admin/security-logs",
     permission: "audit_logs.read",
+  },
+  {
+    // The client-ops operations trail (imports, dedup/Unit Group runs,
+    // Process Street syncs) -- distinct from Security Logs above, see
+    // that route's own module doc for why they're kept apart.
+    label: "Activity Logs",
+    href: "/admin/activity-logs",
+    permission: "activity_logs.read",
   },
   {
     label: "Security Policies",

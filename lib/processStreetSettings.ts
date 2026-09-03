@@ -53,8 +53,7 @@ async function trySettingsFetch<T>(
 
 /** Mirrors `ProcessStreetSettingsResponse` in `unitprep-api`'s `process_street_settings.rs`. */
 export interface ProcessStreetSettings {
-  /** `"HH:MM:SS"`, UTC. */
-  sync_time: string;
+  sync_interval_hours: number;
   updated_at: string;
   updated_by: string | null;
 }
@@ -63,13 +62,12 @@ export async function getProcessStreetSettings(): Promise<SettingsResult<Process
   return trySettingsFetch("/integrations/process-street/settings", undefined, "GET");
 }
 
-/** `syncTime` as `"HH:MM"` (what `<input type="time">` produces). */
 export async function updateProcessStreetSettings(
-  syncTime: string
+  syncIntervalHours: number
 ): Promise<SettingsResult<ProcessStreetSettings>> {
   return trySettingsFetch(
     "/integrations/process-street/settings",
-    { sync_time: syncTime },
+    { sync_interval_hours: syncIntervalHours },
     "PUT"
   );
 }

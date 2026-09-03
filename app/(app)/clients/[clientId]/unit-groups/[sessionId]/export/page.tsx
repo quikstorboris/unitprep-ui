@@ -21,6 +21,7 @@ export default function ExportPage() {
         // can't leak from a session this page previously rendered.
         key={sessionId}
         sessionId={sessionId}
+        clientId={clientId}
         onBack={() =>
           router.push(
             `/clients/${clientId}/unit-groups/${sessionId}`

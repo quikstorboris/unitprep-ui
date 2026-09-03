@@ -23,7 +23,11 @@ const FALLBACK_FILENAME =
  * differently.
  */
 export function useExportDownload(
-  sessionId: string
+  sessionId: string,
+  /** The client this Unit Group run was for, when opened from a
+   * client's own Unit Groups tab -- recorded on the Activity Log entry
+   * `/export` writes on success. `undefined` for a standalone run. */
+  clientId?: string
 ): UseExportDownloadResult {
   const { pending, error, sessionExpired, run } =
     useSessionAction(sessionId, "/export");
@@ -50,7 +54,7 @@ export function useExportDownload(
     setDownloadComplete(false);
 
     try {
-      const result = await run();
+      const result = await run({ client_id: clientId });
 
       if (result.kind !== "ok") return;
 

@@ -23,6 +23,7 @@ const ADMIN_PERMISSIONS = [
   "users.manage",
   "users.manage_roles",
   "audit_logs.read",
+  "activity_logs.read",
   "security_policies.manage",
   "client_ops.manage_tags",
 ];
@@ -66,8 +67,11 @@ describe("LeftNav", () => {
       screen.getByRole("link", { name: "Roles" })
     ).toHaveAttribute("href", "/admin/roles");
     expect(
-      screen.getByRole("link", { name: "Audit Logs" })
-    ).toHaveAttribute("href", "/admin/audit-logs");
+      screen.getByRole("link", { name: "Security Logs" })
+    ).toHaveAttribute("href", "/admin/security-logs");
+    expect(
+      screen.getByRole("link", { name: "Activity Logs" })
+    ).toHaveAttribute("href", "/admin/activity-logs");
     expect(
       screen.getByRole("link", { name: "Security Policies" })
     ).toHaveAttribute("href", "/admin/security-policies");
@@ -98,7 +102,8 @@ describe("LeftNav", () => {
     for (const label of [
       "Users",
       "Roles",
-      "Audit Logs",
+      "Security Logs",
+      "Activity Logs",
       "Security Policies",
       "QMS Tags",
     ]) {
@@ -124,9 +129,9 @@ describe("LeftNav", () => {
     render(<LeftNav />);
 
     expect(
-      screen.getByRole("link", { name: "Audit Logs" })
+      screen.getByRole("link", { name: "Security Logs" })
     ).toBeInTheDocument();
-    for (const label of ["Users", "Roles", "Security Policies"]) {
+    for (const label of ["Users", "Roles", "Activity Logs", "Security Policies"]) {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
   });
@@ -140,7 +145,8 @@ describe("LeftNav", () => {
     for (const label of [
       "Users",
       "Roles",
-      "Audit Logs",
+      "Security Logs",
+      "Activity Logs",
       "Security Policies",
       "QMS Tags",
     ]) {

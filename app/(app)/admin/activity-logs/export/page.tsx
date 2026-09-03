@@ -7,11 +7,11 @@ import RequirePermission from "@/components/auth/RequirePermission";
 import EventTypeMultiSelect from "@/components/audit/EventTypeMultiSelect";
 import UserMultiSelect from "@/components/audit/UserMultiSelect";
 import {
-  exportAuditLogsPdf,
-  previewAuditLogsExport,
-  type AuditLogPreviewRow,
-} from "@/lib/auth-audit";
-import { useAuditLogFilterData } from "@/lib/useAuditLogFilterData";
+  exportActivityLogsPdf,
+  previewActivityLogsExport,
+  type ActivityLogPreviewRow,
+} from "@/lib/activity-log";
+import { useActivityLogFilterData } from "@/lib/useActivityLogFilterData";
 import { downloadBlob } from "@/lib/useSessionAction";
 
 const primaryButtonClass =
@@ -20,50 +20,30 @@ const primaryButtonClass =
 const inputClass =
   "rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none";
 
-// `color-scheme` is the only lever a browser exposes over a native
-// <input type="date">'s popup calendar -- there's no CSS selector into it
-// otherwise. This switches it to the browser's own dark rendering (a
-// distinct gray from this page's slate palette, not a match for it, so
-// the popup stays visible against the page rather than blending in).
 const dateInputClass = `${inputClass} [color-scheme:dark]`;
 
-// Every filter row shares this label width so the controls themselves
-// start at one consistent left edge -- deliberately not a single
-// horizontal row of fields (the previous layout): a horizontal flex row
-// aligned by items-end broke the moment the User field grew taller than
-// its neighbors (its chips push the input down but not the sibling
-// fields), leaving everything visually misaligned. A vertical stack has
-// no such coupling -- each row's height is its own.
 const filterLabelClass = "w-40 shrink-0 text-sm text-slate-300";
 
-const linkButtonClass =
-  "text-sm text-slate-400 transition-colors hover:text-slate-200 hover:underline";
+const linkButtonClass = "text-sm text-slate-400 transition-colors hover:text-slate-200 hover:underline";
 
-// Debounces the live preview -- every filter change (including each
-// keystroke in the IP field) would otherwise fire its own request.
 const PREVIEW_DEBOUNCE_MS = 350;
 
-export default function SecurityLogExportPage() {
+export default function ActivityLogExportPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // Canonical event-type list, Users list, and the live filter
-  // selections -- shared with the inline Audit Logs page, which fetches/
-  // manages the exact same data.
   const {
     allEventTypes,
     selectedEventTypes,
     setSelectedEventTypes,
     noEventsSelected,
     allUsers,
-    selectedUserIds,
-    setSelectedUserIds,
+    selectedActorIds,
+    setSelectedActorIds,
     filterDataError,
-  } = useAuditLogFilterData();
+  } = useActivityLogFilterData();
 
-  const [ipAddress, setIpAddress] = useState("");
-
-  const [previewRows, setPreviewRows] = useState<AuditLogPreviewRow[]>([]);
+  const [previewRows, setPreviewRows] = useState<ActivityLogPreviewRow[]>([]);
   const [previewTruncated, setPreviewTruncated] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -82,15 +62,11 @@ export default function SecurityLogExportPage() {
     }
 
     setPreviewLoading(true);
-    const result = await previewAuditLogsExport({
+    const result = await previewActivityLogsExport({
       dateFrom,
       dateTo,
-      eventTypes:
-        selectedEventTypes.length === allEventTypes.length
-          ? undefined
-          : selectedEventTypes,
-      userIds: selectedUserIds.length > 0 ? selectedUserIds : undefined,
-      ipAddress: ipAddress.trim() || undefined,
+      eventTypes: selectedEventTypes.length === allEventTypes.length ? undefined : selectedEventTypes,
+      actorUserIds: selectedActorIds.length > 0 ? selectedActorIds : undefined,
     });
     setPreviewLoading(false);
 
@@ -104,16 +80,7 @@ export default function SecurityLogExportPage() {
     setPreviewError(null);
     setPreviewRows(result.data.rows);
     setPreviewTruncated(result.data.truncated);
-  }, [
-    dateFrom,
-    dateTo,
-    dateRangeSet,
-    noEventsSelected,
-    allEventTypes,
-    selectedEventTypes,
-    selectedUserIds,
-    ipAddress,
-  ]);
+  }, [dateFrom, dateTo, dateRangeSet, noEventsSelected, allEventTypes, selectedEventTypes, selectedActorIds]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -128,15 +95,11 @@ export default function SecurityLogExportPage() {
     setExportError(null);
     setExporting(true);
 
-    const result = await exportAuditLogsPdf({
+    const result = await exportActivityLogsPdf({
       dateFrom,
       dateTo,
-      eventTypes:
-        selectedEventTypes.length === allEventTypes.length
-          ? undefined
-          : selectedEventTypes,
-      userIds: selectedUserIds.length > 0 ? selectedUserIds : undefined,
-      ipAddress: ipAddress.trim() || undefined,
+      eventTypes: selectedEventTypes.length === allEventTypes.length ? undefined : selectedEventTypes,
+      actorUserIds: selectedActorIds.length > 0 ? selectedActorIds : undefined,
     });
     setExporting(false);
 
@@ -146,11 +109,7 @@ export default function SecurityLogExportPage() {
     }
 
     const blob = await result.response.blob();
-    downloadBlob(
-      blob,
-      result.response.headers.get("Content-Disposition"),
-      "unitprep-security-log.pdf"
-    );
+    downloadBlob(blob, result.response.headers.get("Content-Disposition"), "unitprep-activity-log.pdf");
   }
 
   const exportDisabled = !dateRangeSet || noEventsSelected || exporting;
@@ -161,18 +120,15 @@ export default function SecurityLogExportPage() {
       : undefined;
 
   return (
-    <RequirePermission permission="audit_logs.read">
+    <RequirePermission permission="activity_logs.read">
       <div className="flex-1 p-8">
         <div className="mb-6">
-          <Link href="/admin/security-logs" className={linkButtonClass}>
-            ← Back to Security Logs
+          <Link href="/admin/activity-logs" className={linkButtonClass}>
+            ← Back to Activity Logs
           </Link>
-          <h1 className="mt-2 text-2xl font-bold text-slate-100">
-            Export Security Log
-          </h1>
+          <h1 className="mt-2 text-2xl font-bold text-slate-100">Export Activity Log</h1>
           <p className="mt-1 text-sm text-slate-400">
-            A formal PDF report of matching events. Date range is required;
-            every other filter is optional.
+            A formal PDF report of matching activity. Date range is required; every other filter is optional.
           </p>
         </div>
 
@@ -208,28 +164,13 @@ export default function SecurityLogExportPage() {
             />
           </div>
 
-          {/* items-start, not items-center: the label sits beside the
-              input specifically, not vertically centered against the
-              chip row that grows underneath it. */}
           <div className="flex items-start gap-3">
-            <span className={`${filterLabelClass} pt-2`}>
-              User (actor or target)
-            </span>
+            <span className={`${filterLabelClass} pt-2`}>User</span>
             <UserMultiSelect
               users={allUsers}
-              selected={selectedUserIds}
-              onChange={setSelectedUserIds}
+              selected={selectedActorIds}
+              onChange={setSelectedActorIds}
               className="w-72"
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className={filterLabelClass}>IP address</span>
-            <input
-              value={ipAddress}
-              onChange={(event) => setIpAddress(event.target.value)}
-              placeholder="e.g. 203.0.113.1"
-              className={`${inputClass} w-40 font-mono text-xs`}
             />
           </div>
 
@@ -280,9 +221,8 @@ export default function SecurityLogExportPage() {
                 <tr>
                   <th className="px-4 py-2 font-medium">Time</th>
                   <th className="px-4 py-2 font-medium">Event</th>
-                  <th className="px-4 py-2 font-medium">Actor</th>
-                  <th className="px-4 py-2 font-medium">Target</th>
-                  <th className="px-4 py-2 font-medium">IP</th>
+                  <th className="px-4 py-2 font-medium">User</th>
+                  <th className="px-4 py-2 font-medium">Entity</th>
                   <th className="px-4 py-2 font-medium">Details</th>
                 </tr>
               </thead>
@@ -292,21 +232,10 @@ export default function SecurityLogExportPage() {
                     <td className="whitespace-nowrap px-4 py-2 font-mono text-xs text-slate-400">
                       {row.created_at}
                     </td>
-                    <td className="px-4 py-2 text-slate-200">
-                      {row.event_type}
-                    </td>
-                    <td className="px-4 py-2 text-xs text-slate-300">
-                      {row.actor_label}
-                    </td>
-                    <td className="px-4 py-2 text-xs text-slate-300">
-                      {row.target_label}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-xs text-slate-500">
-                      {row.ip_address ?? "—"}
-                    </td>
-                    <td className="px-4 py-2 text-xs text-slate-400">
-                      {row.details}
-                    </td>
+                    <td className="px-4 py-2 text-slate-200">{row.event_type}</td>
+                    <td className="px-4 py-2 text-xs text-slate-300">{row.actor_label}</td>
+                    <td className="px-4 py-2 text-xs text-slate-300">{row.target_label}</td>
+                    <td className="px-4 py-2 text-xs text-slate-400">{row.details}</td>
                   </tr>
                 ))}
               </tbody>

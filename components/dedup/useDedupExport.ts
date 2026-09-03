@@ -32,7 +32,11 @@ export const FALLBACK_FILENAMES: Record<
  * the same shared useSessionAction/downloadBlob underneath.
  */
 export function useDedupExport(
-  sessionId: string
+  sessionId: string,
+  /** The client this check was run for, when opened from a client's own
+   * Dedup tab -- recorded on the Activity Log entry `/dedup/export`
+   * writes on success. `undefined` for a standalone run. */
+  clientId?: string
 ): UseDedupExportResult {
   const { pending, error, sessionExpired, run } =
     useSessionAction(
@@ -65,7 +69,7 @@ export function useDedupExport(
     setDownloadComplete(false);
 
     try {
-      const result = await run({ format });
+      const result = await run({ format, client_id: clientId });
 
       if (result.kind !== "ok") return;
 

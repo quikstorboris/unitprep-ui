@@ -10,12 +10,17 @@ import SessionExpiredPage from "./SessionExpiredPage";
 
 interface ExportCompletePageProps {
   sessionId: string;
+  /** The client this run was for, when opened from a client's own Unit
+   * Groups tab -- forwarded to `useExportDownload` for the Activity Log
+   * entry `/export` writes on success. */
+  clientId?: string;
   onBack: () => void;
   onHome: () => void;
 }
 
 export default function ExportCompletePage({
   sessionId,
+  clientId,
   onBack,
   onHome,
 }: ExportCompletePageProps) {
@@ -32,7 +37,7 @@ export default function ExportCompletePage({
     error: exportError,
     sessionExpired: exportExpired,
     handleExport,
-  } = useExportDownload(sessionId);
+  } = useExportDownload(sessionId, clientId);
 
   if (analysisExpired || exportExpired) {
     return (

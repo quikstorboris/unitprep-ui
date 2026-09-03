@@ -54,7 +54,7 @@ export default function DedupResultsPage({
     error: exportError,
     sessionExpired: exportExpired,
     handleExport,
-  } = useDedupExport(sessionId);
+  } = useDedupExport(sessionId, clientId);
 
   const {
     saving,

@@ -167,7 +167,7 @@ function UserCell({
   );
 }
 
-export default function AdminAuditLogsPage() {
+export default function AdminSecurityLogsPage() {
   const [entries, setEntries] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -302,12 +302,12 @@ export default function AdminAuditLogsPage() {
     <div className="flex-1 p-8">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Audit Logs</h1>
+          <h1 className="text-2xl font-bold text-slate-100">Security Logs</h1>
           <p className="mt-1 text-sm text-slate-400">
             Every recorded authentication and admin event, newest first.
           </p>
         </div>
-        <Link href="/admin/audit-logs/export" className={smallButtonClass}>
+        <Link href="/admin/security-logs/export" className={smallButtonClass}>
           Export
         </Link>
       </div>
