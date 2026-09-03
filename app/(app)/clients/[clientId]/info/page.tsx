@@ -108,13 +108,18 @@ export default function ClientInfoPage() {
                 {company.facilities
                   .filter((f): f is typeof f & { dropbox_folder_url: string } => Boolean(f.dropbox_folder_url))
                   .map((facility) => (
-                    <div key={facility.id} className="flex items-center gap-3">
-                      <span className="w-40 shrink-0 truncate text-sm text-slate-400">{facility.name}</span>
+                    <div key={facility.id} className="flex items-center justify-between gap-3">
+                      {/* `min-w-0` is load-bearing here -- a flex child's
+                          default min-width is its content's natural width,
+                          not 0, so `truncate` alone silently does nothing
+                          under a squeezed row and the name pushes into (or
+                          past) the button instead of clipping. */}
+                      <span className="min-w-0 flex-1 truncate text-sm text-slate-400">{facility.name}</span>
                       <a
                         href={facility.dropbox_folder_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex w-fit items-center gap-2 rounded bg-[#0061FF] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#0050d1]"
+                        className="inline-flex w-fit shrink-0 items-center gap-2 rounded bg-[#0061FF] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#0050d1]"
                       >
                         <DropboxLogo className="h-4 w-4" />
                         Go to DropBox
