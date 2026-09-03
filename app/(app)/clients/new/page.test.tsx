@@ -36,6 +36,7 @@ function mappedCompany(overrides: Record<string, unknown> = {}) {
     corporate_address_state: null,
     corporate_address_zip: null,
     subdomain: null,
+    website_url: null,
     ...overrides,
   };
 }
@@ -64,6 +65,7 @@ function mappedFacility(overrides: Record<string, unknown> = {}) {
     subdomain: null,
     subdomain_exists_in_qms_raw: null,
     system_email: null,
+    website_url: null,
     ...overrides,
   };
 }
@@ -110,6 +112,125 @@ describe("ClientsNewPage", () => {
     expect(await screen.findByRole("heading", { name: "Highway 20 Self Storage" })).toBeInTheDocument();
     expect(screen.getByText("Original Go Live Date")).toBeInTheDocument();
     expect(screen.getByText("2026-01-15")).toBeInTheDocument();
+  });
+
+  // Regression test for a real single-facility business (run
+  // rZFNRpmLIxuOrb_8K9hICw): the client answered "Yes" to "Is your
+  // Corporate Name, Address, Phone Number & Email the same as this
+  // Facility?", so PS never asked the dedicated Corporate questions at
+  // all -- the Company section came back completely blank even though
+  // the facility itself has perfectly good name/address/phone/website
+  // data right there in the same run.
+  describe("no company information captured fallback", () => {
+    function blankCompanyRun() {
+      return {
+        run_id: "run-sand-sto",
+        company: mappedCompany(),
+        facility: mappedFacility({
+          name: "Sand-Sto Climate Controlled Storage",
+          street_address: "380 Pleasant Grove Rd",
+          city: "McDonal",
+          state: "TN",
+          zip: "37353",
+          phone: "4234738800",
+          email: "SandStoStorage@outlook.com",
+          website_url: "https://sand-stostorage.com/",
+        }),
+      };
+    }
+
+    it("offers to use the facility's own info when the company section is entirely blank", async () => {
+      useSearchParams.mockReturnValue(
+        selectionParams([{ run_id: "run-sand-sto", run_name: "Sand-Sto Climate Controlled Storage" }])
+      );
+      previewClients.mockResolvedValue({ kind: "ok", data: { runs: [blankCompanyRun()] } });
+
+      render(<ClientsNewPage />);
+
+      expect(await screen.findByText("No Company Information Captured")).toBeInTheDocument();
+      // Appears more than once already (the banner's own mention plus
+      // this run's own Facility card) -- just confirming it's there at
+      // all, not asserting a specific count.
+      expect(screen.getAllByText("Sand-Sto Climate Controlled Storage").length).toBeGreaterThan(0);
+    });
+
+    it("copies the facility's name/address/phone/website into the Company section on accept", async () => {
+      useSearchParams.mockReturnValue(
+        selectionParams([{ run_id: "run-sand-sto", run_name: "Sand-Sto Climate Controlled Storage" }])
+      );
+      previewClients.mockResolvedValue({ kind: "ok", data: { runs: [blankCompanyRun()] } });
+
+      const user = userEvent.setup();
+      render(<ClientsNewPage />);
+
+      await screen.findByText("No Company Information Captured");
+      await user.click(screen.getByRole("button", { name: "Use Facility Info" }));
+
+      expect(screen.queryByText("No Company Information Captured")).not.toBeInTheDocument();
+      // The facility's name already appears twice on its own card (the
+      // section heading plus its own "Facility Name" field) -- once
+      // copied, the Company section shows it the same two ways (its own
+      // heading plus its own "Legal Name" field), so 4 total. The other
+      // copied values only ever appear once per card, so 2 total.
+      await waitFor(() => expect(screen.getAllByText("Sand-Sto Climate Controlled Storage")).toHaveLength(4));
+      expect(screen.getAllByText("380 Pleasant Grove Rd")).toHaveLength(2);
+      expect(screen.getAllByText("423-473-8800")).toHaveLength(2);
+      expect(screen.getAllByText("https://sand-stostorage.com/")).toHaveLength(2);
+      // Corporate Email is deliberately NOT copied -- only
+      // name/address/phone/website, per the exact fallback offered. The
+      // facility's own Email field always shows it regardless, so this
+      // asserts it appears exactly once (that card only), not twice
+      // (which would mean it leaked into Company too).
+      expect(screen.getAllByText("SandStoStorage@outlook.com")).toHaveLength(1);
+    });
+
+    it("leaves the company section blank and still manually editable when dismissed", async () => {
+      useSearchParams.mockReturnValue(
+        selectionParams([{ run_id: "run-sand-sto", run_name: "Sand-Sto Climate Controlled Storage" }])
+      );
+      previewClients.mockResolvedValue({ kind: "ok", data: { runs: [blankCompanyRun()] } });
+
+      const user = userEvent.setup();
+      render(<ClientsNewPage />);
+
+      await screen.findByText("No Company Information Captured");
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByText("No Company Information Captured")).not.toBeInTheDocument();
+      // Still blank -- only its own Facility card shows the name (its
+      // own heading plus its own "Facility Name" field), never copied
+      // into the Company section.
+      expect(screen.getAllByText("Sand-Sto Climate Controlled Storage")).toHaveLength(2);
+      expect(screen.getByRole("heading", { name: "Company" })).toBeInTheDocument();
+
+      // Manual entry is still the existing pencil-edit convention -- no
+      // separate UI needed for it.
+      await user.click(screen.getByRole("button", { name: "Edit" }));
+      expect(screen.getAllByRole("textbox").length).toBeGreaterThan(0);
+    });
+
+    it("does not show the fallback when the company section has real data", async () => {
+      useSearchParams.mockReturnValue(
+        selectionParams([{ run_id: "run-highway-20", run_name: "Highway 20 Self Storage - QMS Onboarding" }])
+      );
+      previewClients.mockResolvedValue({
+        kind: "ok",
+        data: {
+          runs: [
+            {
+              run_id: "run-highway-20",
+              company: mappedCompany({ legal_name: "Prairie Enterprises LLC" }),
+              facility: mappedFacility(),
+            },
+          ],
+        },
+      });
+
+      render(<ClientsNewPage />);
+
+      await screen.findByRole("heading", { name: "Prairie Enterprises LLC" });
+      expect(screen.queryByText("No Company Information Captured")).not.toBeInTheDocument();
+    });
   });
 
   it("formats the facility's phone number as xxx-xxx-xxxx", async () => {

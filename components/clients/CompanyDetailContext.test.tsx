@@ -40,6 +40,7 @@ function company(overrides: Partial<CompanyDetail> = {}): CompanyDetail {
     payment_scheme: null,
     offers_tenant_insurance_raw: null,
     insurance_provider: null,
+    website_url: null,
     archived_at: null,
     elavon_active: false,
     facilities: [],

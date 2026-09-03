@@ -66,6 +66,7 @@ function GeneralTab({ facility }: { facility: FacilityDetail }) {
           { label: "Subdomain", value: facility.subdomain },
           { label: "Subdomain Exists in QMS", value: facility.subdomain_exists_in_qms_raw },
           { label: "System Email", value: facility.system_email },
+          { label: "Website", value: facility.website_url },
         ]}
       />
 

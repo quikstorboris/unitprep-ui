@@ -103,6 +103,16 @@ export const FIELD_PROVENANCE: FieldProvenanceEntry[] = [
     psFieldLabel: "Company Subdomain:",
     status: "mapped",
   },
+  {
+    ooSection: "Company Information",
+    ooField: "Website",
+    psWorkflow: "Intake",
+    psStep: "(computed)",
+    psFieldKey: null,
+    psFieldLabel: "Copied from the facility's own website when the confirmation screen's fallback is accepted",
+    status: "mapped",
+    notes: "No PS field of its own -- offered when a facility's Corporate Info section came back entirely blank (e.g. the client answered \"Yes\" to \"Is your Corporate Name, Address, Phone Number & Email the same as this Facility?\"), copying that facility's own name/address/phone/website into the Company section instead.",
+  },
 
   // --- Financial Information (Company page) -- all Intake ---
   {
@@ -544,6 +554,16 @@ export const FIELD_PROVENANCE: FieldProvenanceEntry[] = [
     psFieldKey: "Facility_Email_Address:",
     psFieldLabel: "Facility Email Address:",
     status: "mapped",
+  },
+  {
+    ooSection: "Facility General",
+    ooField: "Website",
+    psWorkflow: "Intake",
+    psStep: "A.) Corp/Facility Info (form fill)",
+    psFieldKey: "What_is_the_URL_for_this_facility?",
+    psFieldLabel: "What is the URL for this facility?",
+    status: "mapped",
+    notes: "The facility's real business website -- distinct from Subdomain (the QMS-hosted tenant portal).",
   },
 
   // --- Facility Policies (Facility page) -- all Intake ---

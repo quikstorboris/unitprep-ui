@@ -23,6 +23,12 @@ export interface MappedCompany {
   payment_scheme: string | null;
   offers_tenant_insurance_raw: string | null;
   insurance_provider: string | null;
+  /** No PS field of its own -- see the backend's own doc comment on
+   * `MappedCompany::website_url`. Only ever set by the confirmation
+   * screen's "use this facility's own info" fallback (offered when the
+   * Corporate Info section came back entirely blank), never by PS
+   * itself. */
+  website_url: string | null;
 }
 
 /**
@@ -50,6 +56,10 @@ export interface MappedFacility {
   subdomain: string | null;
   subdomain_exists_in_qms_raw: string | null;
   system_email: string | null;
+  /** PS's own `What_is_the_URL_for_this_facility?` -- the facility's
+   * real business website, distinct from `subdomain` (the QMS-hosted
+   * tenant portal). */
+  website_url: string | null;
 }
 
 /**

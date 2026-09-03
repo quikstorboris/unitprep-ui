@@ -80,6 +80,7 @@ export default function ClientInfoPage() {
               { label: "State", value: company.corporate_address_state },
               { label: "ZIP", value: company.corporate_address_zip },
               { label: "Subdomain", value: company.subdomain },
+              { label: "Website", value: company.website_url },
             ]}
           />
 

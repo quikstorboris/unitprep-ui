@@ -28,6 +28,7 @@ const COMPANY_FIELDS: Array<{ key: keyof MappedCompany; label: string }> = [
   { key: "corporate_address_state", label: "State" },
   { key: "corporate_address_zip", label: "ZIP" },
   { key: "subdomain", label: "Subdomain" },
+  { key: "website_url", label: "Website" },
 ];
 
 const FACILITY_FIELDS: Array<{ key: keyof EditableFacilityFields; label: string; type?: "number" }> = [
@@ -46,6 +47,7 @@ const FACILITY_FIELDS: Array<{ key: keyof EditableFacilityFields; label: string;
   { key: "subdomain", label: "Subdomain" },
   { key: "subdomain_exists_in_qms_raw", label: "Subdomain Exists in QMS" },
   { key: "system_email", label: "System Email" },
+  { key: "website_url", label: "Website" },
 ];
 
 function stripGoLiveDate(facility: MappedFacility): EditableFacilityFields {
@@ -65,6 +67,7 @@ function stripGoLiveDate(facility: MappedFacility): EditableFacilityFields {
     subdomain: facility.subdomain,
     subdomain_exists_in_qms_raw: facility.subdomain_exists_in_qms_raw,
     system_email: facility.system_email,
+    website_url: facility.website_url,
   };
 }
 
@@ -163,6 +166,14 @@ function ClientsNewPageInner() {
   const [editedCompany, setEditedCompany] = useState<MappedCompany | null>(null);
   const [editedFacilities, setEditedFacilities] = useState<Record<string, EditableFacilityFields>>({});
   const [editing, setEditing] = useState(false);
+  // Real single-facility businesses often answer "Yes" to "Is your
+  // Corporate Name, Address, Phone Number & Email the same as this
+  // Facility?" -- PS then skips the dedicated Corporate questions
+  // entirely, leaving the Company section with nothing to show at all
+  // (confirmed: run rZFNRpmLIxuOrb_8K9hICw). `true` once the manager has
+  // either accepted or dismissed the resulting fallback prompt, so it
+  // shows at most once per preview load.
+  const [companyFallbackHandled, setCompanyFallbackHandled] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -189,6 +200,7 @@ function ClientsNewPageInner() {
     const companySource = pickCompanySourceRun(result.data.runs);
     setCompanySourceRunId(companySource.run_id);
     setEditedCompany(companySource.company);
+    setCompanyFallbackHandled(false);
   }
 
   useEffect(() => {
@@ -213,6 +225,36 @@ function ClientsNewPageInner() {
         [key]: value === "" ? null : isNumber ? Number(value) : value,
       },
     }));
+  }
+
+  /** The run whose facility data the fallback banner would offer to
+   * copy from -- always the same run that seeded the Company section,
+   * since that's the run whose blank Corporate Info section triggered
+   * the prompt in the first place. */
+  const companySourceRun = runs?.find((run) => run.run_id === companySourceRunId) ?? null;
+
+  function handleAcceptCompanyFallback() {
+    if (!companySourceRun) return;
+    const { facility } = companySourceRun;
+    setEditedCompany((prev) =>
+      prev
+        ? {
+            ...prev,
+            legal_name: facility.name,
+            corporate_address_street: facility.street_address,
+            corporate_address_city: facility.city,
+            corporate_address_state: facility.state,
+            corporate_address_zip: facility.zip,
+            corporate_phone: facility.phone,
+            website_url: facility.website_url,
+          }
+        : prev
+    );
+    setCompanyFallbackHandled(true);
+  }
+
+  function handleDismissCompanyFallback() {
+    setCompanyFallbackHandled(true);
   }
 
   async function handleCreate() {
@@ -298,6 +340,35 @@ function ClientsNewPageInner() {
 
         {runs && editedCompany && (
           <div className="flex flex-col gap-6">
+            {!companyFallbackHandled && companyCompleteness(editedCompany) === 0 && companySourceRun && (
+              <section className="rounded border border-amber-800 bg-amber-950/10 p-5">
+                <h2 className="mb-2 text-lg font-semibold">No Company Information Captured</h2>
+                <p className="mb-4 text-sm text-slate-400">
+                  <span className="font-medium text-slate-200">{companySourceRun.facility.name}</span>&apos;s own
+                  Corporate Info section came back blank -- this usually means the client answered
+                  &quot;Yes&quot; to &quot;Is your Corporate Name, Address, Phone Number &amp; Email the same as
+                  this Facility?&quot;, so Process Street never asked those questions separately. Use this
+                  facility&apos;s own name, address, phone, and website for the Company section instead?
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleAcceptCompanyFallback}
+                    className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+                  >
+                    Use Facility Info
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDismissCompanyFallback}
+                    className="rounded border border-slate-700 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </section>
+            )}
+
             <section className="rounded border border-blue-800 bg-blue-950/10 p-5">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold">{editedCompany.legal_name || "Company"}</h2>

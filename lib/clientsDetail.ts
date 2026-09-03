@@ -48,6 +48,7 @@ export interface CompanyDetail {
   payment_scheme: string | null;
   offers_tenant_insurance_raw: string | null;
   insurance_provider: string | null;
+  website_url: string | null;
   archived_at: string | null;
   elavon_active: boolean;
   facilities: FacilitySummary[];
@@ -78,6 +79,7 @@ export interface FacilityDetail {
   subdomain: string | null;
   subdomain_exists_in_qms_raw: string | null;
   system_email: string | null;
+  website_url: string | null;
 }
 
 export async function getFacilityDetail(
