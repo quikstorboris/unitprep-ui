@@ -8,102 +8,82 @@ import {
   type ReactNode,
 } from "react";
 
-// Frontend-only client registry — no backend entity exists yet (see the
-// platform vision: a "client" only becomes real backend state once
-// persistence is designed). sessionStorage (not localStorage) is
-// deliberate: it's scoped per browser tab, so working on two different
-// clients in two tabs doesn't collide, and it evaporates exactly as
-// non-durably as everything else in this app does today.
+import { listCompanies, type CompanySummary } from "@/lib/clientsCompanies";
+
+// Real, backend-driven client registry (2026-09-01) -- replaces the
+// original sessionStorage-only stub, whose own doc comment always
+// anticipated this: "no backend entity exists yet... a client only
+// becomes real backend state once persistence is designed." That
+// design now exists (Process Street-sourced `clients.companies`), so
+// this module fetches from it instead of sessionStorage. Every
+// consumer (`ClientLayout`, `ClientTabs`, `DedupUploadPage`,
+// `DedupResultsPage`, ...) only ever used `clients`/`getClient`/
+// `hydrated` for display/routing, never the storage mechanism itself,
+// so this swap needed no changes anywhere else.
 //
-// Backed by useSyncExternalStore (module-level cache + listener set)
-// rather than useState+useEffect holding the data directly. getSnapshot/
-// getServerSnapshot must be pure, side-effect-free reads of `cache` —
-// they run during render (sometimes more than once per commit), so
-// reading sessionStorage lazily from inside one of them mutates `cache`
-// mid-render and makes the two getters disagree depending on call
-// order, which is exactly what trips React's "getServerSnapshot should
-// be cached" warning. The actual sessionStorage read happens once, in
-// the effect below, well after mount — an effect calling this module's
-// own commit() (not a useState setter) is the supported "sync from an
-// external system" case, not the "setState in effect" antipattern.
-const STORAGE_KEY = "unitprep:clients";
+// Same `useSyncExternalStore` shape as before, for the same reason:
+// getSnapshot/getServerSnapshot must be pure reads of `cache` (see the
+// git history on this file for the original, more detailed rationale)
+// -- the actual fetch happens once, in the effect below, via this
+// module's own `commit()`, the supported "sync from an external
+// system" pattern.
 
 export interface Client {
   id: string;
+  /** The company's `legal_name` -- kept as `name` so every existing
+   * consumer (`client.name` in `ClientLayout`, etc.) needed no changes. */
   name: string;
-  contactName: string;
-  contactEmail: string;
-  contactPhone: string;
-  signerName: string;
-  bankAccount: string;
-  address: string;
-  dropboxPath: string;
-  createdAt: number;
+  facilityNames: string[];
+  archivedAt: string | null;
+  /**
+   * Always `undefined` for now -- real Dropbox-root connection is a
+   * Company-page feature that isn't built yet (per Boris, 2026-09-01:
+   * lives directly on the client page, not its own tab). Kept as a
+   * field so `DedupUploadPage`/`DedupResultsPage`'s existing
+   * `client?.dropboxPath` usage needed no changes; remove this comment
+   * once that feature ships and this is a real value.
+   */
+  dropboxPath: string | undefined;
 }
 
-export type ClientDraft = Partial<
-  Omit<Client, "id" | "createdAt">
->;
-
-const BLANK_DRAFT: Required<ClientDraft> = {
-  name: "",
-  contactName: "",
-  contactEmail: "",
-  contactPhone: "",
-  signerName: "",
-  bankAccount: "",
-  address: "",
-  dropboxPath: "",
-};
+function toClient(summary: CompanySummary): Client {
+  return {
+    id: summary.id,
+    name: summary.legal_name,
+    facilityNames: summary.facility_names,
+    archivedAt: summary.archived_at,
+    dropboxPath: undefined,
+  };
+}
 
 type Listener = () => void;
 
 const listeners = new Set<Listener>();
 let cache: Client[] = [];
-let hydratedFromStorage = false;
-// Whether `hydrateFromStorage` below has run — exposed as its own
-// external-store snapshot (see `getHydratedSnapshot`) so consumers can
-// tell "haven't checked sessionStorage yet" apart from "checked, and
-// this client genuinely isn't in it".
-let hydrated = false;
+// Whether the initial fetch has resolved (success OR failure) -- exposed
+// as its own external-store snapshot so consumers can tell "haven't
+// checked the backend yet" apart from "checked, and this client
+// genuinely isn't in it". A failed fetch still flips this to true with
+// an empty cache; there's no separate error surface here, matching the
+// simplicity of what this replaced.
+let loaded = false;
+let fetchStarted = false;
 
 function commit(next: Client[]) {
   cache = next;
-
-  if (typeof window !== "undefined") {
-    try {
-      sessionStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(next)
-      );
-    } catch {
-      // Storage blocked/full — keep working in-memory for this tab.
-    }
-  }
-
   listeners.forEach((listener) => listener());
 }
 
-// Runs once, after mount — folds whatever this tab already saved into
-// the store via the normal commit() path, same as any other update.
-function hydrateFromStorage() {
-  if (hydratedFromStorage) return;
+async function loadFromBackend() {
+  if (fetchStarted) return;
+  fetchStarted = true;
 
-  hydratedFromStorage = true;
-
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-
-    if (raw) {
-      cache = JSON.parse(raw) as Client[];
-    }
-  } catch {
-    // Corrupted/blocked storage — keep the empty in-memory default.
+  const result = await listCompanies();
+  if (result.kind === "ok") {
+    commit(result.data.map(toClient));
   }
 
-  // Always flip `hydrated` and notify, even when there was nothing to
-  // load — subscribers need to know the check happened either way.
-  hydrated = true;
+  loaded = true;
   listeners.forEach((listener) => listener());
 }
 
@@ -112,9 +92,6 @@ function subscribe(listener: Listener): () => void {
   return () => listeners.delete(listener);
 }
 
-// Both getters are plain reads of `cache` — no lazy loading, no
-// branching, nothing that could make them disagree depending on call
-// order. See the module-level comment above for why that matters.
 function getSnapshot(): Client[] {
   return cache;
 }
@@ -123,114 +100,64 @@ function getServerSnapshot(): Client[] {
   return cache;
 }
 
-function getHydratedSnapshot(): boolean {
-  return hydrated;
+function getLoadedSnapshot(): boolean {
+  return loaded;
 }
 
-function getHydratedServerSnapshot(): boolean {
+function getLoadedServerSnapshot(): boolean {
   return false;
-}
-
-function createClientRecord(
-  draft: ClientDraft = {}
-): Client {
-  const merged = {
-    ...BLANK_DRAFT,
-    ...draft,
-  };
-
-  const client: Client = {
-    id: crypto.randomUUID(),
-    createdAt: Date.now(),
-    ...merged,
-    name: merged.name.trim() || "Untitled Client",
-  };
-
-  commit([...cache, client]);
-
-  return client;
-}
-
-function updateClientRecord(
-  id: string,
-  patch: ClientDraft
-) {
-  commit(
-    cache.map((c) =>
-      c.id === id ? { ...c, ...patch } : c
-    )
-  );
 }
 
 interface ClientsContextValue {
   clients: Client[];
-  // False for the one render before the hydration effect below runs.
+  // False for the one render before the initial fetch resolves.
   // Consumers should treat a lookup miss while this is false as "don't
-  // know yet", not "this client doesn't exist" — sessionStorage hasn't
-  // been read yet, so `clients` is still the empty initial cache.
+  // know yet", not "this client doesn't exist".
   hydrated: boolean;
   getClient: (id: string) => Client | undefined;
-  createClient: (draft?: ClientDraft) => Client;
-  updateClient: (id: string, patch: ClientDraft) => void;
+  /** Re-fetches the list -- call after archiving/unarchiving or
+   * creating a client so the UI reflects the new state immediately. */
+  refresh: () => Promise<void>;
 }
 
-const ClientsContext =
-  createContext<ClientsContextValue | null>(null);
+const ClientsContext = createContext<ClientsContextValue | null>(null);
 
 // Mounted exactly once, wrapping everything in app/layout.tsx (the App
 // Router's single root layout) -- by construction, every route in this app
 // renders underneath that one instance, so the module-level `cache`/
-// `listeners`/`hydrated` state above is only ever driven by one provider.
+// `listeners`/`loaded` state above is only ever driven by one provider.
 // If that ever changes -- a second ClientsProvider mounted somewhere else
 // (a nested layout, a test rendering it twice, a future refactor) -- it
 // would silently share this same module state with the root one rather
 // than getting its own, which would surprise whoever does that. Keep this
 // mounted in exactly one place; if a second mount ever becomes necessary,
 // this module needs a real per-instance store, not just a comment.
-export function ClientsProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  const clients = useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot
-  );
-
-  const hydrated = useSyncExternalStore(
-    subscribe,
-    getHydratedSnapshot,
-    getHydratedServerSnapshot
-  );
+export function ClientsProvider({ children }: { children: ReactNode }) {
+  const clients = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const hydrated = useSyncExternalStore(subscribe, getLoadedSnapshot, getLoadedServerSnapshot);
 
   useEffect(() => {
-    hydrateFromStorage();
+    loadFromBackend();
   }, []);
 
   const value: ClientsContextValue = {
     clients,
     hydrated,
-    getClient: (id) =>
-      clients.find((c) => c.id === id),
-    createClient: createClientRecord,
-    updateClient: updateClientRecord,
+    getClient: (id) => clients.find((c) => c.id === id),
+    refresh: () => {
+      fetchStarted = false;
+      return loadFromBackend();
+    },
   };
 
-  return (
-    <ClientsContext.Provider value={value}>
-      {children}
-    </ClientsContext.Provider>
-  );
+  return <ClientsContext.Provider value={value}>{children}</ClientsContext.Provider>;
 }
 
 export function useClients(): ClientsContextValue {
   const ctx = useContext(ClientsContext);
 
   if (!ctx) {
-    throw new Error(
-      "useClients must be used within a ClientsProvider"
-    );
+    throw new Error("useClients must be used within a ClientsProvider");
   }
 
   return ctx;

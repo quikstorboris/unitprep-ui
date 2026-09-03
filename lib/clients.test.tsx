@@ -6,6 +6,15 @@ import type {
   ClientsProvider as ClientsProviderType,
   useClients as useClientsType,
 } from "./clients";
+import type { CompanySummary } from "./clientsCompanies";
+
+const { listCompanies } = vi.hoisted(() => ({
+  listCompanies: vi.fn(),
+}));
+
+vi.mock("@/lib/clientsCompanies", () => ({
+  listCompanies,
+}));
 
 async function freshClientsModule() {
   vi.resetModules();
@@ -16,47 +25,36 @@ async function freshClientsModule() {
   };
 }
 
+function summary(overrides: Partial<CompanySummary> = {}): CompanySummary {
+  return {
+    id: "company-1",
+    legal_name: "Prairie Enterprises LLC",
+    created_at: "2026-08-28T12:00:00Z",
+    archived_at: null,
+    facility_names: ["Highway 20", "Carpentersville"],
+    ...overrides,
+  };
+}
+
 describe("useClients / ClientsProvider", () => {
   beforeEach(() => {
-    sessionStorage.clear();
+    vi.clearAllMocks();
   });
 
-  it("starts unhydrated and flips to hydrated after mount", async () => {
+  it("starts unhydrated and flips to hydrated once the backend fetch resolves", async () => {
+    listCompanies.mockResolvedValue({ kind: "ok", data: [] });
     const { useClients, ClientsProvider } = await freshClientsModule();
 
     const { result } = renderHook(() => useClients(), {
       wrapper: ClientsProvider,
     });
 
+    expect(result.current.hydrated).toBe(false);
     await waitFor(() => expect(result.current.hydrated).toBe(true));
   });
 
-  it("creates a client with an auto-generated id and defaults", async () => {
-    const { useClients, ClientsProvider } = await freshClientsModule();
-
-    const { result } = renderHook(() => useClients(), {
-      wrapper: ClientsProvider,
-    });
-    await waitFor(() => expect(result.current.hydrated).toBe(true));
-
-    let created!: Client;
-    act(() => {
-      created = result.current.createClient({ name: "Acme Storage" });
-    });
-
-    expect(created.id).toBeTruthy();
-    expect(created.name).toBe("Acme Storage");
-    expect(created.contactName).toBe("");
-    expect(created.contactEmail).toBe("");
-    expect(created.contactPhone).toBe("");
-    expect(created.signerName).toBe("");
-    expect(created.bankAccount).toBe("");
-    expect(created.address).toBe("");
-    expect(created.dropboxPath).toBe("");
-    expect(typeof created.createdAt).toBe("number");
-  });
-
-  it("trims a provided name", async () => {
+  it("maps a real company summary to a Client, keeping legal_name as .name for existing consumers", async () => {
+    listCompanies.mockResolvedValue({ kind: "ok", data: [summary()] });
     const { useClients, ClientsProvider } = await freshClientsModule();
 
     const { result } = renderHook(() => useClients(), {
@@ -64,15 +62,14 @@ describe("useClients / ClientsProvider", () => {
     });
     await waitFor(() => expect(result.current.hydrated).toBe(true));
 
-    let created!: Client;
-    act(() => {
-      created = result.current.createClient({ name: "  Acme Storage  " });
-    });
-
-    expect(created.name).toBe("Acme Storage");
+    const client = result.current.getClient("company-1") as Client;
+    expect(client.name).toBe("Prairie Enterprises LLC");
+    expect(client.facilityNames).toEqual(["Highway 20", "Carpentersville"]);
+    expect(client.archivedAt).toBeNull();
   });
 
-  it('falls back to "Untitled Client" when no name is given', async () => {
+  it("returns undefined for an unknown id", async () => {
+    listCompanies.mockResolvedValue({ kind: "ok", data: [summary()] });
     const { useClients, ClientsProvider } = await freshClientsModule();
 
     const { result } = renderHook(() => useClients(), {
@@ -80,113 +77,42 @@ describe("useClients / ClientsProvider", () => {
     });
     await waitFor(() => expect(result.current.hydrated).toBe(true));
 
-    let created!: Client;
-    act(() => {
-      created = result.current.createClient();
-    });
-
-    expect(created.name).toBe("Untitled Client");
-  });
-
-  it('falls back to "Untitled Client" when the name is only whitespace', async () => {
-    const { useClients, ClientsProvider } = await freshClientsModule();
-
-    const { result } = renderHook(() => useClients(), {
-      wrapper: ClientsProvider,
-    });
-    await waitFor(() => expect(result.current.hydrated).toBe(true));
-
-    let created!: Client;
-    act(() => {
-      created = result.current.createClient({ name: "   " });
-    });
-
-    expect(created.name).toBe("Untitled Client");
-  });
-
-  it("updates a client by id, leaving other fields untouched", async () => {
-    const { useClients, ClientsProvider } = await freshClientsModule();
-
-    const { result } = renderHook(() => useClients(), {
-      wrapper: ClientsProvider,
-    });
-    await waitFor(() => expect(result.current.hydrated).toBe(true));
-
-    let created!: Client;
-    act(() => {
-      created = result.current.createClient({ name: "Acme Storage" });
-    });
-    act(() => {
-      result.current.updateClient(created.id, { contactEmail: "a@b.com" });
-    });
-
-    expect(result.current.getClient(created.id)?.contactEmail).toBe(
-      "a@b.com"
-    );
-    expect(result.current.getClient(created.id)?.name).toBe("Acme Storage");
-  });
-
-  it("looks up a client by id and returns undefined for an unknown id", async () => {
-    const { useClients, ClientsProvider } = await freshClientsModule();
-
-    const { result } = renderHook(() => useClients(), {
-      wrapper: ClientsProvider,
-    });
-    await waitFor(() => expect(result.current.hydrated).toBe(true));
-
-    let created!: Client;
-    act(() => {
-      created = result.current.createClient({ name: "Acme Storage" });
-    });
-
-    expect(result.current.getClient(created.id)?.name).toBe("Acme Storage");
     expect(result.current.getClient("nonexistent-id")).toBeUndefined();
   });
 
-  it("persists created clients to sessionStorage under the clients key", async () => {
+  // A failed fetch must not leave the page stuck on a loading state
+  // forever -- `hydrated` still flips to true, just with an empty list,
+  // the same "checked, and it's not there" semantics a real 404 would
+  // produce for a single lookup.
+  it("still flips to hydrated (with an empty list) when the backend fetch fails", async () => {
+    listCompanies.mockResolvedValue({ kind: "error", message: "boom" });
     const { useClients, ClientsProvider } = await freshClientsModule();
 
     const { result } = renderHook(() => useClients(), {
       wrapper: ClientsProvider,
     });
+
     await waitFor(() => expect(result.current.hydrated).toBe(true));
-
-    act(() => {
-      result.current.createClient({ name: "Acme Storage" });
-    });
-
-    const raw = sessionStorage.getItem("unitprep:clients");
-    expect(raw).toBeTruthy();
-    const stored = JSON.parse(raw as string);
-    expect(stored).toHaveLength(1);
-    expect(stored[0].name).toBe("Acme Storage");
+    expect(result.current.clients).toEqual([]);
   });
 
-  it("loads clients already present in sessionStorage on mount", async () => {
-    const seeded = [
-      {
-        id: "seed-1",
-        name: "Seeded Client",
-        contactName: "",
-        contactEmail: "",
-        contactPhone: "",
-        signerName: "",
-        bankAccount: "",
-        address: "",
-        dropboxPath: "",
-        createdAt: 123,
-      },
-    ];
-    sessionStorage.setItem("unitprep:clients", JSON.stringify(seeded));
-
+  it("refresh() re-fetches from the backend", async () => {
+    listCompanies.mockResolvedValueOnce({ kind: "ok", data: [] });
     const { useClients, ClientsProvider } = await freshClientsModule();
 
     const { result } = renderHook(() => useClients(), {
       wrapper: ClientsProvider,
     });
-
     await waitFor(() => expect(result.current.hydrated).toBe(true));
-    expect(result.current.getClient("seed-1")?.name).toBe("Seeded Client");
+    expect(result.current.clients).toHaveLength(0);
+
+    listCompanies.mockResolvedValueOnce({ kind: "ok", data: [summary()] });
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    expect(result.current.clients).toHaveLength(1);
+    expect(listCompanies).toHaveBeenCalledTimes(2);
   });
 
   it("throws when useClients is used outside a ClientsProvider", async () => {
