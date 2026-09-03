@@ -66,17 +66,46 @@ function stripGoLiveDate(facility: MappedFacility): EditableFacilityFields {
   };
 }
 
+/** How many of the confirmation screen's own Company fields this run's
+ * `company` actually answered -- the real completeness signal
+ * `pickCompanySourceRun` uses, not just "does `legal_name` exist" (that
+ * check alone is satisfied by a stray `Company_Name:` answer or a
+ * Merchant Account correlation on a run whose real Corporate Info
+ * section is otherwise blank -- confirmed against Affordable Storage's
+ * real data, 2026-09-03: Tanner resolved a legal name this way while
+ * every other Company field on it was genuinely empty in PS). */
+function companyCompleteness(company: MappedCompany): number {
+  return COMPANY_FIELDS.filter((f) => {
+    const value = company[f.key];
+    return value !== null && value !== undefined && value !== "";
+  }).length;
+}
+
 /**
- * Whichever selected run has the fullest resolved company data --
- * preferring a real Legal Name (via Merchant Account correlation, see
- * `clients_preview.rs`) over PS's own field count. Falls back to the
- * first selected run when none resolved anything, so the Company
- * section always has *a* source run to record on `clients.companies.
- * ps_intake_run_id` even for a client with no Merchant Account data at
- * all -- the manager can still fill the section in by hand.
+ * Whichever selected run PS itself marks authoritative for company data
+ * -- i.e. answered "Yes" to "Is this their first time filling out this
+ * form?" -- since that's the one real source of truth for Corporate
+ * Info in PS's own model (see the vault's sister-site writeup). Among
+ * runs tied on that (more than one, or none at all -- e.g. every
+ * selected run answered "No", or the field itself went unanswered),
+ * falls back to whichever has the most complete company data, so a
+ * run that only resolved a legal name (and nothing else) never wins
+ * over one with real corporate contact info just because it happened
+ * to come first. Falls back to the first selected run when nothing
+ * resolved anything at all, so the Company section always has *a*
+ * source run to record on `clients.companies.ps_intake_run_id` -- the
+ * manager can still fill the section in by hand.
  */
 function pickCompanySourceRun(runs: PreviewedRun[]): PreviewedRun {
-  return runs.find((run) => run.company.legal_name) ?? runs[0];
+  const withData = runs.filter((run) => companyCompleteness(run.company) > 0);
+  if (withData.length === 0) return runs[0];
+
+  const firstTimeRuns = withData.filter((run) => run.is_first_time === true);
+  const candidates = firstTimeRuns.length > 0 ? firstTimeRuns : withData;
+
+  return candidates.reduce((best, run) =>
+    companyCompleteness(run.company) > companyCompleteness(best.company) ? run : best
+  );
 }
 
 export default function ClientsNewPage() {

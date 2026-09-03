@@ -271,6 +271,99 @@ describe("ClientsNewPage", () => {
     expect(carpentersville.merchant_account_run_id).toBe("ma-carpentersville-1");
   });
 
+  // Regression test for the real Affordable Storage case, 2026-09-03:
+  // Tanner (one of 9 facilities) resolved a legal name from a stray
+  // `Company_Name:` answer while its own Corporate Info section stayed
+  // blank in PS; Westpark was the actual "first time" facility with a
+  // fully-answered section. `pickCompanySourceRun` used to grab
+  // whichever run had *any* legal name first -- Tanner, since it's
+  // earlier in this list -- leaving the Company section almost entirely
+  // blank even though Westpark's real data was right there in the same
+  // batch.
+  it("prefers the run PS marks as the real first-time facility over one that merely resolved a legal name", async () => {
+    useSearchParams.mockReturnValue(
+      selectionParams([
+        { run_id: "run-tanner", run_name: "Affordable Storage Tanner - BEAU RYAN" },
+        { run_id: "run-westpark", run_name: "Affordable Storage Westpark - BEAU RYAN" },
+      ])
+    );
+    previewClients.mockResolvedValue({
+      kind: "ok",
+      data: {
+        runs: [
+          {
+            run_id: "run-tanner",
+            is_first_time: false,
+            company: mappedCompany({ legal_name: "Affordable Storage" }),
+            facility: mappedFacility({ name: "Affordable Storage Tanner" }),
+          },
+          {
+            run_id: "run-westpark",
+            is_first_time: true,
+            company: mappedCompany({
+              legal_name: "Affordable Storage",
+              corporate_email: "beau@rockspring.com",
+              corporate_phone: "8329783228",
+              corporate_address_street: "13627 Comely Lane",
+              corporate_address_city: "Houston",
+              corporate_address_state: "Texas",
+              corporate_address_zip: "77079",
+              subdomain: "affstor.qms-email.com",
+            }),
+            facility: mappedFacility({ name: "Affordable Storage Westpark" }),
+          },
+        ],
+      },
+    });
+
+    render(<ClientsNewPage />);
+
+    await screen.findByRole("heading", { name: "Affordable Storage" });
+    expect(screen.getByText("beau@rockspring.com")).toBeInTheDocument();
+    expect(screen.getByText("13627 Comely Lane")).toBeInTheDocument();
+    expect(screen.getByText("affstor.qms-email.com")).toBeInTheDocument();
+  });
+
+  // No selected run answered "Yes" -- falls back to whichever has the
+  // most complete company data, not just whichever comes first.
+  it("prefers the most complete company data when no selected run answered yes to first-time", async () => {
+    useSearchParams.mockReturnValue(
+      selectionParams([
+        { run_id: "run-sparse", run_name: "Sparse Run" },
+        { run_id: "run-full", run_name: "Full Run" },
+      ])
+    );
+    previewClients.mockResolvedValue({
+      kind: "ok",
+      data: {
+        runs: [
+          {
+            run_id: "run-sparse",
+            is_first_time: false,
+            company: mappedCompany({ legal_name: "Some Company" }),
+            facility: mappedFacility({ name: "Sparse Facility" }),
+          },
+          {
+            run_id: "run-full",
+            is_first_time: null,
+            company: mappedCompany({
+              legal_name: "Some Company",
+              corporate_email: "office@somecompany.com",
+              corporate_phone: "5551234567",
+            }),
+            facility: mappedFacility({ name: "Full Facility" }),
+          },
+        ],
+      },
+    });
+
+    render(<ClientsNewPage />);
+
+    await screen.findByRole("heading", { name: "Some Company" });
+    expect(screen.getByText("office@somecompany.com")).toBeInTheDocument();
+    expect(screen.getByText("5551234567")).toBeInTheDocument();
+  });
+
   it("lets edited values override the previewed ones before submitting", async () => {
     useSearchParams.mockReturnValue(
       selectionParams([{ run_id: "run-highway-20", run_name: "Highway 20 Self Storage - QMS Onboarding" }])

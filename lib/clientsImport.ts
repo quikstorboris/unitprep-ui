@@ -64,6 +64,11 @@ export type EditableFacilityFields = Omit<MappedFacility, "go_live_date">;
 /** Mirrors `PreviewedRun` in `unitprep-api`'s `clients_preview.rs`. */
 export interface PreviewedRun {
   run_id: string;
+  /** PS's own "Is this their first time filling out this form?" for
+   * this run -- `null` when unanswered. Used by `pickCompanySourceRun`
+   * (this file's own consumer, `app/(app)/clients/new/page.tsx`) to
+   * prefer the run PS itself marks authoritative for company data. */
+  is_first_time: boolean | null;
   company: MappedCompany;
   facility: MappedFacility;
   /** The Merchant Account run this run correlates to, if any -- carried
