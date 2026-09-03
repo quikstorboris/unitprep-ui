@@ -43,3 +43,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code local session config -- machine-local permissions/MCP
+# toggles, not shared project config. .claude/launch.json (dev-server
+# launch config) IS shared/committed.
+.claude/settings.local.json
