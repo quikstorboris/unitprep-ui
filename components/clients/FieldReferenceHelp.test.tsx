@@ -15,7 +15,7 @@ describe("FieldReferenceHelp", () => {
     expect(screen.getByPlaceholderText("Search fields…")).toBeInTheDocument();
     // A real mapped field and a real not-yet-mapped one should both be visible.
     expect(screen.getAllByText("Legal Name").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Total Annual Business Revenue").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("QMS Credentials (encrypted, not yet shown)").length).toBeGreaterThan(0);
   });
 
   it("filters rows by search query across OO field, PS field, and PS key", () => {
@@ -24,7 +24,7 @@ describe("FieldReferenceHelp", () => {
 
     fireEvent.change(screen.getByPlaceholderText("Search fields…"), { target: { value: "EIN" } });
 
-    expect(screen.getByText("EIN (encrypted, not yet shown)")).toBeInTheDocument();
+    expect(screen.getAllByText("EIN").length).toBeGreaterThan(0);
     expect(screen.queryByText("Total Annual Business Revenue")).not.toBeInTheDocument();
   });
 
@@ -35,7 +35,9 @@ describe("FieldReferenceHelp", () => {
     fireEvent.change(screen.getByDisplayValue("All statuses"), { target: { value: "not_yet_mapped" } });
 
     expect(screen.queryByText("Original Go Live Date")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Total Annual Business Revenue").length).toBeGreaterThan(0);
+    // Total Annual Business Revenue is now mapped (2026-09-03) -- QMS
+    // Credentials is a field that genuinely stays not_yet_mapped.
+    expect(screen.getAllByText("QMS Credentials (encrypted, not yet shown)").length).toBeGreaterThan(0);
   });
 
   it("closes on Close click", () => {

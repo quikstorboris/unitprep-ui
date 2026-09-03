@@ -154,6 +154,31 @@ export interface ElavonPartyInfo {
   home_postal_code: string | null;
 }
 
+/**
+ * Mirrors `ElavonFinancials` -- EIN (unmasked) and bank routing/account
+ * numbers (masked to their last 4 digits by the backend, `mask_bank_number`)
+ * decrypted from `encrypted_secrets`, plus the revenue/volume fields New
+ * Merchant Account's Facility Information (Pre-App) step captures.
+ * Confirmed genuinely per-facility (2026-09-03) -- Prairie Enterprises'
+ * 3 real facilities each answered these differently on their own
+ * separate runs -- so this lives on the Elavon tab, not the Company
+ * page's Financial Information section.
+ */
+export interface ElavonFinancials {
+  ein: string | null;
+  bank_routing_number_masked: string | null;
+  bank_account_number_masked: string | null;
+  total_annual_business_revenue_raw: string | null;
+  total_monthly_sales_raw: string | null;
+  average_credit_card_payment_amount_raw: string | null;
+  highest_credit_card_payment_amount_raw: string | null;
+  high_cc_payment_times_per_year_raw: string | null;
+  offers_ach_raw: string | null;
+  annual_electronic_check_volume_raw: string | null;
+  average_electronic_check_amount_raw: string | null;
+  maximum_electronic_check_amount_raw: string | null;
+}
+
 /** Mirrors `ElavonCandidate`. */
 export interface ElavonCandidate {
   merchant_account_run_id: string;
@@ -174,6 +199,7 @@ export type ElavonStatus =
       ps_new_merchant_run_id: string | null;
       last_synced_at: string | null;
       parties: ElavonPartyInfo[];
+      financials: ElavonFinancials;
     }
   | {
       status: "unlinked";

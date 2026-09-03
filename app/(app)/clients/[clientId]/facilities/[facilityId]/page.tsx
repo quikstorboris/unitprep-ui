@@ -297,6 +297,46 @@ function ElavonTab({ companyId, facilityId }: { companyId: string; facilityId: s
           ]}
         />
 
+        {/* Confirmed per-facility, not per-company (2026-09-03) -- Prairie
+            Enterprises' 3 real facilities each answered these differently
+            on their own separate New Merchant Account runs, so there is no
+            single company-wide figure to show on the Company page instead. */}
+        <DetailSection
+          title="Financials"
+          fields={[
+            { label: "EIN", value: status.financials.ein },
+            { label: "Bank Routing Number", value: status.financials.bank_routing_number_masked },
+            { label: "Bank Account Number", value: status.financials.bank_account_number_masked },
+            { label: "Total Annual Business Revenue", value: status.financials.total_annual_business_revenue_raw },
+            { label: "Total Monthly Sales", value: status.financials.total_monthly_sales_raw },
+            { label: "Offers ACH", value: status.financials.offers_ach_raw },
+            {
+              label: "Annual Electronic Check (ACH) Volume",
+              value: status.financials.annual_electronic_check_volume_raw,
+            },
+            {
+              label: "Average Electronic Check Amount",
+              value: status.financials.average_electronic_check_amount_raw,
+            },
+            {
+              label: "Maximum Electronic Check Amount",
+              value: status.financials.maximum_electronic_check_amount_raw,
+            },
+            {
+              label: "Average Credit Card Payment Amount",
+              value: status.financials.average_credit_card_payment_amount_raw,
+            },
+            {
+              label: "Highest Credit Card Payment Amount",
+              value: status.financials.highest_credit_card_payment_amount_raw,
+            },
+            {
+              label: "# Times Per Year for the High CC Payment",
+              value: status.financials.high_cc_payment_times_per_year_raw,
+            },
+          ]}
+        />
+
         <section className="rounded border border-slate-800 p-5">
           <h2 className="mb-4 text-lg font-semibold">Owner(s) / Signer</h2>
           {status.parties.length === 0 ? (

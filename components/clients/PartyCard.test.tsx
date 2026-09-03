@@ -32,18 +32,20 @@ describe("PartyCard", () => {
     expect(screen.queryByText(/13:00/)).not.toBeInTheDocument();
   });
 
-  it("masks the SSN by default and reveals it behind a Show/Hide toggle", () => {
+  it("masks the SSN entirely by default and reveals the real value behind a Show/Hide toggle", () => {
     render(<PartyCard party={party()} badge="owner" />);
 
+    // Fully masked -- no digits, not even the last 4 (corrected 2026-09-03).
     expect(screen.queryByText("394547868")).not.toBeInTheDocument();
-    expect(screen.getByText("•••-••-7868")).toBeInTheDocument();
+    expect(screen.queryByText(/7868/)).not.toBeInTheDocument();
+    expect(screen.getByText("•••-••-••••")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Show" }));
     expect(screen.getByText("394547868")).toBeInTheDocument();
-    expect(screen.queryByText("•••-••-7868")).not.toBeInTheDocument();
+    expect(screen.queryByText("•••-••-••••")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Hide" }));
-    expect(screen.getByText("•••-••-7868")).toBeInTheDocument();
+    expect(screen.getByText("•••-••-••••")).toBeInTheDocument();
   });
 
   it("shows an em dash for missing phone/ssn/dob rather than blank cells", () => {

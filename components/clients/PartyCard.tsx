@@ -12,7 +12,17 @@ import { formatDateOnly, formatPhone } from "@/lib/format";
  * places at once instead of drifting (2026-09-03: phone as
  * xxx-xxx-xxxx, DOB as mm-dd-yyyy with no time, SSN masked behind a
  * Show/Hide toggle -- previously always shown in plaintext).
+ *
+ * **SSN masking, corrected 2026-09-03**: the masked state shows no
+ * digits at all (always the literal placeholder below), not the
+ * previous "last 4 digits visible" style -- Boris wants the default
+ * view fully opaque. Reveal is still wanted (unlike bank routing/account
+ * numbers, which the backend masks permanently with no reveal), so the
+ * real SSN still arrives from the API and this component still owns the
+ * Show/Hide toggle -- only the masked-state rendering changed.
  */
+const MASKED_SSN = "•••-••-••••";
+
 export interface PartyCardData {
   display_name: string | null;
   title: string | null;
@@ -25,12 +35,6 @@ export interface PartyCardData {
   home_city: string | null;
   home_state_or_province: string | null;
   home_postal_code: string | null;
-}
-
-function maskSsn(ssn: string): string {
-  const digits = ssn.replace(/\D/g, "");
-  if (digits.length !== 9) return "•".repeat(ssn.length);
-  return `•••-••-${digits.slice(5)}`;
 }
 
 export default function PartyCard({ party, badge }: { party: PartyCardData; badge: string }) {
@@ -66,7 +70,7 @@ export default function PartyCard({ party, badge }: { party: PartyCardData; badg
           <dd className="flex items-center gap-2">
             {party.ssn ? (
               <>
-                <span>{ssnRevealed ? party.ssn : maskSsn(party.ssn)}</span>
+                <span>{ssnRevealed ? party.ssn : MASKED_SSN}</span>
                 <button
                   type="button"
                   onClick={() => setSsnRevealed((prev) => !prev)}
