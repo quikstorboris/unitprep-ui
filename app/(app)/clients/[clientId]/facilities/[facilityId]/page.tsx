@@ -19,7 +19,7 @@ import {
   type FacilityDetail,
   type FacilityPolicies,
 } from "@/lib/clientsDetail";
-import { formatDateOnly } from "@/lib/format";
+import { formatDateOnly, formatPhone } from "@/lib/format";
 
 /**
  * Facility page -- tabs per the vault's own Phase 4 design note:
@@ -56,7 +56,7 @@ function GeneralTab({ facility }: { facility: FacilityDetail }) {
           { label: "City", value: facility.city },
           { label: "State", value: facility.state },
           { label: "ZIP", value: facility.zip },
-          { label: "Phone", value: facility.phone },
+          { label: "Phone", value: formatPhone(facility.phone) },
           { label: "Email", value: facility.email },
           { label: "Units Count", value: facility.units_count },
           { label: "Primary Storage Offering", value: facility.primary_storage_offering },

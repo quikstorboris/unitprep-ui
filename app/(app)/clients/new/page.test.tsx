@@ -112,6 +112,30 @@ describe("ClientsNewPage", () => {
     expect(screen.getByText("2026-01-15")).toBeInTheDocument();
   });
 
+  it("formats the facility's phone number as xxx-xxx-xxxx", async () => {
+    useSearchParams.mockReturnValue(
+      selectionParams([{ run_id: "run-highway-20", run_name: "Highway 20 Self Storage - QMS Onboarding" }])
+    );
+    previewClients.mockResolvedValue({
+      kind: "ok",
+      data: {
+        runs: [
+          {
+            run_id: "run-highway-20",
+            company: mappedCompany(),
+            facility: mappedFacility({ phone: "6306500137" }),
+          },
+        ],
+      },
+    });
+
+    render(<ClientsNewPage />);
+
+    expect(await screen.findByRole("heading", { name: "Highway 20 Self Storage" })).toBeInTheDocument();
+    expect(screen.getByText("630-650-0137")).toBeInTheDocument();
+    expect(screen.queryByText("6306500137")).not.toBeInTheDocument();
+  });
+
   // Regression test for Boris's real Prairie Enterprises case: the
   // confirmation screen used to require sacrificing one selected run to
   // "be" the Company, which meant that run's own Facility record never
@@ -361,7 +385,7 @@ describe("ClientsNewPage", () => {
 
     await screen.findByRole("heading", { name: "Some Company" });
     expect(screen.getByText("office@somecompany.com")).toBeInTheDocument();
-    expect(screen.getByText("5551234567")).toBeInTheDocument();
+    expect(screen.getByText("555-123-4567")).toBeInTheDocument();
   });
 
   it("lets edited values override the previewed ones before submitting", async () => {

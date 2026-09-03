@@ -17,6 +17,7 @@ import {
   type PreviewedRun,
   type PreviewRunSelection,
 } from "@/lib/clientsImport";
+import { formatPhone } from "@/lib/format";
 
 const COMPANY_FIELDS: Array<{ key: keyof MappedCompany; label: string }> = [
   { key: "legal_name", label: "Legal Name" },
@@ -306,21 +307,26 @@ function ClientsNewPageInner() {
               </div>
 
               <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {COMPANY_FIELDS.map((field) => (
-                  <div key={field.key} className="flex flex-col gap-1 text-sm">
-                    <dt className="text-slate-400">{field.label}</dt>
-                    {editing ? (
-                      <input
-                        type="text"
-                        value={editedCompany[field.key] ?? ""}
-                        onChange={(e) => updateCompanyField(field.key, e.target.value)}
-                        className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-                      />
-                    ) : (
-                      <dd>{editedCompany[field.key] || "—"}</dd>
-                    )}
-                  </div>
-                ))}
+                {COMPANY_FIELDS.map((field) => {
+                  const value = editedCompany[field.key];
+                  const displayValue =
+                    field.key === "corporate_phone" && typeof value === "string" ? formatPhone(value) : value;
+                  return (
+                    <div key={field.key} className="flex flex-col gap-1 text-sm">
+                      <dt className="text-slate-400">{field.label}</dt>
+                      {editing ? (
+                        <input
+                          type="text"
+                          value={value ?? ""}
+                          onChange={(e) => updateCompanyField(field.key, e.target.value)}
+                          className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
+                        />
+                      ) : (
+                        <dd className="break-words">{displayValue || "—"}</dd>
+                      )}
+                    </div>
+                  );
+                })}
               </dl>
             </section>
 
@@ -371,6 +377,13 @@ function ClientsNewPageInner() {
                       );
                     }
 
+                    // `??` (not `||`) preserves a real 0 for units_count --
+                    // only the phone field gets a special, already-"—"-safe
+                    // display value (formatPhone never returns a falsy
+                    // non-empty string).
+                    const displayValue =
+                      field.key === "phone" && typeof value === "string" ? formatPhone(value) || "—" : value ?? "—";
+
                     return (
                       <div key={field.key} className="flex flex-col gap-1 text-sm">
                         <dt className="text-slate-400">{field.label}</dt>
@@ -384,7 +397,7 @@ function ClientsNewPageInner() {
                             className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
                           />
                         ) : (
-                          <dd className="break-words">{value ?? "—"}</dd>
+                          <dd className="break-words">{displayValue}</dd>
                         )}
                       </div>
                     );

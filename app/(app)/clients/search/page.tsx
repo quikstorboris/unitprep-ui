@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { Spinner } from "@/components/Spinner";
 import { ProcessStreetLogo } from "@/components/icons/ProcessStreetLogo";
+import { formatPhone } from "@/lib/format";
 import {
   searchClients,
   type FacilityMatch,
@@ -419,7 +420,7 @@ export default function ClientsSearchPage() {
                           <td className="px-6 py-2.5">{match.full_name}</td>
                           <td className="px-6 py-2.5 text-slate-400">{roleLabel(match.role)}</td>
                           <td className="px-6 py-2.5 text-slate-400">{match.email ?? "—"}</td>
-                          <td className="px-6 py-2.5 text-slate-400">{match.phone ?? "—"}</td>
+                          <td className="px-6 py-2.5 text-slate-400">{formatPhone(match.phone) || "—"}</td>
                           <td className="px-6 py-2.5">{displayFacilityName(match.run_name)}</td>
                           <td className="px-6 py-2.5 text-slate-400">{workflowLabel(match.workflow)}</td>
                         </tr>

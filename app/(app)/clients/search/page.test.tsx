@@ -279,4 +279,33 @@ describe("ClientsSearchPage", () => {
     expect(await screen.findByText(/No facility\/company name matches/)).toBeInTheDocument();
     expect(screen.queryByText("Fetching data from Process Street…")).not.toBeInTheDocument();
   });
+
+  it("formats a person match's phone number as xxx-xxx-xxxx", async () => {
+    searchClients.mockResolvedValue({
+      kind: "ok",
+      data: {
+        facility_matches: [],
+        person_matches: [
+          {
+            workflow: "intake",
+            ps_run_id: "run-highway-20",
+            run_name: "Highway 20 Self Storage - QMS Onboarding",
+            full_name: "Kyle Lindley",
+            email: "k.lindley@prairie-enterprises.com",
+            phone: "6306500137",
+            role: "owner",
+          },
+        ],
+      },
+    });
+
+    const user = userEvent.setup();
+    render(<ClientsSearchPage />);
+
+    await user.type(screen.getByPlaceholderText("Facility, company, or person name"), "kyle");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+
+    expect(await screen.findByText("630-650-0137")).toBeInTheDocument();
+    expect(screen.queryByText("6306500137")).not.toBeInTheDocument();
+  });
 });

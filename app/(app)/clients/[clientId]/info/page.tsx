@@ -9,6 +9,7 @@ import FieldReferenceHelp from "@/components/clients/FieldReferenceHelp";
 import PartyCard from "@/components/clients/PartyCard";
 import ResyncButton from "@/components/clients/ResyncButton";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
+import { formatPhone } from "@/lib/format";
 
 /**
  * Company page -- Phase 4's real Client record UI, sections 1-3 per the
@@ -73,7 +74,7 @@ export default function ClientInfoPage() {
             fields={[
               { label: "Legal Name", value: company.legal_name },
               { label: "Email", value: company.corporate_email },
-              { label: "Phone", value: company.corporate_phone },
+              { label: "Phone", value: formatPhone(company.corporate_phone) },
               { label: "Street Address", value: company.corporate_address_street },
               { label: "City", value: company.corporate_address_city },
               { label: "State", value: company.corporate_address_state },
