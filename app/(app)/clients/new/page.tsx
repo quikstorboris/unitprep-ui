@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Spinner } from "@/components/Spinner";
+import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import { ProcessStreetLogo } from "@/components/icons/ProcessStreetLogo";
 import { useClients } from "@/lib/clients";
 import {
@@ -338,23 +339,56 @@ function ClientsNewPageInner() {
                     <dd>{run.facility.go_live_date || "—"}</dd>
                   </div>
 
-                  {FACILITY_FIELDS.map((field) => (
-                    <div key={field.key} className="flex flex-col gap-1 text-sm">
-                      <dt className="text-slate-400">{field.label}</dt>
-                      {editing ? (
-                        <input
-                          type={field.type ?? "text"}
-                          value={editedFacilities[run.run_id]?.[field.key] ?? ""}
-                          onChange={(e) =>
-                            updateFacilityField(run.run_id, field.key, e.target.value, field.type === "number")
-                          }
-                          className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-                        />
-                      ) : (
-                        <dd>{editedFacilities[run.run_id]?.[field.key] ?? "—"}</dd>
-                      )}
-                    </div>
-                  ))}
+                  {FACILITY_FIELDS.map((field) => {
+                    const value = editedFacilities[run.run_id]?.[field.key];
+                    // Real Dropbox URLs are long enough (100+ characters,
+                    // no spaces) to overflow their grid cell and overlap
+                    // neighboring text when shown as plain text -- render
+                    // the same compact "Go to DropBox" link the real
+                    // Facility page uses instead, matching that page's
+                    // own treatment (see `facilities/[facilityId]/page.tsx`'s
+                    // `GeneralTab`).
+                    if (field.key === "dropbox_folder_url" && !editing) {
+                      return (
+                        <div key={field.key} className="flex flex-col gap-1 text-sm">
+                          <dt className="text-slate-400">{field.label}</dt>
+                          <dd>
+                            {typeof value === "string" && value ? (
+                              <a
+                                href={value}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex w-fit items-center gap-2 rounded bg-[#0061FF] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#0050d1]"
+                              >
+                                <DropboxLogo className="h-4 w-4" />
+                                Go to DropBox
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </dd>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={field.key} className="flex flex-col gap-1 text-sm">
+                        <dt className="text-slate-400">{field.label}</dt>
+                        {editing ? (
+                          <input
+                            type={field.type ?? "text"}
+                            value={value ?? ""}
+                            onChange={(e) =>
+                              updateFacilityField(run.run_id, field.key, e.target.value, field.type === "number")
+                            }
+                            className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
+                          />
+                        ) : (
+                          <dd className="break-words">{value ?? "—"}</dd>
+                        )}
+                      </div>
+                    );
+                  })}
                 </dl>
               </section>
             ))}
