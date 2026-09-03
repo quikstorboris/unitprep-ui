@@ -1,4 +1,4 @@
-import { clientsGet, clientsPost, type ClientsResult } from "@/lib/clientsApi";
+import { clientsDelete, clientsGet, clientsPost, type ClientsResult } from "@/lib/clientsApi";
 
 /**
  * Read endpoints behind Phase 4's Client record UI -- the Company page
@@ -235,4 +235,17 @@ export async function linkFacilityElavon(
   return clientsPost(`/clients/${companyId}/facilities/${facilityId}/elavon/link`, {
     merchant_account_run_id: merchantAccountRunId,
   });
+}
+
+/**
+ * Removes a facility's Merchant Account link entirely -- e.g. a wrong
+ * run got linked (manually, or by automatic correlation at Create time)
+ * and the manager needs to link the correct one instead. A fresh
+ * `getFacilityElavon` afterward goes back to the unlinked view
+ * (candidate suggestion or manual entry), same as a never-linked
+ * facility. 404 (`kind: "error"`) means this facility had no linked run
+ * to remove.
+ */
+export async function unlinkFacilityElavon(companyId: string, facilityId: string): Promise<ClientsResult<void>> {
+  return clientsDelete(`/clients/${companyId}/facilities/${facilityId}/elavon/link`);
 }

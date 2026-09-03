@@ -62,3 +62,15 @@ export async function clientsPost<T>(path: string, body?: unknown): Promise<Clie
     return { kind: "error", message: describeFetchError(err) };
   }
 }
+
+export async function clientsDelete<T>(path: string): Promise<ClientsResult<T>> {
+  try {
+    const response = await fetch(`${API_URL}${path}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    return await parseClientsResult<T>(response);
+  } catch (err) {
+    return { kind: "error", message: describeFetchError(err) };
+  }
+}

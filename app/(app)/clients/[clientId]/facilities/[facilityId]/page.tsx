@@ -14,6 +14,7 @@ import {
   getFacilityElavon,
   getFacilityPolicies,
   linkFacilityElavon,
+  unlinkFacilityElavon,
   type ElavonStatus,
   type FacilityDetail,
   type FacilityPolicies,
@@ -223,6 +224,9 @@ function ElavonTab({ companyId, facilityId }: { companyId: string; facilityId: s
   const [manualRunId, setManualRunId] = useState("");
   const [linking, setLinking] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [confirmingUnlink, setConfirmingUnlink] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
+  const [unlinkError, setUnlinkError] = useState<string | null>(null);
 
   async function load() {
     const result = await getFacilityElavon(companyId, facilityId);
@@ -243,6 +247,8 @@ function ElavonTab({ companyId, facilityId }: { companyId: string; facilityId: s
       setLoadError(null);
       setLinkError(null);
       setManualRunId("");
+      setConfirmingUnlink(false);
+      setUnlinkError(null);
       await load();
     });
 
@@ -272,6 +278,24 @@ function ElavonTab({ companyId, facilityId }: { companyId: string; facilityId: s
     refetchCompany();
   }
 
+  async function handleUnlink() {
+    setUnlinking(true);
+    setUnlinkError(null);
+
+    const result = await unlinkFacilityElavon(companyId, facilityId);
+
+    setUnlinking(false);
+
+    if (result.kind !== "ok") {
+      setUnlinkError(result.message);
+      return;
+    }
+
+    setConfirmingUnlink(false);
+    await load();
+    refetchCompany();
+  }
+
   if (loadError) {
     return (
       <p role="alert" className="text-sm text-red-400">
@@ -289,6 +313,37 @@ function ElavonTab({ companyId, facilityId }: { companyId: string; facilityId: s
       <div className="flex flex-col gap-6">
         <DetailSection
           title="Elavon"
+          action={
+            confirmingUnlink ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-amber-400">Remove this link and its owner/financial data?</span>
+                <button
+                  type="button"
+                  onClick={handleUnlink}
+                  disabled={unlinking}
+                  className="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+                >
+                  {unlinking ? "Unlinking…" : "Yes, unlink"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingUnlink(false)}
+                  disabled={unlinking}
+                  className="rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingUnlink(true)}
+                className="rounded border border-red-900 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/30"
+              >
+                Unlink
+              </button>
+            )
+          }
           fields={[
             { label: "Rate Provided", value: status.rate_provided },
             { label: "Application Status", value: status.application_status },
@@ -296,6 +351,11 @@ function ElavonTab({ companyId, facilityId }: { companyId: string; facilityId: s
             { label: "Process Street Run ID", value: status.ps_new_merchant_run_id },
           ]}
         />
+        {unlinkError && (
+          <p role="alert" className="text-sm text-red-400">
+            {unlinkError}
+          </p>
+        )}
 
         {/* Confirmed per-facility, not per-company (2026-09-03) -- Prairie
             Enterprises' 3 real facilities each answered these differently
