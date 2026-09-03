@@ -2,125 +2,145 @@
 
 import { useParams } from "next/navigation";
 
-import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
+import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
+import DetailSection from "@/components/clients/DetailSection";
+import FacilityRail from "@/components/clients/FacilityRail";
+import FieldReferenceHelp from "@/components/clients/FieldReferenceHelp";
+import PartyCard from "@/components/clients/PartyCard";
+import ResyncButton from "@/components/clients/ResyncButton";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
-import {
-  useClients,
-  type ClientDraft,
-} from "@/lib/clients";
 
-const FIELDS: Array<{
-  key: keyof ClientDraft;
-  label: string;
-}> = [
-  { key: "name", label: "Client Name" },
-  { key: "contactName", label: "Primary Contact" },
-  { key: "contactEmail", label: "Contact Email" },
-  { key: "contactPhone", label: "Contact Phone" },
-  { key: "signerName", label: "Signer" },
-  { key: "bankAccount", label: "Bank Account" },
-];
-
+/**
+ * Company page -- Phase 4's real Client record UI, sections 1-3 per the
+ * vault's own design note: Company Information, Financial Information,
+ * Owner(s) Information, plus the facility-selector rail. Display only
+ * for now; the "global edit convention" (per-section Edit button,
+ * everything editable except Elavon credentials) is real future work,
+ * sequenced after read access exists to build against.
+ *
+ * **Two known gaps, both from the same root cause**: `ownership_type`
+ * and the Elavon application's own richer financial fields aren't shown
+ * here -- `clients.companies` has no persisted link to which Merchant
+ * Account run informs a company (only its Intake source run is
+ * tracked), so there's nothing to read those from yet at the company
+ * level. Same limitation already noted on the sync engine's own
+ * Intake-only refresh scope.
+ */
 export default function ClientInfoPage() {
-  const { clientId } =
-    useParams<{ clientId: string }>();
+  const { clientId } = useParams<{ clientId: string }>();
+  const { company, loadError } = useCompanyDetail();
 
-  const { getClient, updateClient } = useClients();
+  if (loadError) {
+    return (
+      <main className="p-8">
+        <p role="alert" className="text-sm text-red-400">
+          {loadError}
+        </p>
+      </main>
+    );
+  }
 
-  const client = getClient(clientId);
-
-  // The workspace layout already shows the "not in this session"
-  // message for a missing client — nothing to render here in that case.
-  if (!client) return null;
+  if (!company) {
+    return (
+      <main className="p-8">
+        <p className="text-sm text-slate-400">Loading…</p>
+      </main>
+    );
+  }
 
   return (
     <main className="p-8">
-      <div className="mx-auto flex max-w-3xl flex-col gap-8">
-        <section className="rounded border border-slate-700 p-6">
-          <h2 className="mb-4 text-xl font-semibold">
-            Client Details
-          </h2>
+      <div className="mx-auto flex max-w-5xl gap-8">
+        <FacilityRail companyId={clientId} facilities={company.facilities} activeFacilityId={null} />
 
-          <p className="mb-4 text-sm text-slate-400">
-            Nothing here is required, and nothing is
-            saved beyond this browser tab — there&apos;s
-            no backend persistence yet.
-          </p>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {FIELDS.map((field) => (
-              <label
-                key={field.key}
-                className="flex flex-col gap-1 text-sm"
-              >
-                <span className="text-slate-400">
-                  {field.label}
-                </span>
-
-                <input
-                  type="text"
-                  value={client[field.key]}
-                  onChange={(e) =>
-                    updateClient(clientId, {
-                      [field.key]: e.target.value,
-                    } as ClientDraft)
-                  }
-                  className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-                />
-              </label>
-            ))}
-
-            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="text-slate-400">
-                Address
-              </span>
-
-              <textarea
-                value={client.address}
-                onChange={(e) =>
-                  updateClient(clientId, {
-                    address: e.target.value,
-                  })
-                }
-                rows={3}
-                className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-              />
-            </label>
+        <div className="flex flex-1 flex-col gap-6">
+          <div className="flex items-start justify-between gap-4">
+            <h1 className="text-2xl font-bold">{company.legal_name}</h1>
+            <div className="flex items-center gap-2">
+              <FieldReferenceHelp />
+              <ResyncButton companyId={clientId} />
+            </div>
           </div>
-        </section>
 
-        <section className="rounded border border-slate-700 p-6">
-          <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold">
-            <DropboxLogo className="h-5 w-5 text-blue-400" />
-            Source Files
-          </h2>
+          {company.archived_at && (
+            <p className="text-sm text-amber-400">
+              Archived — unarchive from the Clients list to restore it there.
+            </p>
+          )}
 
-          <div className="flex flex-col gap-1 text-sm">
-            <span className="text-slate-400">
-              Dropbox folder
-            </span>
+          <DetailSection
+            title="Company Information"
+            fields={[
+              { label: "Legal Name", value: company.legal_name },
+              { label: "Email", value: company.corporate_email },
+              { label: "Phone", value: company.corporate_phone },
+              { label: "Street Address", value: company.corporate_address_street },
+              { label: "City", value: company.corporate_address_city },
+              { label: "State", value: company.corporate_address_state },
+              { label: "ZIP", value: company.corporate_address_zip },
+              { label: "Subdomain", value: company.subdomain },
+            ]}
+          />
 
-            <DropboxFolderPicker
-              value={client.dropboxPath}
-              onChange={(path) =>
-                updateClient(clientId, {
-                  dropboxPath: path,
-                })
-              }
-            />
-          </div>
-        </section>
+          <DetailSection
+            title="Financial Information"
+            fields={[
+              { label: "Elavon (Merchant Account)", value: company.elavon_active ? "Yes" : "No" },
+              { label: "Accepted Payment Methods", value: company.accepted_payment_methods },
+              { label: "Accounting Basis", value: company.accounting_basis },
+              { label: "Payment Scheme", value: company.payment_scheme },
+              { label: "Offers Tenant Insurance", value: company.offers_tenant_insurance_raw },
+              { label: "Insurance Provider", value: company.insurance_provider },
+            ]}
+          />
 
-        <section className="rounded border border-slate-800 bg-slate-950/50 p-6">
-          <h2 className="mb-2 text-xl font-semibold text-slate-300">
-            QMS API Connection
-          </h2>
+          <section className="rounded border border-slate-800 p-5">
+            <h2 className="mb-4 text-lg font-semibold">Dropbox</h2>
+            {/* No company-level Dropbox field exists in the schema --
+                Intake only ever captures this per facility -- so this is
+                a list of each facility's own link, same pattern as
+                Owner(s) Information below. */}
+            {company.facilities.filter((f) => f.dropbox_folder_url).length === 0 ? (
+              <p className="text-sm text-slate-500">No Dropbox folders on file for this company&apos;s facilities.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {company.facilities
+                  .filter((f): f is typeof f & { dropbox_folder_url: string } => Boolean(f.dropbox_folder_url))
+                  .map((facility) => (
+                    <div key={facility.id} className="flex items-center gap-3">
+                      <span className="w-40 shrink-0 truncate text-sm text-slate-400">{facility.name}</span>
+                      <a
+                        href={facility.dropbox_folder_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex w-fit items-center gap-2 rounded bg-[#0061FF] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#0050d1]"
+                      >
+                        <DropboxLogo className="h-4 w-4" />
+                        Go to DropBox
+                      </a>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </section>
 
-          <p className="text-sm text-slate-500">
-            Not yet connected — placeholder for future
-            API-based credential setup.
-          </p>
-        </section>
+          <section className="rounded border border-slate-800 p-5">
+            <h2 className="mb-4 text-lg font-semibold">Owner(s) Information</h2>
+            {company.owners.length === 0 ? (
+              <p className="text-sm text-slate-500">None on file.</p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {company.owners.map((owner, index) => (
+                  <PartyCard
+                    key={`${owner.facility_id}-${owner.party_role}-${index}`}
+                    party={owner}
+                    badge={`${owner.party_role} — ${owner.facility_name}`}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </main>
   );

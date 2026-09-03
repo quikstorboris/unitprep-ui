@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { CompanyDetailProvider } from "@/components/clients/CompanyDetailContext";
 import ClientTabs from "@/components/nav/ClientTabs";
 import { useClients } from "@/lib/clients";
 
@@ -61,7 +62,9 @@ export default function ClientLayout({
 
       <ClientTabs clientId={clientId} />
 
-      <div>{children}</div>
+      <CompanyDetailProvider companyId={clientId}>
+        <div>{children}</div>
+      </CompanyDetailProvider>
     </div>
   );
 }
