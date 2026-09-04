@@ -63,13 +63,31 @@ export interface MappedFacility {
 }
 
 /**
- * `MappedFacility` minus `go_live_date` -- the fields the confirmation
- * screen actually shows and lets a manager edit. Mirrors
- * `EditableFacilityFields` in `unitprep-api`'s `clients::create`:
- * deliberately narrower than `MappedFacility` so a go-live-date edit is
- * structurally impossible to submit, not just a UI convention.
+ * A reviewed, facility-scoped person + role -- mirrors `PersonAssignment`
+ * in `unitprep-api`'s `clients::people`. `role` is one of `"owner"` |
+ * `"district_manager"` | `"manager"`, the only three Intake's own
+ * free-text fields ever produce.
  */
-export type EditableFacilityFields = Omit<MappedFacility, "go_live_date">;
+export interface PersonAssignment {
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  role: string;
+}
+
+/**
+ * `MappedFacility` minus `go_live_date`, plus this facility's own
+ * reviewed People roster. Mirrors `EditableFacilityFields` in
+ * `unitprep-api`'s `clients::create`: deliberately narrower than
+ * `MappedFacility` so a go-live-date edit is structurally impossible to
+ * submit, not just a UI convention. `people` has no `MappedFacility`
+ * counterpart at all -- PS's owner/DM/manager fields carry no real
+ * facility-level attribution (see `PersonAssignment`'s backend doc
+ * comment), so this is a human's own reviewed pick, not a mapped value.
+ */
+export type EditableFacilityFields = Omit<MappedFacility, "go_live_date"> & {
+  people: PersonAssignment[];
+};
 
 /** Mirrors `PreviewedRun` in `unitprep-api`'s `clients_preview.rs`. */
 export interface PreviewedRun {
@@ -81,6 +99,12 @@ export interface PreviewedRun {
   is_first_time: boolean | null;
   company: MappedCompany;
   facility: MappedFacility;
+  /** This run's own naively-parsed owners/DMs/managers -- every
+   * facility's starting chip selection, and (unioned across every
+   * selected run) the shared pool every facility picks from. See
+   * `PersonAssignment`'s own comment for why facility-level attribution
+   * has to be a human call, not something mapped automatically. */
+  people: PersonAssignment[];
   /** The Merchant Account run this run correlates to, if any -- carried
    * straight through to `createClient` so Elavon data actually gets
    * ingested (2026-09-03 fix; previously resolved here and silently

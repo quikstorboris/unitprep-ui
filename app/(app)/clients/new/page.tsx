@@ -14,6 +14,7 @@ import {
   type EditableFacilityFields,
   type MappedCompany,
   type MappedFacility,
+  type PersonAssignment,
   type PreviewedRun,
   type PreviewRunSelection,
 } from "@/lib/clientsImport";
@@ -31,7 +32,14 @@ const COMPANY_FIELDS: Array<{ key: keyof MappedCompany; label: string }> = [
   { key: "website_url", label: "Website" },
 ];
 
-const FACILITY_FIELDS: Array<{ key: keyof EditableFacilityFields; label: string; type?: "number" }> = [
+// "people" is deliberately excluded from this key type -- it isn't one
+// of the generic pencil-edit text/number fields below, it gets its own
+// chip-based People section render (see `PEOPLE_ROLE_GROUPS`).
+const FACILITY_FIELDS: Array<{
+  key: Exclude<keyof EditableFacilityFields, "people">;
+  label: string;
+  type?: "number";
+}> = [
   { key: "name", label: "Facility Name" },
   { key: "street_address", label: "Street Address" },
   { key: "city", label: "City" },
@@ -50,7 +58,7 @@ const FACILITY_FIELDS: Array<{ key: keyof EditableFacilityFields; label: string;
   { key: "website_url", label: "Website" },
 ];
 
-function stripGoLiveDate(facility: MappedFacility): EditableFacilityFields {
+function stripGoLiveDate(facility: MappedFacility, people: PersonAssignment[]): EditableFacilityFields {
   return {
     name: facility.name,
     street_address: facility.street_address,
@@ -68,7 +76,43 @@ function stripGoLiveDate(facility: MappedFacility): EditableFacilityFields {
     subdomain_exists_in_qms_raw: facility.subdomain_exists_in_qms_raw,
     system_email: facility.system_email,
     website_url: facility.website_url,
+    // This run's own naive parse -- the starting chip selection, before
+    // the manager decides which of every selected run's people actually
+    // belong to THIS facility. See `PEOPLE_ROLE_GROUPS`'s own comment.
+    people,
   };
+}
+
+/** Identifies one real person + role for chip-selection purposes -- two
+ * `PersonAssignment`s with the same name/email/role are the same chip,
+ * even when they came from different runs (the whole point of a shared
+ * pool: Sand-Sto's Irene Chen, parsed off her own facility's run, is the
+ * same chip a sister facility picks her from too). */
+function personKey(person: PersonAssignment): string {
+  return `${person.full_name}|${person.email ?? ""}|${person.role}`;
+}
+
+const PEOPLE_ROLE_GROUPS: Array<{ key: string; label: string }> = [
+  { key: "owner", label: "Owners" },
+  { key: "district_manager", label: "District Managers" },
+  { key: "manager", label: "Managers" },
+];
+
+/** Every person parsed off ANY selected run, deduped by `personKey` and
+ * sorted by name -- the shared pool every facility's People section
+ * picks its chips from (Boris, 2026-09-04: a person can legitimately be
+ * assigned to more than one facility, e.g. a District Manager who
+ * covers several, so every facility must see the same candidates, not
+ * just its own run's own naive parse). */
+function buildPeoplePool(runs: PreviewedRun[]): PersonAssignment[] {
+  const byKey = new Map<string, PersonAssignment>();
+  for (const run of runs) {
+    for (const person of run.people ?? []) {
+      const key = personKey(person);
+      if (!byKey.has(key)) byKey.set(key, person);
+    }
+  }
+  return Array.from(byKey.values()).sort((a, b) => a.full_name.localeCompare(b.full_name));
 }
 
 /** How many of the confirmation screen's own Company fields this run's
@@ -193,7 +237,7 @@ function ClientsNewPageInner() {
 
     const facilities: Record<string, EditableFacilityFields> = {};
     for (const run of result.data.runs) {
-      facilities[run.run_id] = stripGoLiveDate(run.facility);
+      facilities[run.run_id] = stripGoLiveDate(run.facility, run.people ?? []);
     }
     setEditedFacilities(facilities);
 
@@ -227,11 +271,45 @@ function ClientsNewPageInner() {
     }));
   }
 
+  /** Toggles one pool chip on/off this facility's own reviewed People
+   * list -- the entire interaction (Boris, 2026-09-04: no separate "add"
+   * step, no modal, clicking a chip *is* the assign/unassign action). */
+  function togglePersonForFacility(runId: string, person: PersonAssignment) {
+    setEditedFacilities((prev) => {
+      const current = prev[runId];
+      if (!current) return prev;
+      const key = personKey(person);
+      const isSelected = current.people.some((p) => personKey(p) === key);
+      const people = isSelected
+        ? current.people.filter((p) => personKey(p) !== key)
+        : [...current.people, person];
+      return { ...prev, [runId]: { ...current, people } };
+    });
+  }
+
+  /** Assigns every pool chip of one role group to this facility in one
+   * click -- never removes anyone already assigned under a different
+   * role. */
+  function addAllForRole(runId: string, role: string, pool: PersonAssignment[]) {
+    setEditedFacilities((prev) => {
+      const current = prev[runId];
+      if (!current) return prev;
+      const existingKeys = new Set(current.people.map(personKey));
+      const toAdd = pool.filter((p) => p.role === role && !existingKeys.has(personKey(p)));
+      if (toAdd.length === 0) return prev;
+      return { ...prev, [runId]: { ...current, people: [...current.people, ...toAdd] } };
+    });
+  }
+
   /** The run whose facility data the fallback banner would offer to
    * copy from -- always the same run that seeded the Company section,
    * since that's the run whose blank Corporate Info section triggered
    * the prompt in the first place. */
   const companySourceRun = runs?.find((run) => run.run_id === companySourceRunId) ?? null;
+
+  // Every facility's People section picks from this same pool -- see
+  // `buildPeoplePool`'s own comment.
+  const peoplePool = runs ? buildPeoplePool(runs) : [];
 
   function handleAcceptCompanyFallback() {
     if (!companySourceRun) return;
@@ -474,6 +552,51 @@ function ClientsNewPageInner() {
                     );
                   })}
                 </dl>
+
+                {peoplePool.length > 0 && (
+                  <div className="mt-5 border-t border-slate-800 pt-4">
+                    <h3 className="mb-3 text-sm font-semibold text-slate-300">People</h3>
+                    <div className="flex flex-col gap-3">
+                      {PEOPLE_ROLE_GROUPS.map((group) => {
+                        const peopleInGroup = peoplePool.filter((p) => p.role === group.key);
+                        if (peopleInGroup.length === 0) return null;
+                        const selectedKeys = new Set(
+                          (editedFacilities[run.run_id]?.people ?? []).map(personKey)
+                        );
+
+                        return (
+                          <div key={group.key} className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => addAllForRole(run.run_id, group.key, peoplePool)}
+                              className="rounded border border-slate-700 px-2 py-1 text-xs font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+                            >
+                              Add All
+                            </button>
+                            <span className="text-xs text-slate-500">{group.label}:</span>
+                            {peopleInGroup.map((person) => {
+                              const selected = selectedKeys.has(personKey(person));
+                              return (
+                                <button
+                                  key={personKey(person)}
+                                  type="button"
+                                  onClick={() => togglePersonForFacility(run.run_id, person)}
+                                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                                    selected
+                                      ? "bg-blue-600 text-white hover:bg-blue-500"
+                                      : "border border-slate-700 text-slate-300 hover:bg-slate-800"
+                                  }`}
+                                >
+                                  {person.full_name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </section>
             ))}
 

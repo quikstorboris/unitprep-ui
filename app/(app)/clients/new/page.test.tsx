@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -646,5 +646,199 @@ describe("ClientsNewPage", () => {
         merchant_account_run_id: "ma-carpentersville-1",
       },
     ]);
+  });
+
+  describe("People chips", () => {
+    function personAssignment(overrides: Record<string, unknown> = {}) {
+      return {
+        full_name: "Kyle Lindley",
+        email: "kyle.lindley@outlook.com",
+        phone: "630-650-0137",
+        role: "owner",
+        ...overrides,
+      };
+    }
+
+    /** Finds the ancestor `<section>` for a facility's own card by its
+     * heading text, so chip assertions can be scoped to one facility at
+     * a time even when more than one is on screen. */
+    function facilitySection(name: string): HTMLElement {
+      const heading = screen.getByRole("heading", { name });
+      const section = heading.closest("section");
+      if (!section) throw new Error(`no <section> ancestor for heading "${name}"`);
+      return section as HTMLElement;
+    }
+
+    it("submits each facility's own naive parse as its starting People selection, unedited", async () => {
+      useSearchParams.mockReturnValue(
+        selectionParams([{ run_id: "run-highway-20", run_name: "Highway 20 Self Storage - QMS Onboarding" }])
+      );
+      previewClients.mockResolvedValue({
+        kind: "ok",
+        data: {
+          runs: [
+            {
+              run_id: "run-highway-20",
+              company: mappedCompany({ legal_name: "Prairie Enterprises LLC" }),
+              facility: mappedFacility(),
+              people: [personAssignment()],
+            },
+          ],
+        },
+      });
+      createClient.mockResolvedValue({ kind: "ok", data: { company_id: "company-1", facility_ids: ["facility-1"] } });
+
+      const user = userEvent.setup();
+      render(<ClientsNewPage />);
+      await screen.findByRole("heading", { name: "Prairie Enterprises LLC" });
+
+      const section = facilitySection("Highway 20 Self Storage");
+      expect(within(section).getByRole("button", { name: "Kyle Lindley" })).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Create" }));
+
+      await waitFor(() => expect(createClient).toHaveBeenCalled());
+      const request = createClient.mock.calls[0][0];
+      expect(request.facilities[0].fields.people).toEqual([personAssignment()]);
+    });
+
+    it("removes a pre-selected person when their chip is clicked", async () => {
+      useSearchParams.mockReturnValue(
+        selectionParams([{ run_id: "run-highway-20", run_name: "Highway 20 Self Storage - QMS Onboarding" }])
+      );
+      previewClients.mockResolvedValue({
+        kind: "ok",
+        data: {
+          runs: [
+            {
+              run_id: "run-highway-20",
+              company: mappedCompany({ legal_name: "Prairie Enterprises LLC" }),
+              facility: mappedFacility(),
+              people: [personAssignment()],
+            },
+          ],
+        },
+      });
+      createClient.mockResolvedValue({ kind: "ok", data: { company_id: "company-1", facility_ids: ["facility-1"] } });
+
+      const user = userEvent.setup();
+      render(<ClientsNewPage />);
+      await screen.findByRole("heading", { name: "Prairie Enterprises LLC" });
+
+      const section = facilitySection("Highway 20 Self Storage");
+      await user.click(within(section).getByRole("button", { name: "Kyle Lindley" }));
+      await user.click(screen.getByRole("button", { name: "Create" }));
+
+      await waitFor(() => expect(createClient).toHaveBeenCalled());
+      expect(createClient.mock.calls[0][0].facilities[0].fields.people).toEqual([]);
+    });
+
+    it("shares one pool across every facility, so a person parsed off a sister run can be assigned here too", async () => {
+      useSearchParams.mockReturnValue(
+        selectionParams([
+          { run_id: "run-highway-20", run_name: "Highway 20 Self Storage - QMS Onboarding" },
+          { run_id: "run-carpentersville", run_name: "Carpentersville Self Storage - QMS Onboarding" },
+        ])
+      );
+      previewClients.mockResolvedValue({
+        kind: "ok",
+        data: {
+          runs: [
+            {
+              run_id: "run-highway-20",
+              company: mappedCompany({ legal_name: "Prairie Enterprises LLC" }),
+              facility: mappedFacility({ name: "Highway 20 Self Storage" }),
+              people: [personAssignment({ full_name: "Kyle Lindley", email: "kyle@prairie-enterprises.com" })],
+            },
+            {
+              run_id: "run-carpentersville",
+              company: mappedCompany({ legal_name: "Prairie Enterprises LLC" }),
+              facility: mappedFacility({ name: "Carpentersville Self Storage" }),
+              people: [personAssignment({ full_name: "Judy Armstrong", email: "judy@prairie-enterprises.com" })],
+            },
+          ],
+        },
+      });
+      createClient.mockResolvedValue({
+        kind: "ok",
+        data: { company_id: "company-1", facility_ids: ["facility-1", "facility-2"] },
+      });
+
+      const user = userEvent.setup();
+      render(<ClientsNewPage />);
+      await screen.findByRole("heading", { name: "Prairie Enterprises LLC" });
+
+      // Judy only came from Carpentersville's own run, but Highway 20's
+      // own section must still offer her as a pickable chip.
+      const highway20Section = facilitySection("Highway 20 Self Storage");
+      expect(within(highway20Section).getByRole("button", { name: "Judy Armstrong" })).toBeInTheDocument();
+      await user.click(within(highway20Section).getByRole("button", { name: "Judy Armstrong" }));
+
+      await user.click(screen.getByRole("button", { name: "Create" }));
+
+      await waitFor(() => expect(createClient).toHaveBeenCalled());
+      const request = createClient.mock.calls[0][0];
+      const highway20 = request.facilities.find((f: { run_id: string }) => f.run_id === "run-highway-20");
+      const names = highway20.fields.people.map((p: { full_name: string }) => p.full_name).sort();
+      expect(names).toEqual(["Judy Armstrong", "Kyle Lindley"]);
+      // Carpentersville's own selection is untouched by the click above.
+      const carpentersville = request.facilities.find(
+        (f: { run_id: string }) => f.run_id === "run-carpentersville"
+      );
+      expect(carpentersville.fields.people.map((p: { full_name: string }) => p.full_name)).toEqual([
+        "Judy Armstrong",
+      ]);
+    });
+
+    it("Add All assigns every pool person of that role to the facility in one click", async () => {
+      useSearchParams.mockReturnValue(
+        selectionParams([
+          { run_id: "run-highway-20", run_name: "Highway 20 Self Storage - QMS Onboarding" },
+          { run_id: "run-carpentersville", run_name: "Carpentersville Self Storage - QMS Onboarding" },
+        ])
+      );
+      previewClients.mockResolvedValue({
+        kind: "ok",
+        data: {
+          runs: [
+            {
+              run_id: "run-highway-20",
+              company: mappedCompany({ legal_name: "Prairie Enterprises LLC" }),
+              facility: mappedFacility({ name: "Highway 20 Self Storage" }),
+              // Nothing of its own -- every candidate below comes from
+              // its sister facility's own run.
+              people: [],
+            },
+            {
+              run_id: "run-carpentersville",
+              company: mappedCompany({ legal_name: "Prairie Enterprises LLC" }),
+              facility: mappedFacility({ name: "Carpentersville Self Storage" }),
+              people: [
+                personAssignment({ full_name: "Kyle Lindley", email: "kyle@prairie-enterprises.com" }),
+                personAssignment({ full_name: "Judy Armstrong", email: "judy@prairie-enterprises.com" }),
+              ],
+            },
+          ],
+        },
+      });
+      createClient.mockResolvedValue({
+        kind: "ok",
+        data: { company_id: "company-1", facility_ids: ["facility-1", "facility-2"] },
+      });
+
+      const user = userEvent.setup();
+      render(<ClientsNewPage />);
+      await screen.findByRole("heading", { name: "Prairie Enterprises LLC" });
+
+      const highway20Section = facilitySection("Highway 20 Self Storage");
+      await user.click(within(highway20Section).getByRole("button", { name: "Add All" }));
+      await user.click(screen.getByRole("button", { name: "Create" }));
+
+      await waitFor(() => expect(createClient).toHaveBeenCalled());
+      const request = createClient.mock.calls[0][0];
+      const highway20 = request.facilities.find((f: { run_id: string }) => f.run_id === "run-highway-20");
+      const names = highway20.fields.people.map((p: { full_name: string }) => p.full_name).sort();
+      expect(names).toEqual(["Judy Armstrong", "Kyle Lindley"]);
+    });
   });
 });
