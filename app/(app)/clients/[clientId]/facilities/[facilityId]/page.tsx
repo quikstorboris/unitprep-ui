@@ -17,9 +17,11 @@ import {
   getFacilityPolicies,
   linkFacilityElavon,
   unlinkFacilityElavon,
+  unlinkFacilityPerson,
   type ElavonStatus,
   type FacilityDetail,
   type FacilityPeople,
+  type FacilityPerson,
   type FacilityPolicies,
   type PersonAssignment,
 } from "@/lib/clientsDetail";
@@ -215,23 +217,37 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 /**
+ * Formats the roster for "Copy All" -- one person per paragraph, name
+ * then phone then email (each only if present), blank line between
+ * people. Plain text, not CSV/markdown -- meant to be pasted straight
+ * into an email or a PS field, not parsed back.
+ */
+function formatRosterForClipboard(roster: FacilityPerson[]): string {
+  return roster
+    .map((person) => [person.full_name, person.phone ? formatPhone(person.phone) : null, person.email]
+      .filter((line): line is string => !!line)
+      .join("\n"))
+    .join("\n\n");
+}
+
+/**
  * Users tab -- Phase 4 item 4. `candidates` are already-indexed rows off
  * this facility's own Process Street Intake run
  * (`clients.ps_person_index`, refreshed nightly, independent of when the
- * facility was created) -- no search box, no live PS call, just the
- * chips Boris asked for (2026-09-04). Clicking one always upserts: a
- * person already on the roster gets their stored name/phone overwritten
- * with the chip's fresh values rather than left alone (his own call,
- * same session -- see `addFacilityPerson`'s own doc comment for why:
- * this is what self-heals a facility like Sand-Sto, ingested before a
- * parser bug fix, whose saved roster still carries a garbled name for a
- * person the index has since correctly re-parsed).
+ * facility was created) -- no search box, no live PS call, just chips.
+ * A not-yet-linked candidate's chip adds them; an already-linked one's
+ * chip renders red and unlinks them instead (2026-09-04, Boris's own
+ * call) -- the self-heal `addFacilityPerson` used to do on that same
+ * click now happens automatically every time the tab loads instead (see
+ * `getFacilityPeople`'s own backend doc comment), precisely so this
+ * click was free to mean something else.
  */
 function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: string }) {
   const [people, setPeople] = useState<FacilityPeople | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [addingKey, setAddingKey] = useState<string | null>(null);
-  const [addError, setAddError] = useState<string | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   async function load() {
     const result = await getFacilityPeople(companyId, facilityId);
@@ -250,7 +266,8 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
       if (cancelled) return;
       setPeople(null);
       setLoadError(null);
-      setAddError(null);
+      setActionError(null);
+      setCopied(false);
       await load();
     });
 
@@ -260,21 +277,35 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `load` is stable in shape; only re-run on facility change
   }, [companyId, facilityId]);
 
-  async function handleAdd(candidate: PersonAssignment) {
+  async function handleChipClick(candidate: PersonAssignment, linkedPersonId: string | null) {
     const key = `${candidate.email ?? candidate.full_name}:${candidate.role}`;
-    setAddingKey(key);
-    setAddError(null);
+    setPendingKey(key);
+    setActionError(null);
 
-    const result = await addFacilityPerson(companyId, facilityId, candidate);
+    const result = linkedPersonId
+      ? await unlinkFacilityPerson(companyId, facilityId, linkedPersonId, candidate.role)
+      : await addFacilityPerson(companyId, facilityId, candidate);
 
-    setAddingKey(null);
+    setPendingKey(null);
 
     if (result.kind !== "ok") {
-      setAddError(result.message);
+      setActionError(result.message);
       return;
     }
 
     await load();
+  }
+
+  async function handleCopyAll() {
+    if (!people || people.roster.length === 0) return;
+
+    try {
+      await navigator.clipboard.writeText(formatRosterForClipboard(people.roster));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setActionError("Could not copy to the clipboard -- your browser may be blocking clipboard access.");
+    }
   }
 
   if (loadError) {
@@ -289,35 +320,58 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
     return <p className="text-sm text-slate-400">Loading…</p>;
   }
 
-  const rosterEmails = new Set(
-    people.roster.map((person) => person.email?.toLowerCase()).filter((email): email is string => !!email)
+  // Keyed by "email:role" (both lowercased on email) -- how a candidate
+  // chip finds the roster row it corresponds to, since a candidate off
+  // ps_person_index carries no person_id of its own.
+  const rosterByEmailAndRole = new Map(
+    people.roster
+      .filter((person) => !!person.email)
+      .map((person) => [`${person.email!.toLowerCase()}:${person.role}`, person])
   );
 
   return (
     <div className="flex flex-col gap-6">
       <section className="rounded border border-slate-800 p-5">
-        <h2 className="mb-4 text-lg font-semibold">Users</h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Users</h2>
+          {people.roster.length > 0 && (
+            <button
+              type="button"
+              onClick={handleCopyAll}
+              className="rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800"
+            >
+              {copied ? "Copied!" : "Copy All"}
+            </button>
+          )}
+        </div>
         {people.roster.length === 0 ? (
           <p className="text-sm text-slate-500">No users linked to this facility yet.</p>
         ) : (
-          <div className="flex flex-col gap-3">
-            {people.roster.map((person) => (
-              <div
-                key={`${person.person_id}-${person.role}`}
-                className="flex items-center justify-between gap-3 rounded border border-slate-800 p-3"
-              >
-                <div className="text-sm">
-                  <div className="font-medium text-slate-100">{person.full_name}</div>
-                  <div className="text-slate-500">
-                    {[person.email, person.phone ? formatPhone(person.phone) : null].filter(Boolean).join(" · ") ||
-                      "—"}
-                  </div>
-                </div>
-                <span className="shrink-0 rounded bg-slate-800 px-2 py-1 text-xs uppercase tracking-wide text-slate-400">
-                  {ROLE_LABELS[person.role] ?? person.role}
-                </span>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-slate-400">
+                <tr>
+                  <th className="pr-4 pb-2 font-medium">Name</th>
+                  <th className="w-56 pr-4 pb-2 font-medium">Email</th>
+                  <th className="w-40 pr-4 pb-2 font-medium">Phone</th>
+                  <th className="pb-2 font-medium">Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                {people.roster.map((person) => (
+                  <tr key={`${person.person_id}-${person.role}`} className="border-t border-slate-800">
+                    <td className="py-2 pr-4">{person.full_name}</td>
+                    <td className="py-2 pr-4 text-slate-400">{person.email ?? "—"}</td>
+                    <td className="py-2 pr-4 text-slate-400">{person.phone ? formatPhone(person.phone) : "—"}</td>
+                    <td className="py-2">
+                      <span className="rounded bg-slate-800 px-2 py-1 text-xs uppercase tracking-wide text-slate-400">
+                        {ROLE_LABELS[person.role] ?? person.role}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
@@ -325,7 +379,8 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
       <section className="rounded border border-slate-800 p-5">
         <h2 className="mb-2 text-lg font-semibold">Add User</h2>
         <p className="mb-4 text-sm text-slate-400">
-          Pulled from this facility&apos;s own Process Street Intake run, kept up to date automatically.
+          Pulled from this facility&apos;s own Process Street Intake run, kept up to date automatically. A red chip
+          is already linked -- click it to unlink.
         </p>
         {people.candidates.length === 0 ? (
           <p className="text-sm text-slate-500">No Process Street contacts found for this facility.</p>
@@ -333,22 +388,28 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
           <div className="flex flex-wrap gap-2">
             {people.candidates.map((candidate) => {
               const key = `${candidate.email ?? candidate.full_name}:${candidate.role}`;
-              const alreadyLinked = !!candidate.email && rosterEmails.has(candidate.email.toLowerCase());
+              const linkedPerson = candidate.email
+                ? rosterByEmailAndRole.get(`${candidate.email.toLowerCase()}:${candidate.role}`)
+                : undefined;
 
               return (
                 <button
                   key={key}
                   type="button"
-                  onClick={() => handleAdd(candidate)}
-                  disabled={addingKey === key}
-                  title={candidate.email ?? undefined}
+                  onClick={() => handleChipClick(candidate, linkedPerson?.person_id ?? null)}
+                  disabled={pendingKey === key}
+                  title={
+                    linkedPerson
+                      ? `Unlink ${candidate.full_name}`
+                      : (candidate.email ?? undefined)
+                  }
                   className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                    alreadyLinked
-                      ? "border-emerald-800 bg-emerald-950/20 text-emerald-300 hover:bg-emerald-950/40"
+                    linkedPerson
+                      ? "border-red-900 bg-red-950/20 text-red-300 hover:bg-red-950/40"
                       : "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
                   }`}
                 >
-                  {alreadyLinked ? "✓ " : "+ "}
+                  {linkedPerson ? "✕ " : "+ "}
                   {candidate.full_name}
                   <span className="ml-1.5 text-xs text-slate-400">
                     ({ROLE_LABELS[candidate.role] ?? candidate.role})
@@ -358,9 +419,9 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
             })}
           </div>
         )}
-        {addError && (
+        {actionError && (
           <p role="alert" className="mt-3 text-sm text-red-400">
-            {addError}
+            {actionError}
           </p>
         )}
       </section>

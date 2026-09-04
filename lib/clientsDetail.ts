@@ -301,3 +301,20 @@ export async function addFacilityPerson(
 ): Promise<ClientsResult<void>> {
   return clientsPost(`/clients/${companyId}/facilities/${facilityId}/people`, assignment);
 }
+
+/**
+ * Removes one roster entry -- the same "Add User" chip, shown red once a
+ * candidate is already linked, calls this instead of `addFacilityPerson`.
+ * Only removes this one (person, role) link; the person's own identity
+ * row (and any other facility they're linked to) is untouched.
+ */
+export async function unlinkFacilityPerson(
+  companyId: string,
+  facilityId: string,
+  personId: string,
+  role: string
+): Promise<ClientsResult<void>> {
+  return clientsDelete(
+    `/clients/${companyId}/facilities/${facilityId}/people/${personId}?role=${encodeURIComponent(role)}`
+  );
+}
