@@ -2,15 +2,21 @@
 
 import { useState } from "react";
 import SessionExpiredPage from "@/components/SessionExpiredPage";
+import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
+import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import { MasterGroupFileSection } from "@/components/discovery/MasterGroupFileSection";
 import UnitFileResolutionPanel from "@/components/UnitFileResolutionPanel";
+import { useClients } from "@/lib/clients";
+import { getFacilityDropboxFolder } from "@/lib/dropbox";
 import type {
   DiscoverResponse,
   UploadSummary,
 } from "@/types/api";
 
 interface DiscoveryPageProps {
+  clientId: string;
   selectedFiles: FileList | null;
+  dropboxPath: string | null;
   sessionId: string;
   discovery: DiscoverResponse | null;
   uploadSummary: UploadSummary | null;
@@ -20,6 +26,8 @@ interface DiscoveryPageProps {
   onFileSelection: (
     files: FileList | null
   ) => void;
+
+  onDropboxPathSelected: (path: string) => void;
 
   onDiscover: () => void;
 
@@ -35,23 +43,49 @@ interface DiscoveryPageProps {
 }
 
 export default function DiscoveryPage({
+  clientId,
   selectedFiles,
+  dropboxPath,
   sessionId,
   discovery,
   uploadSummary,
   loading,
   apiError,
   onFileSelection,
+  onDropboxPathSelected,
   onDiscover,
   onDiscoveryUpdated,
   onScan,
   onBack,
   onSessionExpired,
 }: DiscoveryPageProps) {
+  const { getClient } = useClients();
+  const client = getClient(clientId);
+
   const [
     sessionExpired,
     setSessionExpired,
   ] = useState(false);
+
+  // Which of this client's own facilities to browse from -- same
+  // reasoning as DedupUploadPage's own facility dropdown: a company can
+  // have several facilities, each with its own real Dropbox folder.
+  const [selectedFacility, setSelectedFacility] = useState<string | null>(
+    null
+  );
+  const [facilityDropboxPath, setFacilityDropboxPath] = useState<
+    string | null | undefined
+  >(undefined);
+
+  const handleFacilitySelected = async (facilityName: string) => {
+    setSelectedFacility(facilityName || null);
+    setFacilityDropboxPath(undefined);
+
+    if (!facilityName || !clientId) return;
+
+    const result = await getFacilityDropboxFolder(clientId, facilityName);
+    setFacilityDropboxPath(result.kind === "ok" ? result.data.path : null);
+  };
 
   // Gates Continue when no master group file was found — Boris wants an
   // explicit "yes, this is a net-new client" click rather than the
@@ -162,13 +196,48 @@ export default function DiscoveryPage({
           </div>
         )}
 
+        <div className="mt-6 border-t border-slate-800 pt-4">
+          <div className="mb-2 flex items-center gap-2 text-sm text-slate-400">
+            <DropboxLogo className="h-4 w-4 text-blue-400" />
+            Or import a folder from Dropbox
+          </div>
+
+          {client && client.facilityNames.length > 0 && (
+            <div className="mb-3">
+              <label className="mb-1 block text-xs text-slate-400">
+                Which facility?
+              </label>
+              <select
+                value={selectedFacility ?? ""}
+                onChange={(e) => void handleFacilitySelected(e.target.value)}
+                className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+              >
+                <option value="">Select a facility…</option>
+                {client.facilityNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <DropboxFolderPicker
+            value={dropboxPath ?? ""}
+            mode="select-folder"
+            initialPath={facilityDropboxPath ?? client?.dropboxPath}
+            onChange={onDropboxPathSelected}
+          />
+        </div>
+
         <button
           onClick={onDiscover}
           disabled={
             loading ||
-            !selectedFiles ||
-            selectedFiles.length ===
-              0
+            (!dropboxPath &&
+              (!selectedFiles ||
+                selectedFiles.length ===
+                  0))
           }
           className="mt-6 rounded bg-blue-600 px-4 py-2 disabled:opacity-50"
         >

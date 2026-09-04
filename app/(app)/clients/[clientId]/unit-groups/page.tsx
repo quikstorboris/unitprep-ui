@@ -14,12 +14,14 @@ export default function UnitGroupsHome() {
 
   const {
     selectedFiles,
+    dropboxPath,
     sessionId,
     discovery,
     uploadSummary,
     loading,
     apiError,
     handleFileSelection,
+    handleDropboxPathSelected,
     handleDiscover,
     handleDiscoveryUpdated,
   } = useDiscoveryFlow();
@@ -33,7 +35,9 @@ export default function UnitGroupsHome() {
         // column mapping) can't survive from a previous session's cycle
         // and be shown against data it was never actually validated for.
         key={sessionId}
+        clientId={clientId}
         selectedFiles={selectedFiles}
+        dropboxPath={dropboxPath}
         sessionId={sessionId}
         discovery={discovery}
         uploadSummary={
@@ -44,6 +48,7 @@ export default function UnitGroupsHome() {
         onFileSelection={
           handleFileSelection
         }
+        onDropboxPathSelected={handleDropboxPathSelected}
         onDiscover={
           handleDiscover
         }

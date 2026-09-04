@@ -1,12 +1,16 @@
 "use client";
 
+import { DropboxLogo } from "./icons/DropboxLogo";
 import AdvisoryIssuesTable from "./export/AdvisoryIssuesTable";
 import NetNewGroupsTable from "./export/NetNewGroupsTable";
 import SimilarGroupsTable from "./export/SimilarGroupsTable";
 import SummaryStats from "./export/SummaryStats";
 import { useAnalysis } from "./export/useAnalysis";
 import { useExportDownload } from "./export/useExportDownload";
+import { useUnitGroupSaveLocation } from "./export/useUnitGroupSaveLocation";
+import { useUnitGroupSaveToDropbox } from "./export/useUnitGroupSaveToDropbox";
 import SessionExpiredPage from "./SessionExpiredPage";
+import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
 
 interface ExportCompletePageProps {
   sessionId: string;
@@ -16,6 +20,54 @@ interface ExportCompletePageProps {
   clientId?: string;
   onBack: () => void;
   onHome: () => void;
+}
+
+interface DropboxSaveActionProps {
+  defaultFolderPath: string | null | undefined;
+  savedPath: string | null;
+  saving: boolean;
+  onSave: () => void;
+  sizeClassName: string;
+}
+
+/** One-click "Save to Facility Folder" -> "Open Destination Folder"
+ * pair, shared between the pre- and post-download panels below (saving
+ * to Dropbox is independent of downloading locally). Mirrors
+ * DedupResultsPage's own `DropboxSaveAction` exactly. */
+function DropboxSaveAction({
+  defaultFolderPath,
+  savedPath,
+  saving,
+  onSave,
+  sizeClassName,
+}: DropboxSaveActionProps) {
+  if (savedPath) {
+    return (
+      <a
+        href={dropboxFolderWebUrl(dropboxParentFolder(savedPath))}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`inline-flex items-center gap-2 rounded bg-[#0061FF] text-sm font-medium text-white transition-colors hover:bg-[#0050d1] ${sizeClassName}`}
+      >
+        <DropboxLogo className="h-4 w-4" />
+        Open Destination Folder
+      </a>
+    );
+  }
+
+  if (!defaultFolderPath) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={onSave}
+      disabled={saving}
+      className={`inline-flex items-center gap-2 rounded bg-blue-600 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50 ${sizeClassName}`}
+    >
+      <DropboxLogo className="h-4 w-4" />
+      {saving ? "Saving…" : "Save to Facility Folder"}
+    </button>
+  );
 }
 
 export default function ExportCompletePage({
@@ -39,7 +91,17 @@ export default function ExportCompletePage({
     handleExport,
   } = useExportDownload(sessionId, clientId);
 
-  if (analysisExpired || exportExpired) {
+  const {
+    saving,
+    savedPath,
+    error: saveError,
+    sessionExpired: saveExpired,
+    handleSave,
+  } = useUnitGroupSaveToDropbox(sessionId, clientId);
+
+  const { defaultFolderPath } = useUnitGroupSaveLocation(sessionId);
+
+  if (analysisExpired || exportExpired || saveExpired) {
     return (
       <SessionExpiredPage
         onHome={onHome}
@@ -138,16 +200,32 @@ export default function ExportCompletePage({
         </div>
       )}
 
+      {saveError && (
+        <div className="mt-4 rounded bg-red-900 p-3 text-red-200">
+          {saveError}
+        </div>
+      )}
+
       {!downloadComplete && (
-        <button
-          onClick={handleExport}
-          disabled={exporting}
-          className="mt-8 rounded bg-green-600 px-5 py-3 disabled:opacity-50"
-        >
-          {exporting
-            ? "Generating ZIP..."
-            : "Download Export ZIP"}
-        </button>
+        <div className="mt-8 flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="rounded bg-green-600 px-5 py-3 disabled:opacity-50"
+          >
+            {exporting
+              ? "Generating ZIP..."
+              : "Download Export ZIP"}
+          </button>
+
+          <DropboxSaveAction
+            defaultFolderPath={defaultFolderPath}
+            savedPath={savedPath}
+            saving={saving}
+            onSave={() => defaultFolderPath && handleSave(defaultFolderPath)}
+            sizeClassName="px-5 py-3"
+          />
+        </div>
       )}
 
       {downloadComplete && (
@@ -162,13 +240,21 @@ export default function ExportCompletePage({
             directly from memory.
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <button
               onClick={handleExport}
               className="rounded bg-blue-600 px-4 py-2"
             >
               Download Again
             </button>
+
+            <DropboxSaveAction
+              defaultFolderPath={defaultFolderPath}
+              savedPath={savedPath}
+              saving={saving}
+              onSave={() => defaultFolderPath && handleSave(defaultFolderPath)}
+              sizeClassName="px-4 py-2"
+            />
 
             <button
               onClick={onHome}

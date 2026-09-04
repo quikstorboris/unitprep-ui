@@ -41,6 +41,10 @@ function isSupportedFile(
 
 type State = {
   selectedFiles: FileList | null;
+  // Mutually exclusive with selectedFiles -- a whole Dropbox folder
+  // picked instead of a local `webkitdirectory` selection. Same
+  // convention DedupUploadPage already uses for its own two sources.
+  dropboxPath: string | null;
   sessionId: string;
   discovery: DiscoverResponse | null;
   uploadSummary: UploadSummary | null;
@@ -50,6 +54,7 @@ type State = {
 
 const initialState: State = {
   selectedFiles: null,
+  dropboxPath: null,
   sessionId: "",
   discovery: null,
   uploadSummary: null,
@@ -59,6 +64,7 @@ const initialState: State = {
 
 type Action =
   | { type: "files_selected"; files: FileList | null }
+  | { type: "dropbox_path_selected"; path: string | null }
   | { type: "discover_started" }
   | {
       type: "upload_succeeded";
@@ -86,6 +92,17 @@ function reducer(
       return {
         ...state,
         selectedFiles: action.files,
+        dropboxPath: null,
+        uploadSummary: null,
+        discovery: null,
+        apiError: null,
+      };
+
+    case "dropbox_path_selected":
+      return {
+        ...state,
+        dropboxPath: action.path,
+        selectedFiles: null,
         uploadSummary: null,
         discovery: null,
         apiError: null,
@@ -138,6 +155,7 @@ function reducer(
 
 export interface UseDiscoveryFlowResult {
   selectedFiles: FileList | null;
+  dropboxPath: string | null;
   sessionId: string;
   discovery: DiscoverResponse | null;
   uploadSummary: UploadSummary | null;
@@ -146,6 +164,7 @@ export interface UseDiscoveryFlowResult {
   handleFileSelection: (
     files: FileList | null
   ) => void;
+  handleDropboxPathSelected: (path: string) => void;
   handleDiscover: () => Promise<void>;
   handleDiscoveryUpdated: (
     discovery: DiscoverResponse
@@ -170,6 +189,7 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
 
   const {
     selectedFiles,
+    dropboxPath,
     sessionId,
     discovery,
     uploadSummary,
@@ -186,6 +206,13 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
     });
   };
 
+  const handleDropboxPathSelected = (path: string) => {
+    dispatch({
+      type: "dropbox_path_selected",
+      path,
+    });
+  };
+
   // Guards a rapid double-invocation of handleDiscover (e.g. a second
   // click landing before React commits `loading: true` and the button's
   // own `disabled` prop actually takes effect) from firing two concurrent
@@ -196,10 +223,10 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
   const discoverInFlight = useRef(false);
 
   const handleDiscover = async () => {
-    if (
-      !selectedFiles ||
-      selectedFiles.length === 0
-    ) {
+    const hasLocalFiles =
+      !!selectedFiles && selectedFiles.length > 0;
+
+    if (!hasLocalFiles && !dropboxPath) {
       dispatch({
         type: "discover_failed",
         message:
@@ -217,68 +244,96 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
         type: "discover_started",
       });
 
-      const formData =
-        new FormData();
+      let uploadData: UploadResponse;
+      // How many files this attempt actually offered up, for the
+      // integrity-check comparison below -- a local upload knows this
+      // before the request even goes out (the filtered FileList), a
+      // Dropbox import only learns it from the response itself (the
+      // folder's own contents aren't known client-side beforehand).
+      let filesSelectedCount: number;
 
-      const supportedFiles =
-        Array.from(
-          selectedFiles
-        ).filter(isSupportedFile);
-
-      supportedFiles.forEach((file) => {
-        formData.append(
-          "files",
-          file,
-          file.webkitRelativePath ||
-            file.name
-        );
-      });
-
-      // A sidecar field carrying each file's `lastModified` alongside the
-      // upload — standard multipart file parts have no metadata slot
-      // beyond filename/content-type, so this rides as one extra JSON
-      // field instead. Matched back to each file server-side by the same
-      // name used as its part's filename above. Used to help a user pick
-      // the right file when a folder contains more than one candidate
-      // unit list (e.g. several dated re-pulls of the same facility).
-      formData.append(
-        "file_modified_times",
-        JSON.stringify(
-          supportedFiles.map((file) => [
-            file.webkitRelativePath ||
-              file.name,
-            file.lastModified,
-          ])
-        )
-      );
-
-      const uploadResponse =
-        await fetch(
-          `${API_URL}/upload`,
+      if (dropboxPath) {
+        const uploadResponse = await fetch(
+          `${API_URL}/upload-dropbox`,
           {
             method: "POST",
-            // The API is a different origin (different port), so cookies
-            // are withheld unless this is explicit -- without it, every
-            // request looks signed-out regardless of a valid session.
             credentials: "include",
-            body: formData,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: dropboxPath }),
           }
         );
 
-      if (!uploadResponse.ok) {
-        throw new Error(
-          await errorMessageFrom(uploadResponse)
-        );
-      }
+        if (!uploadResponse.ok) {
+          throw new Error(await errorMessageFrom(uploadResponse));
+        }
 
-      const uploadData: UploadResponse =
-        await uploadResponse.json();
+        uploadData = await uploadResponse.json();
+        filesSelectedCount =
+          uploadData.files_uploaded + uploadData.files_failed;
+      } else {
+        const formData =
+          new FormData();
+
+        const supportedFiles =
+          Array.from(
+            selectedFiles!
+          ).filter(isSupportedFile);
+
+        supportedFiles.forEach((file) => {
+          formData.append(
+            "files",
+            file,
+            file.webkitRelativePath ||
+              file.name
+          );
+        });
+
+        // A sidecar field carrying each file's `lastModified` alongside the
+        // upload — standard multipart file parts have no metadata slot
+        // beyond filename/content-type, so this rides as one extra JSON
+        // field instead. Matched back to each file server-side by the same
+        // name used as its part's filename above. Used to help a user pick
+        // the right file when a folder contains more than one candidate
+        // unit list (e.g. several dated re-pulls of the same facility).
+        formData.append(
+          "file_modified_times",
+          JSON.stringify(
+            supportedFiles.map((file) => [
+              file.webkitRelativePath ||
+                file.name,
+              file.lastModified,
+            ])
+          )
+        );
+
+        const uploadResponse =
+          await fetch(
+            `${API_URL}/upload`,
+            {
+              method: "POST",
+              // The API is a different origin (different port), so cookies
+              // are withheld unless this is explicit -- without it, every
+              // request looks signed-out regardless of a valid session.
+              credentials: "include",
+              body: formData,
+            }
+          );
+
+        if (!uploadResponse.ok) {
+          throw new Error(
+            await errorMessageFrom(uploadResponse)
+          );
+        }
+
+        uploadData = await uploadResponse.json();
+        filesSelectedCount = supportedFiles.length;
+      }
 
       const integrityVerified =
         uploadData.files_failed === 0 &&
         uploadData.multipart_errors === 0 &&
         uploadData.files_uploaded ===
-          supportedFiles.length;
+          filesSelectedCount;
 
       dispatch({
         type: "upload_succeeded",
@@ -286,7 +341,7 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
           uploadData.session_id,
         uploadSummary: {
           files_selected:
-            supportedFiles.length,
+            filesSelectedCount,
           files_uploaded:
             uploadData.files_uploaded,
           files_failed:
@@ -365,12 +420,14 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
 
   return {
     selectedFiles,
+    dropboxPath,
     sessionId,
     discovery,
     uploadSummary,
     loading,
     apiError,
     handleFileSelection,
+    handleDropboxPathSelected,
     handleDiscover,
     handleDiscoveryUpdated,
   };
