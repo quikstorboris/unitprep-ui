@@ -246,6 +246,18 @@ export function DropboxFolderPicker({
         </button>
       </div>
 
+      {includeFiles && !isFileMode && (
+        // Files are listed here purely so a manager can confirm the
+        // right ones are in this folder -- they aren't individually
+        // selectable (see the plain-label branch below), which reads
+        // as a bug unless it's called out up front.
+        <p className="text-xs text-slate-400">
+          Files are shown for reference only — select a{" "}
+          <strong className="font-bold text-red-500">folder</strong>, not a
+          file.
+        </p>
+      )}
+
       {error && (
         <p className="text-sm text-red-400">{error}</p>
       )}
