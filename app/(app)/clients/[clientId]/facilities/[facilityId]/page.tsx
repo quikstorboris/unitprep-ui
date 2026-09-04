@@ -378,9 +378,13 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
 
       <section className="rounded border border-slate-800 p-5">
         <h2 className="mb-2 text-lg font-semibold">Add User</h2>
-        <p className="mb-4 text-sm text-slate-400">
+        <p className="mb-1 text-sm text-slate-400">
           Pulled from this facility&apos;s own Process Street Intake run, kept up to date automatically. A red chip
           is already linked -- click it to unlink.
+        </p>
+        <p className="mb-4 text-sm text-slate-500">
+          To correct a name, email, phone, or role, edit it in Process Street -- it&apos;ll show up here
+          automatically next time this tab loads.
         </p>
         {people.candidates.length === 0 ? (
           <p className="text-sm text-slate-500">No Process Street contacts found for this facility.</p>
