@@ -251,3 +251,53 @@ export async function linkFacilityElavon(
 export async function unlinkFacilityElavon(companyId: string, facilityId: string): Promise<ClientsResult<void>> {
   return clientsDelete(`/clients/${companyId}/facilities/${facilityId}/elavon/link`);
 }
+
+/** Mirrors `FacilityPerson` -- one already-saved row on the Users tab. */
+export interface FacilityPerson {
+  person_id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  role: string;
+}
+
+/**
+ * Mirrors `PersonAssignment` -- both an "Add User" candidate straight off
+ * `clients.ps_person_index` (no `person_id`, since it isn't necessarily
+ * linked yet) and the exact shape `addFacilityPerson` below sends back
+ * verbatim on a chip click.
+ */
+export interface PersonAssignment {
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  role: string;
+}
+
+/** Mirrors `FacilityPeopleResponse`. */
+export interface FacilityPeople {
+  roster: FacilityPerson[];
+  candidates: PersonAssignment[];
+}
+
+export async function getFacilityPeople(
+  companyId: string,
+  facilityId: string
+): Promise<ClientsResult<FacilityPeople>> {
+  return clientsGet(`/clients/${companyId}/facilities/${facilityId}/people`);
+}
+
+/**
+ * Adds (or re-adds) a person to this facility's roster -- always an
+ * upsert: a person already linked from an old ingest gets their stored
+ * name/phone overwritten with `assignment`'s values rather than left
+ * alone, the same self-heal `upsert_person_and_link_to_facility`'s own
+ * doc comment explains (Sand-Sto's own "Irene Chen - (301) 787-9221").
+ */
+export async function addFacilityPerson(
+  companyId: string,
+  facilityId: string,
+  assignment: PersonAssignment
+): Promise<ClientsResult<void>> {
+  return clientsPost(`/clients/${companyId}/facilities/${facilityId}/people`, assignment);
+}

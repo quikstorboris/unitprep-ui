@@ -10,24 +10,28 @@ import FieldReferenceHelp from "@/components/clients/FieldReferenceHelp";
 import PartyCard from "@/components/clients/PartyCard";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import {
+  addFacilityPerson,
   getFacilityDetail,
   getFacilityElavon,
+  getFacilityPeople,
   getFacilityPolicies,
   linkFacilityElavon,
   unlinkFacilityElavon,
   type ElavonStatus,
   type FacilityDetail,
+  type FacilityPeople,
   type FacilityPolicies,
+  type PersonAssignment,
 } from "@/lib/clientsDetail";
 import { formatDateOnly, formatPhone } from "@/lib/format";
 
 /**
  * Facility page -- tabs per the vault's own Phase 4 design note:
  * General | Users | DropBox | Elavon | Facility Policies. This pass
- * builds General, Facility Policies, and Elavon (items 2, 3, and 5 of
- * the agreed build order); Users/DropBox are later items, shown as
- * placeholders so the tab structure is visible now rather than added
- * piecemeal.
+ * builds General, Facility Policies, Elavon, and now Users (items 2, 3,
+ * 5, and 4 of the agreed build order); DropBox is the one remaining
+ * placeholder, shown so the tab structure stays visible rather than
+ * added piecemeal.
  */
 type Tab = "general" | "users" | "dropbox" | "elavon" | "policies";
 
@@ -200,6 +204,166 @@ function PoliciesTab({ policies }: { policies: FacilityPolicies }) {
           <pre className="whitespace-pre-wrap text-sm text-slate-200">{policies.specials_raw_text}</pre>
         </section>
       )}
+    </div>
+  );
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: "Owner",
+  district_manager: "District Manager",
+  manager: "Manager",
+};
+
+/**
+ * Users tab -- Phase 4 item 4. `candidates` are already-indexed rows off
+ * this facility's own Process Street Intake run
+ * (`clients.ps_person_index`, refreshed nightly, independent of when the
+ * facility was created) -- no search box, no live PS call, just the
+ * chips Boris asked for (2026-09-04). Clicking one always upserts: a
+ * person already on the roster gets their stored name/phone overwritten
+ * with the chip's fresh values rather than left alone (his own call,
+ * same session -- see `addFacilityPerson`'s own doc comment for why:
+ * this is what self-heals a facility like Sand-Sto, ingested before a
+ * parser bug fix, whose saved roster still carries a garbled name for a
+ * person the index has since correctly re-parsed).
+ */
+function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: string }) {
+  const [people, setPeople] = useState<FacilityPeople | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [addingKey, setAddingKey] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  async function load() {
+    const result = await getFacilityPeople(companyId, facilityId);
+    if (result.kind !== "ok") {
+      setLoadError(result.message);
+      return;
+    }
+    setLoadError(null);
+    setPeople(result.data);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    queueMicrotask(async () => {
+      if (cancelled) return;
+      setPeople(null);
+      setLoadError(null);
+      setAddError(null);
+      await load();
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `load` is stable in shape; only re-run on facility change
+  }, [companyId, facilityId]);
+
+  async function handleAdd(candidate: PersonAssignment) {
+    const key = `${candidate.email ?? candidate.full_name}:${candidate.role}`;
+    setAddingKey(key);
+    setAddError(null);
+
+    const result = await addFacilityPerson(companyId, facilityId, candidate);
+
+    setAddingKey(null);
+
+    if (result.kind !== "ok") {
+      setAddError(result.message);
+      return;
+    }
+
+    await load();
+  }
+
+  if (loadError) {
+    return (
+      <p role="alert" className="text-sm text-red-400">
+        {loadError}
+      </p>
+    );
+  }
+
+  if (!people) {
+    return <p className="text-sm text-slate-400">Loading…</p>;
+  }
+
+  const rosterEmails = new Set(
+    people.roster.map((person) => person.email?.toLowerCase()).filter((email): email is string => !!email)
+  );
+
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="rounded border border-slate-800 p-5">
+        <h2 className="mb-4 text-lg font-semibold">Users</h2>
+        {people.roster.length === 0 ? (
+          <p className="text-sm text-slate-500">No users linked to this facility yet.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {people.roster.map((person) => (
+              <div
+                key={`${person.person_id}-${person.role}`}
+                className="flex items-center justify-between gap-3 rounded border border-slate-800 p-3"
+              >
+                <div className="text-sm">
+                  <div className="font-medium text-slate-100">{person.full_name}</div>
+                  <div className="text-slate-500">
+                    {[person.email, person.phone ? formatPhone(person.phone) : null].filter(Boolean).join(" · ") ||
+                      "—"}
+                  </div>
+                </div>
+                <span className="shrink-0 rounded bg-slate-800 px-2 py-1 text-xs uppercase tracking-wide text-slate-400">
+                  {ROLE_LABELS[person.role] ?? person.role}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded border border-slate-800 p-5">
+        <h2 className="mb-2 text-lg font-semibold">Add User</h2>
+        <p className="mb-4 text-sm text-slate-400">
+          Pulled from this facility&apos;s own Process Street Intake run, kept up to date automatically.
+        </p>
+        {people.candidates.length === 0 ? (
+          <p className="text-sm text-slate-500">No Process Street contacts found for this facility.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {people.candidates.map((candidate) => {
+              const key = `${candidate.email ?? candidate.full_name}:${candidate.role}`;
+              const alreadyLinked = !!candidate.email && rosterEmails.has(candidate.email.toLowerCase());
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleAdd(candidate)}
+                  disabled={addingKey === key}
+                  title={candidate.email ?? undefined}
+                  className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    alreadyLinked
+                      ? "border-emerald-800 bg-emerald-950/20 text-emerald-300 hover:bg-emerald-950/40"
+                      : "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
+                  }`}
+                >
+                  {alreadyLinked ? "✓ " : "+ "}
+                  {candidate.full_name}
+                  <span className="ml-1.5 text-xs text-slate-400">
+                    ({ROLE_LABELS[candidate.role] ?? candidate.role})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {addError && (
+          <p role="alert" className="mt-3 text-sm text-red-400">
+            {addError}
+          </p>
+        )}
+      </section>
     </div>
   );
 }
@@ -628,7 +792,8 @@ export default function FacilityDetailPage() {
             {tab === "general" && <GeneralTab facility={facility} />}
             {tab === "policies" && <PoliciesTab policies={policies} />}
             {tab === "elavon" && <ElavonTab companyId={clientId} facilityId={facilityId} />}
-            {(tab === "users" || tab === "dropbox") && (
+            {tab === "users" && <UsersTab companyId={clientId} facilityId={facilityId} />}
+            {tab === "dropbox" && (
               <p className="text-sm text-slate-500">
                 This tab isn&apos;t built yet -- coming in a later pass of Phase 4.
               </p>
