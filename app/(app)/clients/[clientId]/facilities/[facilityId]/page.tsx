@@ -18,31 +18,47 @@ import {
   linkFacilityElavon,
   unlinkFacilityElavon,
   unlinkFacilityPerson,
+  updateFacilityCoverage,
+  updateFacilityDelinquency,
+  updateFacilityFees,
+  updateFacilitySpecials,
+  updateFacilityTaxes,
+  type CommissionRow,
+  type CoverageTierRow,
+  type DelinquencyStepRow,
   type ElavonStatus,
   type FacilityDetail,
   type FacilityPeople,
   type FacilityPerson,
   type FacilityPolicies,
+  type FeeRow,
   type PersonAssignment,
+  type TaxesRow,
 } from "@/lib/clientsDetail";
 import { formatDateOnly, formatPhone } from "@/lib/format";
 
 /**
- * Facility page -- tabs per the vault's own Phase 4 design note:
- * General | Users | DropBox | Elavon | Facility Policies. This pass
- * builds General, Facility Policies, Elavon, and now Users (items 2, 3,
- * 5, and 4 of the agreed build order); DropBox is the one remaining
- * placeholder, shown so the tab structure stays visible rather than
- * added piecemeal.
+ * Facility page -- originally General | Users | DropBox | Elavon |
+ * Facility Policies per the vault's Phase 4 design note, revised
+ * 2026-09-04 (Boris's call): the single Facility Policies tab is now
+ * five separate tabs -- Fees | Taxes | Delinquency | Coverage |
+ * Specials -- since each became independently editable (see
+ * `PolicySectionHeader`'s own doc comment) and stacking five edit forms
+ * on one tab would be unwieldy. DropBox is the one remaining
+ * placeholder.
  */
-type Tab = "general" | "users" | "dropbox" | "elavon" | "policies";
+type Tab = "general" | "users" | "dropbox" | "elavon" | "fees" | "taxes" | "delinquency" | "coverage" | "specials";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "general", label: "General" },
   { key: "users", label: "Users" },
   { key: "dropbox", label: "DropBox" },
   { key: "elavon", label: "Elavon" },
-  { key: "policies", label: "Facility Policies" },
+  { key: "fees", label: "Fees" },
+  { key: "taxes", label: "Taxes" },
+  { key: "delinquency", label: "Delinquency" },
+  { key: "coverage", label: "Coverage" },
+  { key: "specials", label: "Specials" },
 ];
 
 function tabButtonClass(active: boolean) {
@@ -105,24 +121,158 @@ const FEE_TYPE_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-function PoliciesTab({ policies }: { policies: FacilityPolicies }) {
-  const hasNothing =
-    policies.fees.length === 0 &&
-    !policies.taxes &&
-    policies.delinquency_steps.length === 0 &&
-    policies.coverage_tiers.length === 0 &&
-    !policies.commission &&
-    !policies.specials_raw_text;
+const STEP_TYPE_LABELS: Record<string, string> = {
+  late_fee: "Late Fee",
+  pre_lien: "Pre-Lien",
+  lien: "Lien",
+  cut_lock: "Cut Lock",
+  auction: "Auction",
+  notice: "Notice",
+  other: "Other",
+};
 
-  if (hasNothing) {
-    return <p className="text-sm text-slate-500">No policies captured for this facility yet.</p>;
+/**
+ * Shared header for every split Facility Policies tab -- the first
+ * editable data anywhere in this app (2026-09-04). Read mode shows an
+ * "Edit" button; edit mode swaps it for Cancel/Save, matching the
+ * global edit convention the original Phase 4 plan called for but never
+ * built until now.
+ */
+function PolicySectionHeader({
+  title,
+  editing,
+  saving,
+  onEdit,
+  onCancel,
+  onSave,
+}: {
+  title: string;
+  editing: boolean;
+  saving: boolean;
+  onEdit: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      {editing ? (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving}
+            className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800"
+        >
+          Edit
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Shown on an empty category for a QSX-legacy facility -- Process
+ * Street has no equivalent step for these categories under QSX, so
+ * "empty" here means "genuinely nothing to sync," not "hasn't answered
+ * yet." */
+function QsxEmptyBanner({ category }: { category: string }) {
+  return (
+    <p className="mb-4 rounded border border-amber-900 bg-amber-950/10 p-3 text-sm text-amber-300">
+      This is a QSX client -- Process Street has no {category} data for it. Click Edit to enter it manually.
+    </p>
+  );
+}
+
+/** Shown once a category has been flagged exempt -- see the backend's
+ * `clients::policy_exemption` module doc for why this is permanent. */
+function ManuallyMaintainedNote() {
+  return (
+    <p className="mb-4 text-xs text-slate-500">
+      Manually maintained for this QSX client -- a Process Street sync will never overwrite it.
+    </p>
+  );
+}
+
+interface PolicyTabProps {
+  companyId: string;
+  facilityId: string;
+  policies: FacilityPolicies;
+  onSaved: () => Promise<void>;
+}
+
+function FeesTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) {
+  const [editing, setEditing] = useState(false);
+  const [rows, setRows] = useState<FeeRow[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isEmpty = policies.fees.length === 0;
+
+  function startEdit() {
+    setRows(
+      policies.fees.length > 0 ? policies.fees.map((fee) => ({ ...fee })) : [{ fee_type: "other", label: "", raw_value: "" }]
+    );
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+
+    const cleaned = rows.filter((row) => row.raw_value.trim() !== "");
+    const result = await updateFacilityFees(companyId, facilityId, cleaned);
+
+    setSaving(false);
+
+    if (result.kind !== "ok") {
+      setError(result.message);
+      return;
+    }
+
+    setEditing(false);
+    await onSaved();
+  }
+
+  function updateRow(index: number, patch: Partial<FeeRow>) {
+    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {policies.fees.length > 0 && (
-        <section className="rounded border border-slate-800 p-5">
-          <h2 className="mb-4 text-lg font-semibold">Fees</h2>
+    <div className="rounded border border-slate-800 p-5">
+      <PolicySectionHeader
+        title="Fees"
+        editing={editing}
+        saving={saving}
+        onEdit={startEdit}
+        onCancel={() => setEditing(false)}
+        onSave={save}
+      />
+
+      {policies.fees_manually_exempt && <ManuallyMaintainedNote />}
+      {!editing && isEmpty && policies.is_qsx_legacy && <QsxEmptyBanner category="fee" />}
+
+      {!editing ? (
+        isEmpty ? (
+          <p className="text-sm text-slate-500">No fee data captured for this facility yet.</p>
+        ) : (
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {policies.fees.map((fee, index) => (
               <div key={index} className="flex flex-col gap-1 text-sm">
@@ -131,80 +281,544 @@ function PoliciesTab({ policies }: { policies: FacilityPolicies }) {
               </div>
             ))}
           </dl>
-        </section>
+        )
+      ) : (
+        <div className="flex flex-col gap-3">
+          {rows.map((row, index) => (
+            <div key={index} className="flex flex-wrap items-center gap-2">
+              <select
+                value={row.fee_type}
+                onChange={(e) => updateRow(index, { fee_type: e.target.value })}
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              >
+                {Object.entries(FEE_TYPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              {row.fee_type === "other" && (
+                <input
+                  type="text"
+                  value={row.label ?? ""}
+                  onChange={(e) => updateRow(index, { label: e.target.value })}
+                  placeholder="Label"
+                  className="w-40 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                />
+              )}
+              <input
+                type="text"
+                value={row.raw_value}
+                onChange={(e) => updateRow(index, { raw_value: e.target.value })}
+                placeholder="Value"
+                className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              />
+              <button
+                type="button"
+                onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}
+                className="shrink-0 rounded border border-red-900 px-2 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/30"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setRows((prev) => [...prev, { fee_type: "other", label: "", raw_value: "" }])}
+            className="w-fit rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800"
+          >
+            + Add Fee
+          </button>
+        </div>
       )}
 
-      {policies.taxes && (
-        <DetailSection
-          title="Taxes"
-          fields={[
-            { label: "Sales Tax Applies", value: policies.taxes.sales_tax_applies_raw },
-            { label: "Sales Tax Rate", value: policies.taxes.sales_tax_rate_raw },
-            { label: "Rent Tax Applies", value: policies.taxes.rent_tax_applies_raw },
-            { label: "Rent Tax Rate", value: policies.taxes.rent_tax_rate_raw },
-            { label: "Rent Tax Applies to All Units", value: policies.taxes.rent_tax_applies_to_all_units_raw },
-            { label: "Other One-Time Taxes", value: policies.taxes.other_one_time_taxes_raw },
-            { label: "Other Recurring Taxes", value: policies.taxes.other_recurring_taxes_raw },
-          ]}
-        />
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-red-400">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+const TAX_FIELD_LABELS: { key: keyof TaxesRow; label: string }[] = [
+  { key: "sales_tax_applies_raw", label: "Sales Tax Applies" },
+  { key: "sales_tax_rate_raw", label: "Sales Tax Rate" },
+  { key: "rent_tax_applies_raw", label: "Rent Tax Applies" },
+  { key: "rent_tax_rate_raw", label: "Rent Tax Rate" },
+  { key: "rent_tax_applies_to_all_units_raw", label: "Rent Tax Applies to All Units" },
+  { key: "other_one_time_taxes_raw", label: "Other One-Time Taxes" },
+  { key: "other_recurring_taxes_raw", label: "Other Recurring Taxes" },
+];
+
+const EMPTY_TAXES: TaxesRow = {
+  sales_tax_applies_raw: null,
+  sales_tax_rate_raw: null,
+  rent_tax_applies_raw: null,
+  rent_tax_rate_raw: null,
+  rent_tax_applies_to_all_units_raw: null,
+  other_one_time_taxes_raw: null,
+  other_recurring_taxes_raw: null,
+};
+
+function TaxesTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<TaxesRow>(EMPTY_TAXES);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isEmpty = !policies.taxes;
+
+  function startEdit() {
+    setForm(policies.taxes ?? EMPTY_TAXES);
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+
+    const result = await updateFacilityTaxes(companyId, facilityId, form);
+
+    setSaving(false);
+
+    if (result.kind !== "ok") {
+      setError(result.message);
+      return;
+    }
+
+    setEditing(false);
+    await onSaved();
+  }
+
+  return (
+    <div className="rounded border border-slate-800 p-5">
+      <PolicySectionHeader
+        title="Taxes"
+        editing={editing}
+        saving={saving}
+        onEdit={startEdit}
+        onCancel={() => setEditing(false)}
+        onSave={save}
+      />
+
+      {policies.taxes_manually_exempt && <ManuallyMaintainedNote />}
+      {!editing && isEmpty && policies.is_qsx_legacy && <QsxEmptyBanner category="tax" />}
+
+      {!editing ? (
+        isEmpty ? (
+          <p className="text-sm text-slate-500">No tax data captured for this facility yet.</p>
+        ) : (
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {TAX_FIELD_LABELS.map(({ key, label }) => (
+              <div key={key} className="flex flex-col gap-1 text-sm">
+                <dt className="text-slate-400">{label}</dt>
+                <dd>{policies.taxes?.[key] || "—"}</dd>
+              </div>
+            ))}
+          </dl>
+        )
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {TAX_FIELD_LABELS.map(({ key, label }) => (
+            <label key={key} className="flex flex-col gap-1 text-sm">
+              <span className="text-slate-400">{label}</span>
+              <input
+                type="text"
+                value={form[key] ?? ""}
+                onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              />
+            </label>
+          ))}
+        </div>
       )}
 
-      {policies.delinquency_steps.length > 0 && (
-        <section className="rounded border border-slate-800 p-5">
-          <h2 className="mb-4 text-lg font-semibold">Delinquency</h2>
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-red-400">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DelinquencyTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) {
+  const [editing, setEditing] = useState(false);
+  const [rows, setRows] = useState<DelinquencyStepRow[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isEmpty = policies.delinquency_steps.length === 0;
+
+  function startEdit() {
+    setRows(
+      policies.delinquency_steps.length > 0
+        ? policies.delinquency_steps.map((step) => ({ ...step }))
+        : [{ step_order: 1, step_type: "other", raw_value: "" }]
+    );
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+
+    const cleaned = rows
+      .filter((row) => row.raw_value.trim() !== "")
+      .map((row, index) => ({ ...row, step_order: index + 1 }));
+    const result = await updateFacilityDelinquency(companyId, facilityId, cleaned);
+
+    setSaving(false);
+
+    if (result.kind !== "ok") {
+      setError(result.message);
+      return;
+    }
+
+    setEditing(false);
+    await onSaved();
+  }
+
+  function updateRow(index: number, patch: Partial<DelinquencyStepRow>) {
+    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  return (
+    <div className="rounded border border-slate-800 p-5">
+      <PolicySectionHeader
+        title="Delinquency"
+        editing={editing}
+        saving={saving}
+        onEdit={startEdit}
+        onCancel={() => setEditing(false)}
+        onSave={save}
+      />
+
+      {policies.delinquency_manually_exempt && <ManuallyMaintainedNote />}
+      {!editing && isEmpty && policies.is_qsx_legacy && <QsxEmptyBanner category="delinquency" />}
+
+      {!editing ? (
+        isEmpty ? (
+          <p className="text-sm text-slate-500">No delinquency steps captured for this facility yet.</p>
+        ) : (
           <ol className="flex flex-col gap-2 text-sm">
             {policies.delinquency_steps.map((step) => (
               <li key={step.step_order} className="flex gap-3">
-                <span className="w-24 shrink-0 text-slate-400">{step.step_type.replace(/_/g, " ")}</span>
+                <span className="w-24 shrink-0 text-slate-400">{STEP_TYPE_LABELS[step.step_type] ?? step.step_type}</span>
                 <span>{step.raw_value}</span>
               </li>
             ))}
           </ol>
-        </section>
-      )}
-
-      {policies.coverage_tiers.length > 0 && (
-        <section className="rounded border border-slate-800 p-5">
-          <h2 className="mb-4 text-lg font-semibold">Coverage</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-slate-400">
-                <tr>
-                  <th className="pr-4 pb-2 font-medium">Tier</th>
-                  <th className="pr-4 pb-2 font-medium">Total Coverage Amount</th>
-                  <th className="pb-2 font-medium">Cost to Tenant</th>
-                </tr>
-              </thead>
-              <tbody>
-                {policies.coverage_tiers.map((tier) => (
-                  <tr key={tier.tier_number} className="border-t border-slate-800">
-                    <td className="py-2 pr-4">{tier.tier_number}</td>
-                    <td className="py-2 pr-4">{tier.total_coverage_amount_raw ?? "—"}</td>
-                    <td className="py-2">{tier.cost_to_tenant_raw ?? "—"}</td>
-                  </tr>
+        )
+      ) : (
+        <div className="flex flex-col gap-3">
+          {rows.map((row, index) => (
+            <div key={index} className="flex flex-wrap items-center gap-2">
+              <select
+                value={row.step_type}
+                onChange={(e) => updateRow(index, { step_type: e.target.value })}
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              >
+                {Object.entries(STEP_TYPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+              </select>
+              <input
+                type="text"
+                value={row.raw_value}
+                onChange={(e) => updateRow(index, { raw_value: e.target.value })}
+                placeholder="Value"
+                className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              />
+              <button
+                type="button"
+                onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}
+                className="shrink-0 rounded border border-red-900 px-2 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/30"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setRows((prev) => [...prev, { step_order: prev.length + 1, step_type: "other", raw_value: "" }])}
+            className="w-fit rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800"
+          >
+            + Add Step
+          </button>
+        </div>
       )}
 
-      {policies.commission && (
-        <DetailSection
-          title="Commission"
-          fields={[
-            { label: "Type", value: policies.commission.commission_type_raw },
-            { label: "Dollar Amount", value: policies.commission.dollar_amount_raw },
-            { label: "Percent Amount", value: policies.commission.percent_amount_raw },
-          ]}
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-red-400">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+const EMPTY_COMMISSION: CommissionRow = { commission_type_raw: null, dollar_amount_raw: null, percent_amount_raw: null };
+
+function CoverageTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) {
+  const [editing, setEditing] = useState(false);
+  const [tiers, setTiers] = useState<CoverageTierRow[]>([]);
+  const [commission, setCommission] = useState<CommissionRow>(EMPTY_COMMISSION);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isEmpty = policies.coverage_tiers.length === 0 && !policies.commission;
+
+  function startEdit() {
+    setTiers(
+      policies.coverage_tiers.length > 0
+        ? policies.coverage_tiers.map((tier) => ({ ...tier }))
+        : [{ tier_number: 1, total_coverage_amount_raw: "", cost_to_tenant_raw: "" }]
+    );
+    setCommission(policies.commission ?? EMPTY_COMMISSION);
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+
+    const cleanedTiers = tiers
+      .filter((tier) => (tier.total_coverage_amount_raw ?? "").trim() !== "" || (tier.cost_to_tenant_raw ?? "").trim() !== "")
+      .map((tier, index) => ({ ...tier, tier_number: index + 1 }));
+    const hasCommission =
+      (commission.commission_type_raw ?? "").trim() !== "" ||
+      (commission.dollar_amount_raw ?? "").trim() !== "" ||
+      (commission.percent_amount_raw ?? "").trim() !== "";
+
+    const result = await updateFacilityCoverage(companyId, facilityId, cleanedTiers, hasCommission ? commission : null);
+
+    setSaving(false);
+
+    if (result.kind !== "ok") {
+      setError(result.message);
+      return;
+    }
+
+    setEditing(false);
+    await onSaved();
+  }
+
+  function updateTier(index: number, patch: Partial<CoverageTierRow>) {
+    setTiers((prev) => prev.map((tier, i) => (i === index ? { ...tier, ...patch } : tier)));
+  }
+
+  return (
+    <div className="rounded border border-slate-800 p-5">
+      <PolicySectionHeader
+        title="Coverage"
+        editing={editing}
+        saving={saving}
+        onEdit={startEdit}
+        onCancel={() => setEditing(false)}
+        onSave={save}
+      />
+
+      {policies.coverage_manually_exempt && <ManuallyMaintainedNote />}
+      {!editing && isEmpty && policies.is_qsx_legacy && <QsxEmptyBanner category="coverage" />}
+
+      {!editing ? (
+        isEmpty ? (
+          <p className="text-sm text-slate-500">No coverage data captured for this facility yet.</p>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {policies.coverage_tiers.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-slate-400">
+                    <tr>
+                      <th className="pr-4 pb-2 font-medium">Tier</th>
+                      <th className="pr-4 pb-2 font-medium">Total Coverage Amount</th>
+                      <th className="pb-2 font-medium">Cost to Tenant</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {policies.coverage_tiers.map((tier) => (
+                      <tr key={tier.tier_number} className="border-t border-slate-800">
+                        <td className="py-2 pr-4">{tier.tier_number}</td>
+                        <td className="py-2 pr-4">{tier.total_coverage_amount_raw ?? "—"}</td>
+                        <td className="py-2">{tier.cost_to_tenant_raw ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {policies.commission && (
+              <div>
+                <h3 className="mb-3 text-sm font-medium text-slate-300">Commission</h3>
+                <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="flex flex-col gap-1 text-sm">
+                    <dt className="text-slate-400">Type</dt>
+                    <dd>{policies.commission.commission_type_raw || "—"}</dd>
+                  </div>
+                  <div className="flex flex-col gap-1 text-sm">
+                    <dt className="text-slate-400">Dollar Amount</dt>
+                    <dd>{policies.commission.dollar_amount_raw || "—"}</dd>
+                  </div>
+                  <div className="flex flex-col gap-1 text-sm">
+                    <dt className="text-slate-400">Percent Amount</dt>
+                    <dd>{policies.commission.percent_amount_raw || "—"}</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+          </div>
+        )
+      ) : (
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-medium text-slate-300">Tiers</h3>
+            {tiers.map((tier, index) => (
+              <div key={index} className="flex flex-wrap items-center gap-2">
+                <span className="w-14 shrink-0 text-sm text-slate-400">Tier {index + 1}</span>
+                <input
+                  type="text"
+                  value={tier.total_coverage_amount_raw ?? ""}
+                  onChange={(e) => updateTier(index, { total_coverage_amount_raw: e.target.value })}
+                  placeholder="Total Coverage Amount"
+                  className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                />
+                <input
+                  type="text"
+                  value={tier.cost_to_tenant_raw ?? ""}
+                  onChange={(e) => updateTier(index, { cost_to_tenant_raw: e.target.value })}
+                  placeholder="Cost to Tenant"
+                  className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => setTiers((prev) => prev.filter((_, i) => i !== index))}
+                  className="shrink-0 rounded border border-red-900 px-2 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/30"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() =>
+                setTiers((prev) => [...prev, { tier_number: prev.length + 1, total_coverage_amount_raw: "", cost_to_tenant_raw: "" }])
+              }
+              className="w-fit rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800"
+            >
+              + Add Tier
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-medium text-slate-300">Commission</h3>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <input
+                type="text"
+                value={commission.commission_type_raw ?? ""}
+                onChange={(e) => setCommission((prev) => ({ ...prev, commission_type_raw: e.target.value }))}
+                placeholder="Type"
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              />
+              <input
+                type="text"
+                value={commission.dollar_amount_raw ?? ""}
+                onChange={(e) => setCommission((prev) => ({ ...prev, dollar_amount_raw: e.target.value }))}
+                placeholder="Dollar Amount"
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              />
+              <input
+                type="text"
+                value={commission.percent_amount_raw ?? ""}
+                onChange={(e) => setCommission((prev) => ({ ...prev, percent_amount_raw: e.target.value }))}
+                placeholder="Percent Amount"
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-red-400">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SpecialsTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) {
+  const [editing, setEditing] = useState(false);
+  const [rawText, setRawText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isEmpty = !policies.specials_raw_text;
+
+  function startEdit() {
+    setRawText(policies.specials_raw_text ?? "");
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+
+    const result = await updateFacilitySpecials(companyId, facilityId, rawText.trim() === "" ? null : rawText);
+
+    setSaving(false);
+
+    if (result.kind !== "ok") {
+      setError(result.message);
+      return;
+    }
+
+    setEditing(false);
+    await onSaved();
+  }
+
+  return (
+    <div className="rounded border border-slate-800 p-5">
+      <PolicySectionHeader
+        title="Specials"
+        editing={editing}
+        saving={saving}
+        onEdit={startEdit}
+        onCancel={() => setEditing(false)}
+        onSave={save}
+      />
+
+      {policies.specials_manually_exempt && <ManuallyMaintainedNote />}
+      {!editing && isEmpty && policies.is_qsx_legacy && <QsxEmptyBanner category="specials" />}
+
+      {!editing ? (
+        isEmpty ? (
+          <p className="text-sm text-slate-500">No specials captured for this facility yet.</p>
+        ) : (
+          <pre className="whitespace-pre-wrap text-sm text-slate-200">{policies.specials_raw_text}</pre>
+        )
+      ) : (
+        <textarea
+          value={rawText}
+          onChange={(e) => setRawText(e.target.value)}
+          rows={8}
+          className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
         />
       )}
 
-      {policies.specials_raw_text && (
-        <section className="rounded border border-slate-800 p-5">
-          <h2 className="mb-4 text-lg font-semibold">Specials</h2>
-          <pre className="whitespace-pre-wrap text-sm text-slate-200">{policies.specials_raw_text}</pre>
-        </section>
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-red-400">
+          {error}
+        </p>
       )}
     </div>
   );
@@ -760,6 +1374,19 @@ export default function FacilityDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("general");
 
+  // Re-fetches just the policies -- passed to each split Fees/Taxes/
+  // Delinquency/Coverage/Specials tab as `onSaved`, so a save reflects
+  // its own (possibly just-flagged-exempt) fresh state immediately
+  // without a full page reload.
+  async function loadPolicies() {
+    const result = await getFacilityPolicies(clientId, facilityId);
+    if (result.kind !== "ok") {
+      setLoadError(result.message);
+      return;
+    }
+    setPolicies(result.data);
+  }
+
   // Company data comes from the shared `CompanyDetailProvider` (fetched
   // once per company, not per facility -- see that module's own doc
   // comment). Only the facility-specific reads re-fetch here, on
@@ -855,7 +1482,21 @@ export default function FacilityDetailPage() {
             </div>
 
             {tab === "general" && <GeneralTab facility={facility} />}
-            {tab === "policies" && <PoliciesTab policies={policies} />}
+            {tab === "fees" && (
+              <FeesTab companyId={clientId} facilityId={facilityId} policies={policies} onSaved={loadPolicies} />
+            )}
+            {tab === "taxes" && (
+              <TaxesTab companyId={clientId} facilityId={facilityId} policies={policies} onSaved={loadPolicies} />
+            )}
+            {tab === "delinquency" && (
+              <DelinquencyTab companyId={clientId} facilityId={facilityId} policies={policies} onSaved={loadPolicies} />
+            )}
+            {tab === "coverage" && (
+              <CoverageTab companyId={clientId} facilityId={facilityId} policies={policies} onSaved={loadPolicies} />
+            )}
+            {tab === "specials" && (
+              <SpecialsTab companyId={clientId} facilityId={facilityId} policies={policies} onSaved={loadPolicies} />
+            )}
             {tab === "elavon" && <ElavonTab companyId={clientId} facilityId={facilityId} />}
             {tab === "users" && <UsersTab companyId={clientId} facilityId={facilityId} />}
             {tab === "dropbox" && (

@@ -1,4 +1,4 @@
-import { clientsDelete, clientsGet, clientsPost, type ClientsResult } from "@/lib/clientsApi";
+import { clientsDelete, clientsGet, clientsPost, clientsPut, type ClientsResult } from "@/lib/clientsApi";
 
 /**
  * Read endpoints behind Phase 4's Client record UI -- the Company page
@@ -131,6 +131,15 @@ export interface FacilityPolicies {
   coverage_tiers: CoverageTierRow[];
   commission: CommissionRow | null;
   specials_raw_text: string | null;
+  /** This facility's own `previous_pms` names QSX -- see the backend's
+   * `clients::policy_exemption` module doc. Drives the "no PS data for
+   * this category" banner on an empty category's read view. */
+  is_qsx_legacy: boolean;
+  fees_manually_exempt: boolean;
+  taxes_manually_exempt: boolean;
+  delinquency_manually_exempt: boolean;
+  coverage_manually_exempt: boolean;
+  specials_manually_exempt: boolean;
 }
 
 export async function getFacilityPolicies(
@@ -138,6 +147,47 @@ export async function getFacilityPolicies(
   facilityId: string
 ): Promise<ClientsResult<FacilityPolicies>> {
   return clientsGet(`/clients/${companyId}/facilities/${facilityId}/policies`);
+}
+
+export async function updateFacilityFees(
+  companyId: string,
+  facilityId: string,
+  fees: FeeRow[]
+): Promise<ClientsResult<void>> {
+  return clientsPut(`/clients/${companyId}/facilities/${facilityId}/policies/fees`, { fees });
+}
+
+export async function updateFacilityTaxes(
+  companyId: string,
+  facilityId: string,
+  taxes: TaxesRow
+): Promise<ClientsResult<void>> {
+  return clientsPut(`/clients/${companyId}/facilities/${facilityId}/policies/taxes`, taxes);
+}
+
+export async function updateFacilityDelinquency(
+  companyId: string,
+  facilityId: string,
+  steps: DelinquencyStepRow[]
+): Promise<ClientsResult<void>> {
+  return clientsPut(`/clients/${companyId}/facilities/${facilityId}/policies/delinquency`, { steps });
+}
+
+export async function updateFacilityCoverage(
+  companyId: string,
+  facilityId: string,
+  tiers: CoverageTierRow[],
+  commission: CommissionRow | null
+): Promise<ClientsResult<void>> {
+  return clientsPut(`/clients/${companyId}/facilities/${facilityId}/policies/coverage`, { tiers, commission });
+}
+
+export async function updateFacilitySpecials(
+  companyId: string,
+  facilityId: string,
+  rawText: string | null
+): Promise<ClientsResult<void>> {
+  return clientsPut(`/clients/${companyId}/facilities/${facilityId}/policies/specials`, { raw_text: rawText });
 }
 
 /** Mirrors `ElavonPartyInfo` in `unitprep-api`'s `clients_elavon.rs`. */
