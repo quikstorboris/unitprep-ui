@@ -6,6 +6,7 @@ import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import { useClients } from "@/lib/clients";
 import { stashDedupReport } from "@/lib/dedupReportCache";
+import { getFacilityDropboxFolder } from "@/lib/dropbox";
 import { useFileUploadAction } from "@/lib/useFileUploadAction";
 import { useJsonPostAction } from "@/lib/useSessionAction";
 import type { DedupCheckResponse, DedupDetectVendorResponse } from "@/types/api";
@@ -57,6 +58,18 @@ export default function DedupUploadPage({
 
   const [dropboxPath, setDropboxPath] =
     useState<string | null>(null);
+
+  // Which of this client's own facilities to browse from -- a company
+  // can have several, each with its own real Dropbox folder, and there's
+  // no single "client Dropbox root" to default to (Boris, 2026-09-04:
+  // require an explicit pick rather than guessing). `undefined` = not
+  // picked yet; `null` = picked but this facility has no folder findable
+  // by name in Dropbox.
+  const [selectedFacility, setSelectedFacility] =
+    useState<string | null>(null);
+
+  const [facilityDropboxPath, setFacilityDropboxPath] =
+    useState<string | null | undefined>(undefined);
 
   const [apiError, setApiError] =
     useState<string | null>(null);
@@ -154,6 +167,16 @@ export default function DedupUploadPage({
       // (Run Check stays disabled) until it settles anyway.
       void detectVendor(file);
     }
+  };
+
+  const handleFacilitySelected = async (facilityName: string) => {
+    setSelectedFacility(facilityName || null);
+    setFacilityDropboxPath(undefined);
+
+    if (!facilityName || !clientId) return;
+
+    const result = await getFacilityDropboxFolder(clientId, facilityName);
+    setFacilityDropboxPath(result.kind === "ok" ? result.data.path : null);
   };
 
   const handleDropboxPathSelected = (path: string) => {
@@ -292,10 +315,30 @@ export default function DedupUploadPage({
             Or import from Dropbox
           </div>
 
+          {client && client.facilityNames.length > 0 && (
+            <div className="mb-3">
+              <label className="mb-1 block text-xs text-slate-400">
+                Which facility?
+              </label>
+              <select
+                value={selectedFacility ?? ""}
+                onChange={(e) => void handleFacilitySelected(e.target.value)}
+                className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+              >
+                <option value="">Select a facility…</option>
+                {client.facilityNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <DropboxFolderPicker
             value={dropboxPath ?? ""}
             mode="select-file"
-            initialPath={client?.dropboxPath}
+            initialPath={facilityDropboxPath ?? client?.dropboxPath}
             onChange={handleDropboxPathSelected}
           />
         </div>

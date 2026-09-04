@@ -10,6 +10,7 @@ import RelatedTenantsSection from "./dedup/RelatedTenantsSection";
 import TypoVariantsSection from "./dedup/TypoVariantsSection";
 import { useDedupExport } from "./dedup/useDedupExport";
 import { useDedupReport } from "./dedup/useDedupReport";
+import { useDedupSaveLocation } from "./dedup/useDedupSaveLocation";
 import { useDedupSaveToDropbox } from "./dedup/useDedupSaveToDropbox";
 import SessionExpiredPage from "./SessionExpiredPage";
 import { useClients } from "@/lib/clients";
@@ -63,6 +64,8 @@ export default function DedupResultsPage({
     sessionExpired: saveExpired,
     handleSave,
   } = useDedupSaveToDropbox(sessionId);
+
+  const { defaultFolderPath } = useDedupSaveLocation(sessionId);
 
   const [
     exportFormat,
@@ -276,7 +279,7 @@ export default function DedupResultsPage({
           <DropboxFolderPicker
             value=""
             mode="select-folder"
-            initialPath={client?.dropboxPath}
+            initialPath={defaultFolderPath ?? client?.dropboxPath}
             onChange={(folderPath) =>
               handleSave(exportFormat, folderPath)
             }

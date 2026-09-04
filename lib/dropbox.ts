@@ -95,3 +95,34 @@ export async function searchDropboxFolders(
 
   return tryDropboxFetch(`/dropbox/search?q=${encodeURIComponent(query.trim())}`);
 }
+
+/** Mirrors `FacilityDropboxFolderResponse` in `unitprep-api`'s `api::dropbox_browse`. */
+export interface FacilityDropboxFolderResult {
+  /** `null` when this facility has no folder findable by exact name
+   * under the connected Dropbox root -- not an error, just "nothing to
+   * default to." */
+  path: string | null;
+}
+
+/**
+ * A facility's own Dropbox folder, found by exact name match under the
+ * connected root -- **not** resolved from the facility's own
+ * `dropbox_folder_url` (that's a shared link captured by hand into PS's
+ * intake form, which doesn't resolve to a writable path -- see the
+ * backend's own `DropboxClient::find_facility_folder` doc comment). The
+ * one real seed point for "default this tool's Dropbox picker to the
+ * client folder that was pulled in with the PS client record."
+ *
+ * Takes `facilityName`, not a facility id: `Client.facilityNames`
+ * (`lib/clients.tsx`) carries names only, and the underlying Dropbox
+ * lookup is itself name-based, so there's no id to plumb through in the
+ * first place.
+ */
+export async function getFacilityDropboxFolder(
+  companyId: string,
+  facilityName: string
+): Promise<DropboxResult<FacilityDropboxFolderResult>> {
+  return tryDropboxFetch(
+    `/clients/${companyId}/dropbox-folder?facility_name=${encodeURIComponent(facilityName)}`
+  );
+}
