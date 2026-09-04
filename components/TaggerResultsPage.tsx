@@ -2,12 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { DropboxLogo } from "./icons/DropboxLogo";
 import CandidateRow from "./tagger/CandidateRow";
 import PreserveUnderscoresDialog from "./tagger/PreserveUnderscoresDialog";
 import { useTaggerApply } from "./tagger/useTaggerApply";
 import { useTaggerReport } from "./tagger/useTaggerReport";
+import { useTaggerSaveLocation } from "./tagger/useTaggerSaveLocation";
+import { useTaggerSaveToDropbox } from "./tagger/useTaggerSaveToDropbox";
 import SessionExpiredPage from "./SessionExpiredPage";
 import { listQmsTags, type QmsTag } from "@/lib/clientOps";
+import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
 import type { CandidateView, ConfirmedSubstitution } from "@/types/api";
 
 /** Same definition `tagger-pipeline` itself uses (`is_underscore_run`):
@@ -61,6 +65,16 @@ export default function TaggerResultsPage({
     handleApply,
   } = useTaggerApply(sessionId);
 
+  const {
+    saving,
+    savedPath,
+    error: saveError,
+    sessionExpired: saveExpired,
+    handleSave,
+  } = useTaggerSaveToDropbox(sessionId);
+
+  const { defaultFolderPath } = useTaggerSaveLocation(sessionId);
+
   const [tags, setTags] = useState<QmsTag[]>([]);
   const [tagsError, setTagsError] = useState<string | null>(null);
   const [review, setReview] = useState<Map<number, ReviewState>>(new Map());
@@ -70,6 +84,13 @@ export default function TaggerResultsPage({
   // where every candidate came from a known-value match) never shows
   // the dialog and just applies outright, same as it always has.
   const [showPreserveDialog, setShowPreserveDialog] = useState(false);
+  // Which action the preserve-blanks dialog is actually gating --
+  // Download and Save to Facility Folder share the same dialog (it's a
+  // document-level question, not per-action), so this remembers which
+  // one to actually run once the reviewer answers it.
+  const [pendingAction, setPendingAction] = useState<"download" | "save" | null>(
+    null
+  );
 
   // The full catalog to search over in each row's TagPicker -- fetched
   // once, independent of the candidate list itself. A failure here used
@@ -149,18 +170,36 @@ export default function TaggerResultsPage({
 
   function handleApplyClick() {
     if (hasBlankCandidates) {
+      setPendingAction("download");
       setShowPreserveDialog(true);
       return;
     }
     handleApply(confirmedSubstitutions(), false);
   }
 
-  function handlePreserveChoice(preserve: boolean) {
-    setShowPreserveDialog(false);
-    handleApply(confirmedSubstitutions(), preserve);
+  function handleSaveClick() {
+    if (!defaultFolderPath) return;
+    if (hasBlankCandidates) {
+      setPendingAction("save");
+      setShowPreserveDialog(true);
+      return;
+    }
+    handleSave(confirmedSubstitutions(), false, defaultFolderPath);
   }
 
-  if (reportExpired || applyExpired) {
+  function handlePreserveChoice(preserve: boolean) {
+    setShowPreserveDialog(false);
+    if (pendingAction === "save") {
+      if (defaultFolderPath) {
+        handleSave(confirmedSubstitutions(), preserve, defaultFolderPath);
+      }
+    } else {
+      handleApply(confirmedSubstitutions(), preserve);
+    }
+    setPendingAction(null);
+  }
+
+  if (reportExpired || applyExpired || saveExpired) {
     return <SessionExpiredPage onHome={onHome} />;
   }
 
@@ -249,17 +288,47 @@ export default function TaggerResultsPage({
         <div className="mt-8 rounded bg-red-900 p-3 text-red-200">{applyError}</div>
       )}
 
+      {saveError && (
+        <div className="mt-4 rounded bg-red-900 p-3 text-red-200">{saveError}</div>
+      )}
+
       {!downloadComplete && candidates && candidates.length > 0 && (
         <div className="mt-8 rounded border border-slate-700 p-4">
-          <button
-            onClick={handleApplyClick}
-            disabled={applying || confirmedCount === 0}
-            className="rounded bg-blue-600 px-5 py-3 disabled:opacity-50"
-          >
-            {applying
-              ? "Applying..."
-              : `Apply ${confirmedCount} Substitution${confirmedCount === 1 ? "" : "s"}`}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleApplyClick}
+              disabled={applying || confirmedCount === 0}
+              className="rounded bg-blue-600 px-5 py-3 disabled:opacity-50"
+            >
+              {applying
+                ? "Applying..."
+                : `Apply ${confirmedCount} Substitution${confirmedCount === 1 ? "" : "s"}`}
+            </button>
+
+            {savedPath ? (
+              <a
+                href={dropboxFolderWebUrl(dropboxParentFolder(savedPath))}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded bg-[#0061FF] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[#0050d1]"
+              >
+                <DropboxLogo className="h-4 w-4" />
+                Open Destination Folder
+              </a>
+            ) : (
+              defaultFolderPath && (
+                <button
+                  type="button"
+                  onClick={handleSaveClick}
+                  disabled={saving || confirmedCount === 0}
+                  className="inline-flex items-center gap-2 rounded bg-blue-600 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50"
+                >
+                  <DropboxLogo className="h-4 w-4" />
+                  {saving ? "Saving…" : "Save to Facility Folder"}
+                </button>
+              )
+            )}
+          </div>
         </div>
       )}
 
@@ -273,9 +342,36 @@ export default function TaggerResultsPage({
       {downloadComplete && (
         <div className="mt-8 space-y-4">
           <div className="text-xl text-green-400">Tagged Document Downloaded</div>
-          <button onClick={onHome} className="rounded bg-slate-700 px-4 py-2">
-            Home
-          </button>
+
+          <div className="flex flex-wrap items-center gap-4">
+            {savedPath ? (
+              <a
+                href={dropboxFolderWebUrl(dropboxParentFolder(savedPath))}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded bg-[#0061FF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0050d1]"
+              >
+                <DropboxLogo className="h-4 w-4" />
+                Open Destination Folder
+              </a>
+            ) : (
+              defaultFolderPath && (
+                <button
+                  type="button"
+                  onClick={handleSaveClick}
+                  disabled={saving || confirmedCount === 0}
+                  className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50"
+                >
+                  <DropboxLogo className="h-4 w-4" />
+                  {saving ? "Saving…" : "Save to Facility Folder"}
+                </button>
+              )
+            )}
+
+            <button onClick={onHome} className="rounded bg-slate-700 px-4 py-2">
+              Home
+            </button>
+          </div>
         </div>
       )}
     </div>
