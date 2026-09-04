@@ -197,12 +197,23 @@ export default function TaggerUploadPage({
             </div>
           )}
 
-          <DropboxFolderPicker
-            value={dropboxPath ?? ""}
-            mode="select-file"
-            initialPath={facilityDropboxPath ?? client?.dropboxPath}
-            onChange={handleDropboxPathSelected}
-          />
+          {selectedFacility && facilityDropboxPath === undefined ? (
+            // Waiting on the facility's own Dropbox folder to resolve --
+            // rendering the picker already would open it at the root
+            // for a moment before the real default arrives and corrects
+            // it. Not rendering the picker at all until the answer is in
+            // hand avoids that instead of just shortening it.
+            <div className="text-sm text-slate-400">
+              Locating this facility&apos;s Dropbox folder…
+            </div>
+          ) : (
+            <DropboxFolderPicker
+              value={dropboxPath ?? ""}
+              mode="select-file"
+              initialPath={facilityDropboxPath ?? client?.dropboxPath}
+              onChange={handleDropboxPathSelected}
+            />
+          )}
         </div>
 
         <button

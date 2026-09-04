@@ -31,6 +31,19 @@ interface DropboxFolderPickerProps {
    * there instead).
    */
   initialPath?: string;
+  /**
+   * Whether the listing includes files, independent of `mode` --
+   * defaults to `mode === "select-file"` (both existing callers' actual
+   * need: a folder picker has never shown files, a file picker always
+   * has). Unit Groups needs the third combination `mode="select-folder"`
+   * still commits a folder, but a manager needs to actually see the
+   * files inside it to confirm they're in the right place -- confirmed
+   * live 2026-09-04 that a real Preliminary Data folder's files were
+   * silently invisible without this, even though they exist. A visible
+   * file row in folder mode renders as a plain, non-clickable label (see
+   * the render below) -- selecting still only ever commits a folder.
+   */
+  showFiles?: boolean;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -77,8 +90,10 @@ export function DropboxFolderPicker({
   onChange,
   mode = "select-folder",
   initialPath,
+  showFiles,
 }: DropboxFolderPickerProps) {
   const isFileMode = mode === "select-file";
+  const includeFiles = showFiles ?? isFileMode;
   const [open, setOpen] = useState(false);
   const [currentPath, setCurrentPath] = useState<string | null>(null);
   const [entries, setEntries] = useState<DropboxEntry[]>([]);
@@ -160,7 +175,7 @@ export function DropboxFolderPicker({
     setLoading(true);
     setError(null);
 
-    const result = await listDropboxFolder(path, isFileMode);
+    const result = await listDropboxFolder(path, includeFiles);
 
     setLoading(false);
 

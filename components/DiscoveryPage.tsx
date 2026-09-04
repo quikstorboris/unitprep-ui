@@ -222,12 +222,30 @@ export default function DiscoveryPage({
             </div>
           )}
 
-          <DropboxFolderPicker
-            value={dropboxPath ?? ""}
-            mode="select-folder"
-            initialPath={facilityDropboxPath ?? client?.dropboxPath}
-            onChange={onDropboxPathSelected}
-          />
+          {selectedFacility && facilityDropboxPath === undefined ? (
+            // Waiting on the facility's own Dropbox folder to resolve --
+            // rendering the picker already would open it at the root
+            // for a moment (a real, visible flash confirmed live
+            // 2026-09-04) before the real default arrives and corrects
+            // it. Not rendering the picker at all until the answer is
+            // in hand avoids that instead of just shortening it.
+            <div className="text-sm text-slate-400">
+              Locating this facility&apos;s Dropbox folder…
+            </div>
+          ) : (
+            <DropboxFolderPicker
+              value={dropboxPath ?? ""}
+              mode="select-folder"
+              // A folder-mode picker never lists files by default (the
+              // client-setup picker's own need) -- but a manager
+              // importing a whole folder's worth of files needs to
+              // actually see them to confirm they're in the right
+              // place, not just navigate blind past folders.
+              showFiles
+              initialPath={facilityDropboxPath ?? client?.dropboxPath}
+              onChange={onDropboxPathSelected}
+            />
+          )}
         </div>
 
         <button
