@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 import {
+  dropboxParentFolder,
   listDropboxFolder,
   searchDropboxFolders,
   type DropboxEntry,
@@ -30,13 +31,6 @@ interface DropboxFolderPickerProps {
    * there instead).
    */
   initialPath?: string;
-  /**
-   * Rendered to the left of "Browse…" in the closed state -- an optional
-   * one-click shortcut a caller can offer alongside manual browsing
-   * (e.g. Dedup's "Save to Facility Folder" button). This component
-   * doesn't know what it does; it just reserves the slot.
-   */
-  extraAction?: ReactNode;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -83,7 +77,6 @@ export function DropboxFolderPicker({
   onChange,
   mode = "select-folder",
   initialPath,
-  extraAction,
 }: DropboxFolderPickerProps) {
   const isFileMode = mode === "select-file";
   const [open, setOpen] = useState(false);
@@ -110,7 +103,13 @@ export function DropboxFolderPicker({
     // the picker is opened, rather than resuming wherever it was last
     // left inside a single session -- opening it fresh each time is
     // easier to reason about than persisting scroll/navigation state.
-    load(value || initialPath || undefined);
+    // In file-select mode, `value` (once set) is a FILE path, not a
+    // folder -- listing it directly 409s ("path/not_folder"), so this
+    // starts from its containing folder instead (confirmed live
+    // 2026-09-04: reopening the picker after picking a file threw
+    // exactly that error).
+    const startPath = isFileMode && value ? dropboxParentFolder(value) : value;
+    load(startPath || initialPath || undefined);
 
     // A second, independent call -- `load` above may resolve `value`,
     // not the root, so this is the only reliable way to learn the root
@@ -192,8 +191,6 @@ export function DropboxFolderPicker({
         </span>
 
         <div className="flex flex-wrap items-center gap-3">
-          {extraAction}
-
           <button
             type="button"
             onClick={() => {

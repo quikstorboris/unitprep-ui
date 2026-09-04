@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import { DropboxFolderPicker } from "./clients/DropboxFolderPicker";
 import { DropboxLogo } from "./icons/DropboxLogo";
 import DedupSummaryStats from "./dedup/DedupSummaryStats";
 import FlaggedGroupsSection from "./dedup/FlaggedGroupsSection";
@@ -13,7 +12,6 @@ import { useDedupReport } from "./dedup/useDedupReport";
 import { useDedupSaveLocation } from "./dedup/useDedupSaveLocation";
 import { useDedupSaveToDropbox } from "./dedup/useDedupSaveToDropbox";
 import SessionExpiredPage from "./SessionExpiredPage";
-import { useClients } from "@/lib/clients";
 import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
 import type { DedupExportFormat } from "@/types/api";
 
@@ -35,14 +33,64 @@ const FORMAT_OPTIONS: Array<{
   },
 ];
 
+interface DropboxSaveActionProps {
+  /** `null`/`undefined` once saved -- there's nothing left to click,
+   * `DedupSaveAction` renders the "Open Destination Folder" link
+   * instead. `null` before a save location is even known (e.g. a
+   * locally-uploaded session) hides the whole action. */
+  defaultFolderPath: string | null | undefined;
+  savedPath: string | null;
+  saving: boolean;
+  onSave: () => void;
+}
+
+/**
+ * One-click "Save to Facility Folder" -> "Open Destination Folder" pair,
+ * shared between the pre- and post-local-download panels below (saving
+ * to Dropbox is independent of downloading locally -- a user may want
+ * both, so this must stay available in either state, not disappear once
+ * `downloadComplete`).
+ */
+function DropboxSaveAction({
+  defaultFolderPath,
+  savedPath,
+  saving,
+  onSave,
+}: DropboxSaveActionProps) {
+  if (savedPath) {
+    return (
+      <a
+        href={dropboxFolderWebUrl(dropboxParentFolder(savedPath))}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 rounded bg-[#0061FF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0050d1]"
+      >
+        <DropboxLogo className="h-4 w-4" />
+        Open Destination Folder
+      </a>
+    );
+  }
+
+  if (!defaultFolderPath) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={onSave}
+      disabled={saving}
+      className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50"
+    >
+      <DropboxLogo className="h-4 w-4" />
+      {saving ? "Saving…" : "Save to Facility Folder"}
+    </button>
+  );
+}
+
 export default function DedupResultsPage({
   clientId,
   sessionId,
   onHome,
 }: DedupResultsPageProps) {
-  const { getClient } = useClients();
-  const client = getClient(clientId);
-
   const {
     report,
     loading,
@@ -207,19 +255,34 @@ export default function DedupResultsPage({
             )
           )}
 
-          <button
-            onClick={() =>
-              handleExport(
-                exportFormat
-              )
-            }
-            disabled={exporting}
-            className="mt-4 rounded bg-green-600 px-5 py-3 disabled:opacity-50"
-          >
-            {exporting
-              ? "Generating..."
-              : "Download Export"}
-          </button>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              onClick={() =>
+                handleExport(
+                  exportFormat
+                )
+              }
+              disabled={exporting}
+              className="rounded bg-green-600 px-5 py-3 disabled:opacity-50"
+            >
+              {exporting
+                ? "Generating..."
+                : "Download Export"}
+            </button>
+
+            <DropboxSaveAction
+              defaultFolderPath={defaultFolderPath}
+              savedPath={savedPath}
+              saving={saving}
+              onSave={() => defaultFolderPath && handleSave(exportFormat, defaultFolderPath)}
+            />
+          </div>
+
+          {saveError && (
+            <div className="mt-3 rounded bg-red-900 p-3 text-sm text-red-200">
+              {saveError}
+            </div>
+          )}
         </div>
       )}
 
@@ -237,7 +300,7 @@ export default function DedupResultsPage({
             downloaded.
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <button
               onClick={() =>
                 handleExport(
@@ -249,6 +312,13 @@ export default function DedupResultsPage({
               Download Again
             </button>
 
+            <DropboxSaveAction
+              defaultFolderPath={defaultFolderPath}
+              savedPath={savedPath}
+              saving={saving}
+              onSave={() => defaultFolderPath && handleSave(exportFormat, defaultFolderPath)}
+            />
+
             <button
               onClick={onHome}
               className="rounded bg-slate-700 px-4 py-2"
@@ -256,59 +326,15 @@ export default function DedupResultsPage({
               Home
             </button>
           </div>
+
+          {saveError && (
+            <div className="rounded bg-red-900 p-3 text-sm text-red-200">
+              {saveError}
+            </div>
+          )}
         </div>
       )}
 
-      {saveError && (
-        <div className="mt-4 rounded bg-red-900 p-3 text-red-200">
-          {saveError}
-        </div>
-      )}
-
-      <div className="mt-4 rounded border border-slate-700 p-4">
-        <div className="mb-3 flex items-center gap-2 font-semibold">
-          <DropboxLogo className="h-5 w-5 text-blue-400" />
-          Save to Dropbox
-        </div>
-
-        {savedPath ? (
-          <a
-            href={dropboxFolderWebUrl(dropboxParentFolder(savedPath))}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex w-fit items-center gap-2 rounded bg-[#0061FF] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#0050d1]"
-          >
-            <DropboxLogo className="h-4 w-4" />
-            Open Destination Folder
-          </a>
-        ) : (
-          <DropboxFolderPicker
-            value=""
-            mode="select-folder"
-            initialPath={defaultFolderPath ?? client?.dropboxPath}
-            onChange={(folderPath) =>
-              handleSave(exportFormat, folderPath)
-            }
-            extraAction={
-              defaultFolderPath ? (
-                <button
-                  type="button"
-                  onClick={() => handleSave(exportFormat, defaultFolderPath)}
-                  className="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
-                >
-                  Save to Facility Folder
-                </button>
-              ) : undefined
-            }
-          />
-        )}
-
-        {saving && (
-          <div className="mt-2 text-sm text-slate-400">
-            Saving to Dropbox…
-          </div>
-        )}
-      </div>
     </div>
   );
 }
