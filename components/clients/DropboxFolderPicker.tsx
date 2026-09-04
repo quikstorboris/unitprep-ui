@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   listDropboxFolder,
@@ -30,6 +30,13 @@ interface DropboxFolderPickerProps {
    * there instead).
    */
   initialPath?: string;
+  /**
+   * Rendered to the left of "Browse…" in the closed state -- an optional
+   * one-click shortcut a caller can offer alongside manual browsing
+   * (e.g. Dedup's "Save to Facility Folder" button). This component
+   * doesn't know what it does; it just reserves the slot.
+   */
+  extraAction?: ReactNode;
 }
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -76,6 +83,7 @@ export function DropboxFolderPicker({
   onChange,
   mode = "select-folder",
   initialPath,
+  extraAction,
 }: DropboxFolderPickerProps) {
   const isFileMode = mode === "select-file";
   const [open, setOpen] = useState(false);
@@ -178,21 +186,25 @@ export function DropboxFolderPicker({
 
   if (!open) {
     return (
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-300">
+      <div className="flex flex-col gap-2">
+        <span className="text-sm text-slate-300">
           {value || (isFileMode ? "No file selected" : "No folder selected")}
         </span>
 
-        <button
-          type="button"
-          onClick={() => {
-            setSearchQuery("");
-            setOpen(true);
-          }}
-          className="rounded border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
-        >
-          Browse…
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {extraAction}
+
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setOpen(true);
+            }}
+            className="rounded border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
+          >
+            Browse…
+          </button>
+        </div>
       </div>
     );
   }

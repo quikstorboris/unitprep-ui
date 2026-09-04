@@ -14,6 +14,7 @@ import { useDedupSaveLocation } from "./dedup/useDedupSaveLocation";
 import { useDedupSaveToDropbox } from "./dedup/useDedupSaveToDropbox";
 import SessionExpiredPage from "./SessionExpiredPage";
 import { useClients } from "@/lib/clients";
+import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
 import type { DedupExportFormat } from "@/types/api";
 
 interface DedupResultsPageProps {
@@ -271,10 +272,15 @@ export default function DedupResultsPage({
         </div>
 
         {savedPath ? (
-          <div className="text-sm text-green-400">
-            Saved to{" "}
-            <span className="font-mono">{savedPath}</span>
-          </div>
+          <a
+            href={dropboxFolderWebUrl(dropboxParentFolder(savedPath))}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex w-fit items-center gap-2 rounded bg-[#0061FF] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#0050d1]"
+          >
+            <DropboxLogo className="h-4 w-4" />
+            Open Destination Folder
+          </a>
         ) : (
           <DropboxFolderPicker
             value=""
@@ -282,6 +288,17 @@ export default function DedupResultsPage({
             initialPath={defaultFolderPath ?? client?.dropboxPath}
             onChange={(folderPath) =>
               handleSave(exportFormat, folderPath)
+            }
+            extraAction={
+              defaultFolderPath ? (
+                <button
+                  type="button"
+                  onClick={() => handleSave(exportFormat, defaultFolderPath)}
+                  className="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+                >
+                  Save to Facility Folder
+                </button>
+              ) : undefined
             }
           />
         )}

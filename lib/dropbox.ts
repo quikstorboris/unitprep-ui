@@ -126,3 +126,26 @@ export async function getFacilityDropboxFolder(
     `/clients/${companyId}/dropbox-folder?facility_name=${encodeURIComponent(facilityName)}`
   );
 }
+
+/**
+ * A Dropbox web-app deep link for a folder path (e.g.
+ * "/QS Fileserver/Shared/QMS Onboarding/Highway 20") -- opens that
+ * folder in whoever clicks it own logged-in Dropbox session (the
+ * `/home/<path>` convention Dropbox's own web app uses for navigation),
+ * not something this app authenticates on their behalf. Only meaningful
+ * for someone who already has their own access to the underlying
+ * shared team folder.
+ */
+export function dropboxParentFolder(path: string): string {
+  const lastSlash = path.lastIndexOf("/");
+  return lastSlash === -1 ? path : path.slice(0, lastSlash);
+}
+
+export function dropboxFolderWebUrl(path: string): string {
+  const encodedSegments = path
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+  return `https://www.dropbox.com/home/${encodedSegments}`;
+}
