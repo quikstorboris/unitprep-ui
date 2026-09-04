@@ -118,8 +118,16 @@ export function DropboxFolderPicker({
     listDropboxFolder().then((result) => {
       if (result.kind === "ok") setRootPath(result.data.path);
     });
+    // `initialPath` deliberately IS a dependency here (unlike `value`,
+    // `isFileMode`, `load`) -- a caller that resolves it asynchronously
+    // (Dedup's facility dropdown: pick a facility, then fetch its real
+    // Dropbox folder) can easily still be `undefined` at the exact
+    // instant this picker first opens, and this effect otherwise only
+    // ever runs once per `open` transition. Confirmed live 2026-09-04:
+    // without this, a facility resolved a moment after the picker
+    // opened was silently ignored and browsing stayed at the root.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, initialPath]);
 
   useEffect(() => {
     // The empty-query reset lives in the input's onChange below, not

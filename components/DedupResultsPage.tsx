@@ -42,6 +42,10 @@ interface DropboxSaveActionProps {
   savedPath: string | null;
   saving: boolean;
   onSave: () => void;
+  /** Padding classes only -- lets each call site match its own sibling
+   * buttons' size (the Export Format panel's own buttons are bigger
+   * than Download Again/Home's). */
+  sizeClassName: string;
 }
 
 /**
@@ -56,6 +60,7 @@ function DropboxSaveAction({
   savedPath,
   saving,
   onSave,
+  sizeClassName,
 }: DropboxSaveActionProps) {
   if (savedPath) {
     return (
@@ -63,7 +68,7 @@ function DropboxSaveAction({
         href={dropboxFolderWebUrl(dropboxParentFolder(savedPath))}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 rounded bg-[#0061FF] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0050d1]"
+        className={`inline-flex items-center gap-2 rounded bg-[#0061FF] text-sm font-medium text-white transition-colors hover:bg-[#0050d1] ${sizeClassName}`}
       >
         <DropboxLogo className="h-4 w-4" />
         Open Destination Folder
@@ -78,7 +83,7 @@ function DropboxSaveAction({
       type="button"
       onClick={onSave}
       disabled={saving}
-      className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50"
+      className={`inline-flex items-center gap-2 rounded bg-blue-600 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50 ${sizeClassName}`}
     >
       <DropboxLogo className="h-4 w-4" />
       {saving ? "Saving…" : "Save to Facility Folder"}
@@ -275,6 +280,7 @@ export default function DedupResultsPage({
               savedPath={savedPath}
               saving={saving}
               onSave={() => defaultFolderPath && handleSave(exportFormat, defaultFolderPath)}
+              sizeClassName="px-5 py-3"
             />
           </div>
 
@@ -317,6 +323,7 @@ export default function DedupResultsPage({
               savedPath={savedPath}
               saving={saving}
               onSave={() => defaultFolderPath && handleSave(exportFormat, defaultFolderPath)}
+              sizeClassName="px-4 py-2"
             />
 
             <button
