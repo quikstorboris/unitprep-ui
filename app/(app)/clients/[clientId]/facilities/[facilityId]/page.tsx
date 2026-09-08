@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
@@ -1029,13 +1029,31 @@ function CoverageTab({ companyId, facilityId, policies, onSaved }: PolicyTabProp
   );
 }
 
+/** Grows a textarea to fit its own content -- reset to "auto" first so
+ * a shrink (text deleted, or a fresh shorter value loaded in) actually
+ * shrinks the box instead of only ever growing from whatever height it
+ * last settled at. */
+function autoResizeTextarea(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
 function SpecialsTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) {
   const [editing, setEditing] = useState(false);
   const [rawText, setRawText] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const isEmpty = !policies.specials_raw_text;
+
+  // Sizes to whatever's already there the moment the textarea appears
+  // (a long pasted block shouldn't start scrolled/clipped) -- the
+  // `onChange` handler below covers every edit after that.
+  useEffect(() => {
+    if (editing) autoResizeTextarea(textareaRef.current);
+  }, [editing]);
 
   function startEdit() {
     setRawText(policies.specials_raw_text ?? "");
@@ -1082,10 +1100,13 @@ function SpecialsTab({ companyId, facilityId, policies, onSaved }: PolicyTabProp
         )
       ) : (
         <textarea
+          ref={textareaRef}
           value={rawText}
-          onChange={(e) => setRawText(e.target.value)}
-          rows={8}
-          className="w-full rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+          onChange={(e) => {
+            setRawText(e.target.value);
+            autoResizeTextarea(e.target);
+          }}
+          className="min-h-[14rem] w-full resize-none overflow-hidden rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
         />
       )}
 
