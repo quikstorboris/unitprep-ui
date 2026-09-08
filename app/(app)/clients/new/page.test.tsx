@@ -121,10 +121,11 @@ describe("ClientsNewPage", () => {
   // all -- the Company section came back completely blank even though
   // the facility itself has perfectly good name/address/phone/website
   // data right there in the same run.
-  describe("no company information captured fallback", () => {
+  describe("no company contact info captured fallback", () => {
     function blankCompanyRun() {
       return {
         run_id: "run-sand-sto",
+        is_first_time: true,
         company: mappedCompany(),
         facility: mappedFacility({
           name: "Sand-Sto Climate Controlled Storage",
@@ -147,7 +148,7 @@ describe("ClientsNewPage", () => {
 
       render(<ClientsNewPage />);
 
-      expect(await screen.findByText("No Company Information Captured")).toBeInTheDocument();
+      expect(await screen.findByText("No Company Contact Info Captured")).toBeInTheDocument();
       // Appears more than once already (the banner's own mention plus
       // this run's own Facility card) -- just confirming it's there at
       // all, not asserting a specific count.
@@ -163,10 +164,10 @@ describe("ClientsNewPage", () => {
       const user = userEvent.setup();
       render(<ClientsNewPage />);
 
-      await screen.findByText("No Company Information Captured");
+      await screen.findByText("No Company Contact Info Captured");
       await user.click(screen.getByRole("button", { name: "Use Facility Info" }));
 
-      expect(screen.queryByText("No Company Information Captured")).not.toBeInTheDocument();
+      expect(screen.queryByText("No Company Contact Info Captured")).not.toBeInTheDocument();
       // The facility's name already appears twice on its own card (the
       // section heading plus its own "Facility Name" field) -- once
       // copied, the Company section shows it the same two ways (its own
@@ -193,10 +194,10 @@ describe("ClientsNewPage", () => {
       const user = userEvent.setup();
       render(<ClientsNewPage />);
 
-      await screen.findByText("No Company Information Captured");
+      await screen.findByText("No Company Contact Info Captured");
       await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-      expect(screen.queryByText("No Company Information Captured")).not.toBeInTheDocument();
+      expect(screen.queryByText("No Company Contact Info Captured")).not.toBeInTheDocument();
       // Still blank -- only its own Facility card shows the name (its
       // own heading plus its own "Facility Name" field), never copied
       // into the Company section.
@@ -229,7 +230,87 @@ describe("ClientsNewPage", () => {
       render(<ClientsNewPage />);
 
       await screen.findByRole("heading", { name: "Prairie Enterprises LLC" });
-      expect(screen.queryByText("No Company Information Captured")).not.toBeInTheDocument();
+      expect(screen.queryByText("No Company Contact Info Captured")).not.toBeInTheDocument();
+    });
+
+    // Real Dubuqueland bug, 2026-09-08: the old trigger required the
+    // WHOLE company section to be blank, so a run that already resolved
+    // legal_name (via Merchant Account correlation) and subdomain (PS
+    // answers Company_Subdomain independently of the gated Corporate
+    // Info block) never showed the banner at all, even though contact
+    // info was still genuinely missing and the source run was the
+    // company's own first-time facility.
+    it("still offers the fallback when legal_name/subdomain are already resolved but contact info is blank", async () => {
+      useSearchParams.mockReturnValue(
+        selectionParams([{ run_id: "run-dubuqueland-main", run_name: "Dubuqueland Mini Storage, Inc. (Main)" }])
+      );
+      previewClients.mockResolvedValue({
+        kind: "ok",
+        data: {
+          runs: [
+            {
+              run_id: "run-dubuqueland-main",
+              is_first_time: true,
+              company: mappedCompany({
+                legal_name: "Dubuqueland Mini-Storage, Inc.",
+                subdomain: "dubuquelandstorage.qms-email.com",
+              }),
+              facility: mappedFacility({ name: "Dubuqueland Mini Storage, Inc. (Main)" }),
+            },
+          ],
+        },
+      });
+
+      render(<ClientsNewPage />);
+
+      expect(await screen.findByText("No Company Contact Info Captured")).toBeInTheDocument();
+    });
+
+    it("does not overwrite legal_name/subdomain already resolved when accepting the fallback", async () => {
+      useSearchParams.mockReturnValue(
+        selectionParams([{ run_id: "run-dubuqueland-main", run_name: "Dubuqueland Mini Storage, Inc. (Main)" }])
+      );
+      previewClients.mockResolvedValue({
+        kind: "ok",
+        data: {
+          runs: [
+            {
+              run_id: "run-dubuqueland-main",
+              is_first_time: true,
+              company: mappedCompany({
+                legal_name: "Dubuqueland Mini-Storage, Inc.",
+                subdomain: "dubuquelandstorage.qms-email.com",
+              }),
+              facility: mappedFacility({
+                name: "Dubuqueland Mini Storage, Inc. (Main)",
+                street_address: "123 Main St",
+                city: "Dubuque",
+                state: "IA",
+                zip: "52001",
+                phone: "5635551234",
+              }),
+            },
+          ],
+        },
+      });
+
+      const user = userEvent.setup();
+      render(<ClientsNewPage />);
+
+      await screen.findByText("No Company Contact Info Captured");
+      await user.click(screen.getByRole("button", { name: "Use Facility Info" }));
+
+      // Legal Name stays the Merchant-Account-resolved value, not
+      // overwritten with the facility's own raw name -- it shows twice
+      // (the Company section's own heading plus its "Legal Name" field),
+      // never the facility's distinct raw name.
+      expect(screen.getAllByText("Dubuqueland Mini-Storage, Inc.")).toHaveLength(2);
+      // Subdomain stays too.
+      expect(screen.getByText("dubuquelandstorage.qms-email.com")).toBeInTheDocument();
+      // The genuinely-blank contact fields do get filled in -- each
+      // shows twice, same as the facility's own card plus the copy.
+      expect(screen.getAllByText("123 Main St")).toHaveLength(2);
+      expect(screen.getAllByText("Dubuque")).toHaveLength(2);
     });
   });
 

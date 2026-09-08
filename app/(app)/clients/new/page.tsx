@@ -32,6 +32,31 @@ const COMPANY_FIELDS: Array<{ key: keyof MappedCompany; label: string }> = [
   { key: "website_url", label: "Website" },
 ];
 
+/** Just the actual contact fields -- deliberately excludes `legal_name`
+ * (often resolved via Merchant Account correlation even when contact
+ * info is blank) and `subdomain` (confirmed 2026-09-08, Dubuqueland:
+ * PS answers `Company_Subdomain:` independently of the gated Corporate
+ * Info block, so it can be populated even on a run whose contact info
+ * genuinely is not). Used to decide whether the "use this facility's
+ * info" fallback banner below is worth offering -- `companyCompleteness`
+ * above still drives `pickCompanySourceRun`'s own run-selection logic
+ * and stays as-is. */
+const CONTACT_FIELD_KEYS: Array<keyof MappedCompany> = [
+  "corporate_email",
+  "corporate_phone",
+  "corporate_address_street",
+  "corporate_address_city",
+  "corporate_address_state",
+  "corporate_address_zip",
+];
+
+function hasAnyContactInfo(company: MappedCompany): boolean {
+  return CONTACT_FIELD_KEYS.some((key) => {
+    const value = company[key];
+    return value !== null && value !== undefined && value !== "";
+  });
+}
+
 // "people" is deliberately excluded from this key type -- it isn't one
 // of the generic pencil-edit text/number fields below, it gets its own
 // chip-based People section render (see `PEOPLE_ROLE_GROUPS`).
@@ -311,23 +336,26 @@ function ClientsNewPageInner() {
   // `buildPeoplePool`'s own comment.
   const peoplePool = runs ? buildPeoplePool(runs) : [];
 
+  /** Only fills fields still blank -- e.g. `legal_name` may already be
+   * correctly resolved via Merchant Account correlation even though
+   * contact info is blank (confirmed 2026-09-08, Dubuqueland), and this
+   * must not stomp that with the facility's own raw name. */
   function handleAcceptCompanyFallback() {
     if (!companySourceRun) return;
     const { facility } = companySourceRun;
-    setEditedCompany((prev) =>
-      prev
-        ? {
-            ...prev,
-            legal_name: facility.name,
-            corporate_address_street: facility.street_address,
-            corporate_address_city: facility.city,
-            corporate_address_state: facility.state,
-            corporate_address_zip: facility.zip,
-            corporate_phone: facility.phone,
-            website_url: facility.website_url,
-          }
-        : prev
-    );
+    setEditedCompany((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        legal_name: prev.legal_name ?? facility.name,
+        corporate_address_street: prev.corporate_address_street ?? facility.street_address,
+        corporate_address_city: prev.corporate_address_city ?? facility.city,
+        corporate_address_state: prev.corporate_address_state ?? facility.state,
+        corporate_address_zip: prev.corporate_address_zip ?? facility.zip,
+        corporate_phone: prev.corporate_phone ?? facility.phone,
+        website_url: prev.website_url ?? facility.website_url,
+      };
+    });
     setCompanyFallbackHandled(true);
   }
 
@@ -418,15 +446,20 @@ function ClientsNewPageInner() {
 
         {runs && editedCompany && (
           <div className="flex flex-col gap-6">
-            {!companyFallbackHandled && companyCompleteness(editedCompany) === 0 && companySourceRun && (
+            {!companyFallbackHandled &&
+              companySourceRun &&
+              companySourceRun.is_first_time === true &&
+              !hasAnyContactInfo(editedCompany) && (
               <section className="rounded border border-amber-800 bg-amber-950/10 p-5">
-                <h2 className="mb-2 text-lg font-semibold">No Company Information Captured</h2>
+                <h2 className="mb-2 text-lg font-semibold">No Company Contact Info Captured</h2>
                 <p className="mb-4 text-sm text-slate-400">
-                  <span className="font-medium text-slate-200">{companySourceRun.facility.name}</span>&apos;s own
-                  Corporate Info section came back blank -- this usually means the client answered
-                  &quot;Yes&quot; to &quot;Is your Corporate Name, Address, Phone Number &amp; Email the same as
-                  this Facility?&quot;, so Process Street never asked those questions separately. Use this
-                  facility&apos;s own name, address, phone, and website for the Company section instead?
+                  <span className="font-medium text-slate-200">{companySourceRun.facility.name}</span> is marked as
+                  this company&apos;s first-time facility, but its own Corporate contact fields (address, phone,
+                  email) came back blank -- this usually means the client answered &quot;Yes&quot; to
+                  &quot;Is your Corporate Name, Address, Phone Number &amp; Email the same as this
+                  Facility?&quot;, so Process Street never asked those questions separately. Use this
+                  facility&apos;s own address, phone, and website for the Company section instead? (Any field
+                  already filled in, like Legal Name or Subdomain, is left as-is.)
                 </p>
                 <div className="flex items-center gap-3">
                   <button
