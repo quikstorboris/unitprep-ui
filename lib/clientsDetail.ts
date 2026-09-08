@@ -96,6 +96,8 @@ export interface FeeRow {
   raw_value: string;
 }
 
+/** Legacy free-text shape -- read-only history, see the backend's
+ * `TaxesRow` doc comment. Superseded by `TaxEntry` below. */
 export interface TaxesRow {
   sales_tax_applies_raw: string | null;
   sales_tax_rate_raw: string | null;
@@ -106,10 +108,53 @@ export interface TaxesRow {
   other_recurring_taxes_raw: string | null;
 }
 
+/** Legacy free-text shape -- read-only history, see the backend's
+ * `DelinquencyStepRow` doc comment. Superseded by `DelinquencyEntry`
+ * below. */
 export interface DelinquencyStepRow {
   step_order: number;
   step_type: string;
   raw_value: string;
+}
+
+export interface TaxEntry {
+  id: number;
+  tax_type: string;
+  tax_name: string;
+  description: string | null;
+  flat_amount: number | null;
+  attribute_payable_percent: number | null;
+  is_recurring: boolean;
+  sort_order: number;
+}
+
+export interface TaxEntryInput {
+  tax_type: string;
+  tax_name: string;
+  description: string | null;
+  flat_amount: number | null;
+  attribute_payable_percent: number | null;
+  is_recurring: boolean;
+}
+
+export interface DelinquencyEntry {
+  id: number;
+  category: string;
+  name: string;
+  amount: number;
+  days_after: number | null;
+  trigger_type: string;
+  trigger_category: string | null;
+  sort_order: number;
+}
+
+export interface DelinquencyEntryInput {
+  category: string;
+  name: string;
+  amount: number;
+  days_after: number | null;
+  trigger_type: string;
+  trigger_category: string | null;
 }
 
 export interface CoverageTierRow {
@@ -126,8 +171,12 @@ export interface CommissionRow {
 
 export interface FacilityPolicies {
   fees: FeeRow[];
+  /** Legacy free-text history -- see `TaxesRow`'s own comment. */
   taxes: TaxesRow | null;
+  tax_entries: TaxEntry[];
+  /** Legacy free-text history -- see `DelinquencyStepRow`'s own comment. */
   delinquency_steps: DelinquencyStepRow[];
+  delinquency_entries: DelinquencyEntry[];
   coverage_tiers: CoverageTierRow[];
   commission: CommissionRow | null;
   specials_raw_text: string | null;
@@ -160,17 +209,17 @@ export async function updateFacilityFees(
 export async function updateFacilityTaxes(
   companyId: string,
   facilityId: string,
-  taxes: TaxesRow
+  taxes: TaxEntryInput[]
 ): Promise<ClientsResult<void>> {
-  return clientsPut(`/clients/${companyId}/facilities/${facilityId}/policies/taxes`, taxes);
+  return clientsPut(`/clients/${companyId}/facilities/${facilityId}/policies/taxes`, { taxes });
 }
 
 export async function updateFacilityDelinquency(
   companyId: string,
   facilityId: string,
-  steps: DelinquencyStepRow[]
+  entries: DelinquencyEntryInput[]
 ): Promise<ClientsResult<void>> {
-  return clientsPut(`/clients/${companyId}/facilities/${facilityId}/policies/delinquency`, { steps });
+  return clientsPut(`/clients/${companyId}/facilities/${facilityId}/policies/delinquency`, { entries });
 }
 
 export async function updateFacilityCoverage(

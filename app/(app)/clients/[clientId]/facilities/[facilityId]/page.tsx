@@ -25,7 +25,7 @@ import {
   updateFacilityTaxes,
   type CommissionRow,
   type CoverageTierRow,
-  type DelinquencyStepRow,
+  type DelinquencyEntryInput,
   type ElavonStatus,
   type FacilityDetail,
   type FacilityPeople,
@@ -33,6 +33,7 @@ import {
   type FacilityPolicies,
   type FeeRow,
   type PersonAssignment,
+  type TaxEntryInput,
   type TaxesRow,
 } from "@/lib/clientsDetail";
 import { formatDateOnly, formatPhone } from "@/lib/format";
@@ -341,7 +342,12 @@ function FeesTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) {
   );
 }
 
-const TAX_FIELD_LABELS: { key: keyof TaxesRow; label: string }[] = [
+const TAX_NAME_LABELS: Record<string, string> = {
+  sales: "Sales",
+  rental: "Rental",
+};
+
+const LEGACY_TAX_FIELD_LABELS: { key: keyof TaxesRow; label: string }[] = [
   { key: "sales_tax_applies_raw", label: "Sales Tax Applies" },
   { key: "sales_tax_rate_raw", label: "Sales Tax Rate" },
   { key: "rent_tax_applies_raw", label: "Rent Tax Applies" },
@@ -351,35 +357,65 @@ const TAX_FIELD_LABELS: { key: keyof TaxesRow; label: string }[] = [
   { key: "other_recurring_taxes_raw", label: "Other Recurring Taxes" },
 ];
 
-const EMPTY_TAXES: TaxesRow = {
-  sales_tax_applies_raw: null,
-  sales_tax_rate_raw: null,
-  rent_tax_applies_raw: null,
-  rent_tax_rate_raw: null,
-  rent_tax_applies_to_all_units_raw: null,
-  other_one_time_taxes_raw: null,
-  other_recurring_taxes_raw: null,
-};
+/** A tax entry mid-edit -- numbers stay as strings while typing so a
+ * half-entered value ("-", "") doesn't get silently coerced to 0 or
+ * NaN; parsed to a real number only on Save. */
+interface TaxEntryDraft {
+  tax_name: string;
+  description: string;
+  flat_amount: string;
+  attribute_payable_percent: string;
+  is_recurring: boolean;
+}
+
+function emptyTaxDraft(): TaxEntryDraft {
+  return { tax_name: "sales", description: "", flat_amount: "", attribute_payable_percent: "", is_recurring: false };
+}
 
 function TaxesTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) {
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<TaxesRow>(EMPTY_TAXES);
+  const [drafts, setDrafts] = useState<TaxEntryDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isEmpty = !policies.taxes;
+  const isEmpty = policies.tax_entries.length === 0;
 
   function startEdit() {
-    setForm(policies.taxes ?? EMPTY_TAXES);
+    setDrafts(
+      policies.tax_entries.length > 0
+        ? policies.tax_entries.map((entry) => ({
+            tax_name: entry.tax_name,
+            description: entry.description ?? "",
+            flat_amount: entry.flat_amount === null ? "" : String(entry.flat_amount),
+            attribute_payable_percent:
+              entry.attribute_payable_percent === null ? "" : String(entry.attribute_payable_percent),
+            is_recurring: entry.is_recurring,
+          }))
+        : [emptyTaxDraft()]
+    );
     setError(null);
     setEditing(true);
+  }
+
+  function updateDraft(index: number, patch: Partial<TaxEntryDraft>) {
+    setDrafts((prev) => prev.map((draft, i) => (i === index ? { ...draft, ...patch } : draft)));
   }
 
   async function save() {
     setSaving(true);
     setError(null);
 
-    const result = await updateFacilityTaxes(companyId, facilityId, form);
+    const taxes: TaxEntryInput[] = drafts.map((draft) => ({
+      tax_type: "fixed",
+      tax_name: draft.tax_name,
+      description: draft.description.trim() === "" ? null : draft.description,
+      flat_amount: draft.flat_amount.trim() === "" ? null : Number(draft.flat_amount),
+      attribute_payable_percent:
+        draft.attribute_payable_percent.trim() === "" ? null : Number(draft.attribute_payable_percent),
+      is_recurring: draft.is_recurring,
+    }));
+
+    const result = await updateFacilityTaxes(companyId, facilityId, taxes);
 
     setSaving(false);
 
@@ -391,6 +427,8 @@ function TaxesTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) 
     setEditing(false);
     await onSaved();
   }
+
+  const hasLegacyData = !!policies.taxes;
 
   return (
     <div className="rounded border border-slate-800 p-5">
@@ -407,31 +445,127 @@ function TaxesTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) 
       {!editing && isEmpty && policies.is_qsx_legacy && <QsxEmptyBanner category="tax" />}
 
       {!editing ? (
-        isEmpty ? (
-          <p className="text-sm text-slate-500">No tax data captured for this facility yet.</p>
-        ) : (
-          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {TAX_FIELD_LABELS.map(({ key, label }) => (
-              <div key={key} className="flex flex-col gap-1 text-sm">
-                <dt className="text-slate-400">{label}</dt>
-                <dd>{policies.taxes?.[key] || "—"}</dd>
-              </div>
-            ))}
-          </dl>
-        )
+        <div className="flex flex-col gap-6">
+          {isEmpty ? (
+            <p className="text-sm text-slate-500">No tax data captured for this facility yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="text-slate-400">
+                  <tr>
+                    <th className="pr-4 pb-2 font-medium">Tax Name</th>
+                    <th className="pr-4 pb-2 font-medium">Description</th>
+                    <th className="pr-4 pb-2 font-medium">Flat Price</th>
+                    <th className="pr-4 pb-2 font-medium">Attribute Payable</th>
+                    <th className="pb-2 font-medium">Recurring</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {policies.tax_entries.map((entry) => (
+                    <tr key={entry.id} className="border-t border-slate-800">
+                      <td className="py-2 pr-4">{TAX_NAME_LABELS[entry.tax_name] ?? entry.tax_name}</td>
+                      <td className="py-2 pr-4">{entry.description || "—"}</td>
+                      <td className="py-2 pr-4">{entry.flat_amount === null ? "—" : `$${entry.flat_amount}`}</td>
+                      <td className="py-2 pr-4">
+                        {entry.attribute_payable_percent === null ? "—" : `${entry.attribute_payable_percent}%`}
+                      </td>
+                      <td className="py-2">{entry.is_recurring ? "Yes" : "No"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {hasLegacyData && (
+            <div>
+              <h3 className="mb-3 text-sm font-medium text-slate-300">
+                From an Earlier Process Street Import
+              </h3>
+              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {LEGACY_TAX_FIELD_LABELS.map(({ key, label }) => (
+                  <div key={key} className="flex flex-col gap-1 text-sm">
+                    <dt className="text-slate-400">{label}</dt>
+                    <dd>{policies.taxes?.[key] || "—"}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {TAX_FIELD_LABELS.map(({ key, label }) => (
-            <label key={key} className="flex flex-col gap-1 text-sm">
-              <span className="text-slate-400">{label}</span>
+        <div className="flex flex-col gap-3">
+          {drafts.map((draft, index) => (
+            <div key={index} className="flex flex-wrap items-center gap-2 rounded border border-slate-800 p-3">
+              <select
+                value={draft.tax_name}
+                onChange={(e) => updateDraft(index, { tax_name: e.target.value })}
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              >
+                {Object.entries(TAX_NAME_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
               <input
                 type="text"
-                value={form[key] ?? ""}
-                onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
-                className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                value={draft.description}
+                onChange={(e) => updateDraft(index, { description: e.target.value })}
+                placeholder="Description"
+                className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
               />
-            </label>
+              <input
+                type="number"
+                step="0.01"
+                value={draft.flat_amount}
+                onChange={(e) => updateDraft(index, { flat_amount: e.target.value })}
+                placeholder="Flat Price ($)"
+                className="w-32 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              />
+              <input
+                type="number"
+                step="0.01"
+                value={draft.attribute_payable_percent}
+                onChange={(e) => updateDraft(index, { attribute_payable_percent: e.target.value })}
+                placeholder="Attribute Payable (%)"
+                className="w-40 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              />
+              <fieldset className="flex items-center gap-3 text-sm text-slate-300">
+                <legend className="sr-only">Recurring</legend>
+                <label className="flex items-center gap-1">
+                  <input
+                    type="radio"
+                    checked={draft.is_recurring}
+                    onChange={() => updateDraft(index, { is_recurring: true })}
+                  />
+                  Recurring
+                </label>
+                <label className="flex items-center gap-1">
+                  <input
+                    type="radio"
+                    checked={!draft.is_recurring}
+                    onChange={() => updateDraft(index, { is_recurring: false })}
+                  />
+                  One-Time
+                </label>
+              </fieldset>
+              <button
+                type="button"
+                onClick={() => setDrafts((prev) => prev.filter((_, i) => i !== index))}
+                className="shrink-0 rounded border border-red-900 px-2 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/30"
+              >
+                Remove
+              </button>
+            </div>
           ))}
+          <button
+            type="button"
+            onClick={() => setDrafts((prev) => [...prev, emptyTaxDraft()])}
+            className="w-fit rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800"
+          >
+            + Add Tax
+          </button>
         </div>
       )}
 
@@ -444,32 +578,98 @@ function TaxesTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) 
   );
 }
 
+const PAID_THROUGH_DATE = "paid_through_date";
+
+/** A delinquency entry mid-edit -- `amount`/`days_after` stay strings
+ * while typing, same reasoning as `TaxEntryDraft`. `triggerValue` folds
+ * `trigger_type`/`trigger_category` into one dropdown value:
+ * `PAID_THROUGH_DATE` or another row's own `category`. */
+interface DelinquencyDraft {
+  category: string;
+  name: string;
+  amount: string;
+  days_after: string;
+  triggerValue: string;
+}
+
+function emptyDelinquencyDraft(): DelinquencyDraft {
+  return { category: "other", name: "", amount: "0", days_after: "", triggerValue: PAID_THROUGH_DATE };
+}
+
+function describeTrigger(entry: DelinquencyEntryOrDraft): string {
+  const base =
+    entry.trigger_type === PAID_THROUGH_DATE
+      ? "Paid Through Date"
+      : (STEP_TYPE_LABELS[entry.trigger_category ?? ""] ?? entry.trigger_category ?? "—");
+  return entry.days_after === null || entry.days_after === undefined || entry.days_after === ""
+    ? base
+    : `${entry.days_after} days after ${base}`;
+}
+
+/** Just enough of either a saved `DelinquencyEntry` or an in-progress
+ * draft (post-parse) to share `describeTrigger` between the read view
+ * and a live preview, without either shape needing to fake the other's
+ * unrelated fields. */
+interface DelinquencyEntryOrDraft {
+  trigger_type: string;
+  trigger_category: string | null;
+  days_after: number | string | null;
+}
+
 function DelinquencyTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) {
   const [editing, setEditing] = useState(false);
-  const [rows, setRows] = useState<DelinquencyStepRow[]>([]);
+  const [drafts, setDrafts] = useState<DelinquencyDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isEmpty = policies.delinquency_steps.length === 0;
+  const isEmpty = policies.delinquency_entries.length === 0;
 
   function startEdit() {
-    setRows(
-      policies.delinquency_steps.length > 0
-        ? policies.delinquency_steps.map((step) => ({ ...step }))
-        : [{ step_order: 1, step_type: "other", raw_value: "" }]
+    setDrafts(
+      policies.delinquency_entries.length > 0
+        ? policies.delinquency_entries.map((entry) => ({
+            category: entry.category,
+            name: entry.name,
+            amount: String(entry.amount),
+            days_after: entry.days_after === null ? "" : String(entry.days_after),
+            triggerValue: entry.trigger_type === PAID_THROUGH_DATE ? PAID_THROUGH_DATE : (entry.trigger_category ?? PAID_THROUGH_DATE),
+          }))
+        : [emptyDelinquencyDraft()]
     );
     setError(null);
     setEditing(true);
   }
 
+  function updateDraft(index: number, patch: Partial<DelinquencyDraft>) {
+    setDrafts((prev) => prev.map((draft, i) => (i === index ? { ...draft, ...patch } : draft)));
+  }
+
   async function save() {
-    setSaving(true);
     setError(null);
 
-    const cleaned = rows
-      .filter((row) => row.raw_value.trim() !== "")
-      .map((row, index) => ({ ...row, step_order: index + 1 }));
-    const result = await updateFacilityDelinquency(companyId, facilityId, cleaned);
+    const categories = drafts.map((d) => d.category);
+    const duplicate = categories.find((category, index) => categories.indexOf(category) !== index);
+    if (duplicate) {
+      setError(`"${STEP_TYPE_LABELS[duplicate] ?? duplicate}" is used more than once -- each category can only appear once.`);
+      return;
+    }
+    if (drafts.some((d) => d.amount.trim() === "" || Number.isNaN(Number(d.amount)))) {
+      setError("Every entry needs a dollar amount -- 0 is fine, but it can't be blank.");
+      return;
+    }
+
+    setSaving(true);
+
+    const entries: DelinquencyEntryInput[] = drafts.map((draft) => ({
+      category: draft.category,
+      name: draft.name,
+      amount: Number(draft.amount),
+      days_after: draft.days_after.trim() === "" ? null : Number(draft.days_after),
+      trigger_type: draft.triggerValue === PAID_THROUGH_DATE ? PAID_THROUGH_DATE : "step_category",
+      trigger_category: draft.triggerValue === PAID_THROUGH_DATE ? null : draft.triggerValue,
+    }));
+
+    const result = await updateFacilityDelinquency(companyId, facilityId, entries);
 
     setSaving(false);
 
@@ -480,10 +680,6 @@ function DelinquencyTab({ companyId, facilityId, policies, onSaved }: PolicyTabP
 
     setEditing(false);
     await onSaved();
-  }
-
-  function updateRow(index: number, patch: Partial<DelinquencyStepRow>) {
-    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
   return (
@@ -501,55 +697,129 @@ function DelinquencyTab({ companyId, facilityId, policies, onSaved }: PolicyTabP
       {!editing && isEmpty && policies.is_qsx_legacy && <QsxEmptyBanner category="delinquency" />}
 
       {!editing ? (
-        isEmpty ? (
-          <p className="text-sm text-slate-500">No delinquency steps captured for this facility yet.</p>
-        ) : (
-          <ol className="flex flex-col gap-2 text-sm">
-            {policies.delinquency_steps.map((step) => (
-              <li key={step.step_order} className="flex gap-3">
-                <span className="w-24 shrink-0 text-slate-400">{STEP_TYPE_LABELS[step.step_type] ?? step.step_type}</span>
-                <span>{step.raw_value}</span>
-              </li>
-            ))}
-          </ol>
-        )
+        <div className="flex flex-col gap-6">
+          {isEmpty ? (
+            <p className="text-sm text-slate-500">No delinquency entries captured for this facility yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="text-slate-400">
+                  <tr>
+                    <th className="pr-4 pb-2 font-medium">Category</th>
+                    <th className="pr-4 pb-2 font-medium">Name</th>
+                    <th className="pr-4 pb-2 font-medium">Amount</th>
+                    <th className="pb-2 font-medium">Triggered</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {policies.delinquency_entries.map((entry) => (
+                    <tr key={entry.id} className="border-t border-slate-800">
+                      <td className="py-2 pr-4">{STEP_TYPE_LABELS[entry.category] ?? entry.category}</td>
+                      <td className="py-2 pr-4">{entry.name}</td>
+                      <td className="py-2 pr-4">${entry.amount}</td>
+                      <td className="py-2">{describeTrigger(entry)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {policies.delinquency_steps.length > 0 && (
+            <div>
+              <h3 className="mb-3 text-sm font-medium text-slate-300">
+                From an Earlier Process Street Import
+              </h3>
+              <ol className="flex flex-col gap-2 text-sm">
+                {policies.delinquency_steps.map((step) => (
+                  <li key={step.step_order} className="flex gap-3">
+                    <span className="w-24 shrink-0 text-slate-400">
+                      {STEP_TYPE_LABELS[step.step_type] ?? step.step_type}
+                    </span>
+                    <span>{step.raw_value}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {rows.map((row, index) => (
-            <div key={index} className="flex flex-wrap items-center gap-2">
-              <select
-                value={row.step_type}
-                onChange={(e) => updateRow(index, { step_type: e.target.value })}
-                className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
-              >
-                {Object.entries(STEP_TYPE_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                value={row.raw_value}
-                onChange={(e) => updateRow(index, { raw_value: e.target.value })}
-                placeholder="Value"
-                className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
-              />
-              <button
-                type="button"
-                onClick={() => setRows((prev) => prev.filter((_, i) => i !== index))}
-                className="shrink-0 rounded border border-red-900 px-2 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/30"
-              >
-                Remove
-              </button>
-            </div>
-          ))}
+          {drafts.map((draft, index) => {
+            const otherCategories = drafts
+              .map((d) => d.category)
+              .filter((category, i) => i !== index)
+              .filter((category, i, arr) => arr.indexOf(category) === i);
+
+            return (
+              <div key={index} className="flex flex-col gap-2 rounded border border-slate-800 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={draft.category}
+                    onChange={(e) => updateDraft(index, { category: e.target.value })}
+                    className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                  >
+                    {Object.entries(STEP_TYPE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={draft.name}
+                    onChange={(e) => updateDraft(index, { name: e.target.value })}
+                    placeholder="Name (e.g. 1st Late Fee)"
+                    className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={draft.amount}
+                    onChange={(e) => updateDraft(index, { amount: e.target.value })}
+                    placeholder="Amount ($)"
+                    className="w-28 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setDrafts((prev) => prev.filter((_, i) => i !== index))}
+                    className="shrink-0 rounded border border-red-900 px-2 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/30"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="number"
+                    value={draft.days_after}
+                    onChange={(e) => updateDraft(index, { days_after: e.target.value })}
+                    placeholder="Days after"
+                    className="w-28 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                  />
+                  <span className="text-slate-400">after</span>
+                  <select
+                    value={draft.triggerValue}
+                    onChange={(e) => updateDraft(index, { triggerValue: e.target.value })}
+                    className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                  >
+                    <option value={PAID_THROUGH_DATE}>Paid Through Date</option>
+                    {otherCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {STEP_TYPE_LABELS[category] ?? category}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            );
+          })}
           <button
             type="button"
-            onClick={() => setRows((prev) => [...prev, { step_order: prev.length + 1, step_type: "other", raw_value: "" }])}
+            onClick={() => setDrafts((prev) => [...prev, emptyDelinquencyDraft()])}
             className="w-fit rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800"
           >
-            + Add Step
+            + Add Entry
           </button>
         </div>
       )}
