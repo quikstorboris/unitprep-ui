@@ -455,3 +455,19 @@ export async function unlinkFacilityPerson(
     `/clients/${companyId}/facilities/${facilityId}/people/${personId}?role=${encodeURIComponent(role)}`
   );
 }
+
+/**
+ * Changes (or clears, with `null`) which Dropbox folder this facility
+ * is linked to -- audit-logged on the backend. The Company page's own
+ * "Go to DropBox" launchpad links read the same `dropbox_folder_url`
+ * this updates, so they reflect a change here without any extra wiring.
+ */
+export async function updateFacilityDropboxFolder(
+  companyId: string,
+  facilityId: string,
+  dropboxFolderUrl: string | null
+): Promise<ClientsResult<void>> {
+  return clientsPut(`/clients/${companyId}/facilities/${facilityId}/dropbox-folder`, {
+    dropbox_folder_url: dropboxFolderUrl,
+  });
+}
