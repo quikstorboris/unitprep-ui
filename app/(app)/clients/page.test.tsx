@@ -2,10 +2,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { useClients, archiveCompany, unarchiveCompany, useRouter } = vi.hoisted(() => ({
+const { useClients, archiveCompany, unarchiveCompany, deleteCompany, useRouter } = vi.hoisted(() => ({
   useClients: vi.fn(),
   archiveCompany: vi.fn(),
   unarchiveCompany: vi.fn(),
+  deleteCompany: vi.fn(),
   useRouter: vi.fn(),
 }));
 
@@ -16,6 +17,7 @@ vi.mock("@/lib/clients", () => ({
 vi.mock("@/lib/clientsCompanies", () => ({
   archiveCompany,
   unarchiveCompany,
+  deleteCompany,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -42,6 +44,7 @@ describe("ClientsPage", () => {
     vi.clearAllMocks();
     useRouter.mockReturnValue({ push: vi.fn() });
     refresh.mockResolvedValue(undefined);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
   it("shows a loading state before the client list has hydrated", () => {
@@ -134,5 +137,65 @@ describe("ClientsPage", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not update this client");
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("asks for confirmation, then permanently deletes a client and refreshes the list", async () => {
+    deleteCompany.mockResolvedValue({ kind: "ok", data: undefined });
+    useClients.mockReturnValue({ clients: [client()], hydrated: true, refresh });
+
+    const user = userEvent.setup();
+    render(<ClientsPage />);
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(window.confirm).toHaveBeenCalledWith(
+      expect.stringContaining('Permanently delete "Prairie Enterprises LLC"')
+    );
+    expect(deleteCompany).toHaveBeenCalledWith("company-1");
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("does not delete when the confirmation is dismissed", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    useClients.mockReturnValue({ clients: [client()], hydrated: true, refresh });
+
+    const user = userEvent.setup();
+    render(<ClientsPage />);
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(deleteCompany).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("shows an error and does not refresh when deleting fails", async () => {
+    deleteCompany.mockResolvedValue({ kind: "error", message: "Could not delete this client" });
+    useClients.mockReturnValue({ clients: [client()], hydrated: true, refresh });
+
+    const user = userEvent.setup();
+    render(<ClientsPage />);
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not delete this client");
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("also offers Delete on an archived client", async () => {
+    deleteCompany.mockResolvedValue({ kind: "ok", data: undefined });
+    useClients.mockReturnValue({
+      clients: [client({ archivedAt: "2026-08-01T00:00:00Z" })],
+      hydrated: true,
+      refresh,
+    });
+
+    const user = userEvent.setup();
+    render(<ClientsPage />);
+
+    await user.click(screen.getByText("Archived (1)"));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(deleteCompany).toHaveBeenCalledWith("company-1");
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 });

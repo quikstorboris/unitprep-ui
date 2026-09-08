@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { useClients } from "@/lib/clients";
-import { archiveCompany, unarchiveCompany } from "@/lib/clientsCompanies";
+import { archiveCompany, deleteCompany, unarchiveCompany } from "@/lib/clientsCompanies";
 
 export default function ClientsPage() {
   const router = useRouter();
@@ -24,6 +24,30 @@ export default function ClientsPage() {
     setPendingId(id);
 
     const result = archive ? await archiveCompany(id) : await unarchiveCompany(id);
+
+    setPendingId(null);
+
+    if (result.kind !== "ok") {
+      setError(result.message);
+      return;
+    }
+
+    await refresh();
+  }
+
+  /** Permanent, not reversible like archive -- confirms in-page first
+   * since this is the one destructive action on this whole page (see
+   * `deleteCompany`'s own doc comment for when this is the right call
+   * vs. archiving). */
+  async function handleDelete(id: string, name: string) {
+    if (!window.confirm(`Permanently delete "${name}" and every facility under it? This can't be undone.`)) {
+      return;
+    }
+
+    setError(null);
+    setPendingId(id);
+
+    const result = await deleteCompany(id);
 
     setPendingId(null);
 
@@ -88,6 +112,14 @@ export default function ClientsPage() {
                 >
                   Archive
                 </button>
+
+                <button
+                  onClick={() => handleDelete(client.id, client.name)}
+                  disabled={pendingId === client.id}
+                  className="shrink-0 rounded border border-red-900 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-950/30 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Delete
+                </button>
               </li>
             ))}
           </ul>
@@ -122,6 +154,14 @@ export default function ClientsPage() {
                     className="shrink-0 rounded border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Unarchive
+                  </button>
+
+                  <button
+                    onClick={() => handleDelete(client.id, client.name)}
+                    disabled={pendingId === client.id}
+                    className="shrink-0 rounded border border-red-900 px-3 py-1.5 text-sm text-red-400 transition-colors hover:bg-red-950/30 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Delete
                   </button>
                 </li>
               ))}

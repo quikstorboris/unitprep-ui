@@ -1280,6 +1280,30 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
     await load();
   }
 
+  /** The roster's own direct "Remove" action -- unlike a candidate
+   * chip's unlink (which needs a matching name to find the right
+   * roster row in the first place), this always targets the exact
+   * `person_id`/`role` already in hand, so it works even for a row a
+   * candidate chip can no longer match (e.g. a stale identity left over
+   * from before 2026-09-08's person-identity fix, real Dubuqueland
+   * data). */
+  async function handleRemoveFromRoster(person: FacilityPerson) {
+    const key = `${person.person_id}:${person.role}`;
+    setPendingKey(key);
+    setActionError(null);
+
+    const result = await unlinkFacilityPerson(companyId, facilityId, person.person_id, person.role);
+
+    setPendingKey(null);
+
+    if (result.kind !== "ok") {
+      setActionError(result.message);
+      return;
+    }
+
+    await load();
+  }
+
   async function handleCopyAll() {
     if (!people || people.roster.length === 0) return;
 
@@ -1577,13 +1601,23 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
                       </td>
                       <td className="py-2 pr-4 text-slate-400">{SOURCE_LABELS[person.source] ?? person.source}</td>
                       <td className="py-2">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(person)}
-                          className="rounded border border-slate-700 px-2 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800"
-                        >
-                          Edit
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(person)}
+                            className="rounded border border-slate-700 px-2 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFromRoster(person)}
+                            disabled={pendingKey === `${person.person_id}:${person.role}`}
+                            className="rounded border border-red-900 px-2 py-1 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/30 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

@@ -1,4 +1,4 @@
-import { clientsGet, clientsPost, type ClientsResult } from "@/lib/clientsApi";
+import { clientsDelete, clientsGet, clientsPost, type ClientsResult } from "@/lib/clientsApi";
 
 /**
  * The real `clients.companies` list -- backs the unified `/clients`
@@ -25,6 +25,18 @@ export async function archiveCompany(companyId: string): Promise<ClientsResult<u
 
 export async function unarchiveCompany(companyId: string): Promise<ClientsResult<undefined>> {
   return clientsPost(`/clients/${companyId}/unarchive`);
+}
+
+/**
+ * Permanently deletes a company and every facility under it -- distinct
+ * from archive/unarchive above, which is reversible and keeps the row
+ * around. For a genuine mistake (a test import, or one created from the
+ * wrong Process Street runs), not something to reach for as routine
+ * cleanup. The frontend confirms before calling this; the backend
+ * itself asks for no separate confirmation of its own.
+ */
+export async function deleteCompany(companyId: string): Promise<ClientsResult<undefined>> {
+  return clientsDelete(`/clients/${companyId}`);
 }
 
 /**
