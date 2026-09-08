@@ -1200,7 +1200,19 @@ function personFormToAssignment(form: PersonFormState): PersonAssignment {
  * pass. Editing a Process Street person offers a choice, right at edit
  * time, to protect that edit the same way -- otherwise the next self-heal
  * pass can silently revert it back to whatever the index says.
+ *
+ * 2026-09-08: "already linked" is matched by (email, role, full_name),
+ * not just (email, role) -- real Dubuqueland data has several distinct
+ * people (Barb Soppe, Carrie Krueger, Chad Soppe) sharing one family
+ * inbox with the same role. Matching without name collapsed them: once
+ * one was linked, the others' chips showed red too even though they
+ * weren't on the roster, and clicking one would have unlinked the wrong
+ * person (whoever the email+role match actually resolved to).
  */
+function candidateKey(person: { full_name: string; email: string | null; role: string }): string {
+  return `${(person.email ?? "").toLowerCase()}:${person.role}:${person.full_name.trim().toLowerCase()}`;
+}
+
 function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: string }) {
   const [people, setPeople] = useState<FacilityPeople | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -1250,7 +1262,7 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
   }, [companyId, facilityId]);
 
   async function handleChipClick(candidate: PersonAssignment, linkedPersonId: string | null) {
-    const key = `${candidate.email ?? candidate.full_name}:${candidate.role}`;
+    const key = candidateKey(candidate);
     setPendingKey(key);
     setActionError(null);
 
@@ -1352,13 +1364,15 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
     return <p className="text-sm text-slate-400">Loading…</p>;
   }
 
-  // Keyed by "email:role" (both lowercased on email) -- how a candidate
-  // chip finds the roster row it corresponds to, since a candidate off
-  // ps_person_index carries no person_id of its own.
+  // Keyed by (email, role, full_name) -- how a candidate chip finds the
+  // roster row it corresponds to, since a candidate off ps_person_index
+  // carries no person_id of its own. Full name has to be part of the key,
+  // not just email+role: real Dubuqueland data has several distinct
+  // people (Barb Soppe, Carrie Krueger, Chad Soppe) sharing one family
+  // inbox with the same role -- matching on email+role alone would make
+  // all of them resolve to whichever one is actually on the roster.
   const rosterByEmailAndRole = new Map(
-    people.roster
-      .filter((person) => !!person.email)
-      .map((person) => [`${person.email!.toLowerCase()}:${person.role}`, person])
+    people.roster.filter((person) => !!person.email).map((person) => [candidateKey(person), person])
   );
 
   return (
@@ -1596,10 +1610,8 @@ function UsersTab({ companyId, facilityId }: { companyId: string; facilityId: st
         ) : (
           <div className="flex flex-wrap gap-2">
             {people.candidates.map((candidate) => {
-              const key = `${candidate.email ?? candidate.full_name}:${candidate.role}`;
-              const linkedPerson = candidate.email
-                ? rosterByEmailAndRole.get(`${candidate.email.toLowerCase()}:${candidate.role}`)
-                : undefined;
+              const key = candidateKey(candidate);
+              const linkedPerson = candidate.email ? rosterByEmailAndRole.get(key) : undefined;
 
               return (
                 <button
