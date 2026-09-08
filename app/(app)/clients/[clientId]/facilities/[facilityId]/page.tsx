@@ -516,8 +516,8 @@ function TaxesTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) 
                 type="text"
                 value={draft.description}
                 onChange={(e) => updateDraft(index, { description: e.target.value })}
-                placeholder="Description"
-                className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                placeholder="Description (e.g. Parking Space County Tax)"
+                className="min-w-[18rem] flex-[3] rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
               />
               <input
                 type="number"
@@ -525,15 +525,15 @@ function TaxesTab({ companyId, facilityId, policies, onSaved }: PolicyTabProps) 
                 value={draft.flat_amount}
                 onChange={(e) => updateDraft(index, { flat_amount: e.target.value })}
                 placeholder="Flat Price ($)"
-                className="w-32 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                className="w-24 shrink-0 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
               />
               <input
                 type="number"
                 step="0.01"
                 value={draft.attribute_payable_percent}
                 onChange={(e) => updateDraft(index, { attribute_payable_percent: e.target.value })}
-                placeholder="Attribute Payable (%)"
-                className="w-40 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                placeholder="Payable (%)"
+                className="w-24 shrink-0 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
               />
               <fieldset className="flex items-center gap-3 text-sm text-slate-300">
                 <legend className="sr-only">Recurring</legend>
@@ -1110,12 +1110,30 @@ const ROLE_LABELS: Record<string, string> = {
  * people. Plain text, not CSV/markdown -- meant to be pasted straight
  * into an email or a PS field, not parsed back.
  */
+/** Section heading per role, in the fixed order Boris asked for --
+ * Owner(s), District Manager(s), Manager(s) -- not alphabetical or
+ * table order, and skipped entirely when this facility has none of
+ * that role. */
+const ROLE_CLIPBOARD_HEADINGS: { role: string; heading: string }[] = [
+  { role: "owner", heading: "Owner(s):" },
+  { role: "district_manager", heading: "District Manager(s):" },
+  { role: "manager", heading: "Manager(s):" },
+];
+
 function formatRosterForClipboard(roster: FacilityPerson[]): string {
-  return roster
-    .map((person) => [person.full_name, person.phone ? formatPhone(person.phone) : null, person.email]
-      .filter((line): line is string => !!line)
-      .join("\n"))
-    .join("\n\n");
+  return ROLE_CLIPBOARD_HEADINGS.filter(({ role }) => roster.some((person) => person.role === role))
+    .map(({ role, heading }) => {
+      const people = roster
+        .filter((person) => person.role === role)
+        .map((person) =>
+          [person.full_name, person.phone ? formatPhone(person.phone) : null, person.email]
+            .filter((line): line is string => !!line)
+            .join("\n")
+        )
+        .join("\n\n");
+      return `${heading}\n\n${people}`;
+    })
+    .join("\n\n\n");
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -2137,7 +2155,7 @@ export default function FacilityDetailPage() {
   // chrome stay put instead of the whole page blanking out.
   return (
     <main className="p-8">
-      <div className="mx-auto flex max-w-5xl gap-8">
+      <div className="mx-auto flex max-w-6xl gap-8">
         <FacilityRail companyId={clientId} facilities={company.facilities} activeFacilityId={facilityId} />
 
         {!facility || !policies ? (
