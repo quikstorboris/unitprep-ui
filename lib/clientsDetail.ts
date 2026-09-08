@@ -358,6 +358,10 @@ export interface FacilityPerson {
   email: string | null;
   phone: string | null;
   role: string;
+  /** "process_street" (an "Add User" chip, or every already-ingested
+   * row) or "manual" -- permanently exempt from the Users tab's own
+   * self-heal pass. Never shown on "Copy All". */
+  source: string;
 }
 
 /**
@@ -387,18 +391,52 @@ export async function getFacilityPeople(
 }
 
 /**
- * Adds (or re-adds) a person to this facility's roster -- always an
+ * Adds (or re-adds) a person to this facility's roster. For a
+ * `source: "process_street"` add (an "Add User" chip), always an
  * upsert: a person already linked from an old ingest gets their stored
  * name/phone overwritten with `assignment`'s values rather than left
  * alone, the same self-heal `upsert_person_and_link_to_facility`'s own
  * doc comment explains (Sand-Sto's own "Irene Chen - (301) 787-9221").
+ * `source: "manual"` is a brand-new person typed in by hand -- never
+ * touched by the Users tab's own self-heal pass afterward.
  */
 export async function addFacilityPerson(
   companyId: string,
   facilityId: string,
-  assignment: PersonAssignment
+  assignment: PersonAssignment,
+  source: "process_street" | "manual"
 ): Promise<ClientsResult<void>> {
-  return clientsPost(`/clients/${companyId}/facilities/${facilityId}/people`, assignment);
+  return clientsPost(`/clients/${companyId}/facilities/${facilityId}/people`, { ...assignment, source });
+}
+
+/**
+ * The Users tab's "Edit" action -- retypes a roster person's own
+ * name/email/phone/role directly. `oldRole` identifies which existing
+ * (facility, person, role) link is being edited, since `role` itself
+ * may be changing. `protectFromResync` only matters when this person's
+ * current `source` is "process_street": true flips their link to
+ * "manual" (so this edit survives the Users tab's own self-heal pass
+ * going forward); false leaves it "process_street", meaning a future
+ * load could still silently revert this edit back to whatever
+ * `clients.ps_person_index` says. Ignored (already permanently
+ * protected) for an already-"manual" person.
+ */
+export async function editFacilityPerson(
+  companyId: string,
+  facilityId: string,
+  personId: string,
+  oldRole: string,
+  assignment: PersonAssignment,
+  protectFromResync: boolean
+): Promise<ClientsResult<void>> {
+  return clientsPut(`/clients/${companyId}/facilities/${facilityId}/people/${personId}`, {
+    old_role: oldRole,
+    full_name: assignment.full_name,
+    email: assignment.email,
+    phone: assignment.phone,
+    role: assignment.role,
+    protect_from_resync: protectFromResync,
+  });
 }
 
 /**
