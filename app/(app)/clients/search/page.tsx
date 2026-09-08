@@ -327,7 +327,9 @@ export default function ClientsSearchPage() {
                           </td>
                           <td className="px-6 py-2.5 text-slate-400">{match.company_name ?? "—"}</td>
                           <td className="px-6 py-2.5 text-slate-400">{matchedViaLabel(match.matched_via)}</td>
-                          <td className="px-6 py-2.5 text-slate-400">{match.status ?? "—"}</td>
+                          <td className="px-6 py-2.5 text-slate-400">
+                            <StatusCell status={match.status} />
+                          </td>
                           <td className="px-6 py-2.5 text-slate-400">{formatActivity(match.last_activity_at)}</td>
                         </tr>
                       ))}
@@ -374,7 +376,9 @@ export default function ClientsSearchPage() {
                                 <td className="px-4 py-2">{displayFacilityName(match.run_name)}</td>
                                 <td className="px-4 py-2 text-slate-300">{match.company_name ?? "—"}</td>
                                 <td className="px-4 py-2 text-slate-300">{matchedViaLabel(match.matched_via)}</td>
-                                <td className="px-4 py-2 text-slate-300">{match.status ?? "—"}</td>
+                                <td className="px-4 py-2 text-slate-300">
+                                  <StatusCell status={match.status} />
+                                </td>
                                 <td className="px-4 py-2 text-slate-300">
                                   {formatActivity(match.duplicate?.merchant_account_updated_at ?? null)}
                                 </td>
@@ -435,6 +439,27 @@ export default function ClientsSearchPage() {
         )}
     </main>
   );
+}
+
+/**
+ * A person-derived match has no `status` -- getting one would need an
+ * extra live PS call per candidate, deliberately skipped (see
+ * `MatchedVia`'s own backend doc comment) -- but a bare "—" next to
+ * real "Active" values on other rows reads as a rendering glitch, not
+ * "we didn't check." Boris, 2026-09-08: label it explicitly instead.
+ */
+function StatusCell({ status }: { status: string | null }) {
+  if (status === null) {
+    return (
+      <span
+        className="italic text-slate-600"
+        title="Not checked -- this row was found via a person match, which skips a live per-candidate status lookup."
+      >
+        Unknown
+      </span>
+    );
+  }
+  return <span>{status}</span>;
 }
 
 function matchedViaLabel(matchedVia: MatchedVia): string {
