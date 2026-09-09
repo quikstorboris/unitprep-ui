@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import RequirePermission from "@/components/auth/RequirePermission";
+import { SecretField } from "@/components/integrations/SecretField";
 import {
   getProcessStreetSettings,
   updateProcessStreetSettings,
+  type ProcessStreetSettings,
 } from "@/lib/processStreetSettings";
 
 const primaryButtonClass =
@@ -14,6 +16,15 @@ const primaryButtonClass =
 
 const MIN_INTERVAL_HOURS = 1;
 const MAX_INTERVAL_HOURS = 168;
+
+type FormState = {
+  intervalHours: number;
+  apiKey: string;
+};
+
+function formFromSettings(settings: ProcessStreetSettings): FormState {
+  return { intervalHours: settings.sync_interval_hours, apiKey: settings.api_key };
+}
 
 /**
  * First page under the "Integrations" nav group -- Process Street
@@ -30,9 +41,16 @@ const MAX_INTERVAL_HOURS = 168;
  * server startup -- only on this interval, or via the "Sync Now" button
  * on the search page (`/clients/search`) or a client's own "Re-sync"
  * button on its detail page.
+ *
+ * **API key added 2026-09-09** -- the form is pre-filled with the real,
+ * currently-effective value (masked, revealable, copyable via
+ * `SecretField`), pulled from the saved database row if one exists,
+ * otherwise from the server's own `PROCESS_STREET_API_KEY` environment
+ * variable (see `api_key_source` below).
  */
 export default function ProcessStreetIntegrationPage() {
-  const [intervalHours, setIntervalHours] = useState<number | null>(null);
+  const [settings, setSettings] = useState<ProcessStreetSettings | null>(null);
+  const [form, setForm] = useState<FormState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -46,18 +64,22 @@ export default function ProcessStreetIntegrationPage() {
         return;
       }
       setLoadError(null);
-      setIntervalHours(result.data.sync_interval_hours);
+      setSettings(result.data);
+      setForm(formFromSettings(result.data));
     });
   }, []);
 
   async function handleSave() {
-    if (intervalHours === null) return;
+    if (form === null) return;
 
     setSaving(true);
     setSaveError(null);
     setSaved(false);
 
-    const result = await updateProcessStreetSettings(intervalHours);
+    const result = await updateProcessStreetSettings({
+      syncIntervalHours: form.intervalHours,
+      apiKey: form.apiKey,
+    });
     setSaving(false);
 
     if (result.kind !== "ok") {
@@ -65,18 +87,20 @@ export default function ProcessStreetIntegrationPage() {
       return;
     }
 
-    setIntervalHours(result.data.sync_interval_hours);
+    setSettings(result.data);
+    setForm(formFromSettings(result.data));
     setSaved(true);
   }
 
   const invalid =
-    intervalHours === null ||
-    !Number.isInteger(intervalHours) ||
-    intervalHours < MIN_INTERVAL_HOURS ||
-    intervalHours > MAX_INTERVAL_HOURS;
+    form === null ||
+    !Number.isInteger(form.intervalHours) ||
+    form.intervalHours < MIN_INTERVAL_HOURS ||
+    form.intervalHours > MAX_INTERVAL_HOURS ||
+    form.apiKey.length === 0;
 
   return (
-    <RequirePermission permission="client_ops.perform">
+    <RequirePermission permission="integrations.manage">
       <div className="flex-1 p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-100">Process Street</h1>
@@ -92,11 +116,31 @@ export default function ProcessStreetIntegrationPage() {
           </p>
         )}
 
-        {intervalHours === null ? (
+        {form === null && !loadError ? (
           <p className="text-sm text-slate-400">Loading…</p>
-        ) : (
+        ) : form === null ? null : (
           <div className="max-w-lg rounded border border-slate-800 bg-slate-900 p-4">
-            <h2 className="mb-1 text-sm font-semibold text-slate-100">Sync schedule</h2>
+            {settings?.api_key_source === "environment" && (
+              <p className="mb-3 rounded border border-amber-900 bg-amber-950/50 px-3 py-2 text-xs text-amber-300">
+                No API key saved here yet -- showing the value currently configured via
+                environment variables. Save to move it into the database.
+              </p>
+            )}
+
+            <h2 className="mb-1 text-sm font-semibold text-slate-100">API key</h2>
+            <p className="mb-3 text-sm text-slate-400">
+              The org-wide Process Street API key this app authenticates every request with.
+            </p>
+            <SecretField
+              label="API key"
+              value={form.apiKey}
+              onChange={(value) => {
+                setSaved(false);
+                setForm((current) => (current ? { ...current, apiKey: value } : current));
+              }}
+            />
+
+            <h2 className="mb-1 mt-6 text-sm font-semibold text-slate-100">Sync schedule</h2>
             <p className="mb-3 text-sm text-slate-400">
               Runs automatically on this interval, plus whenever &quot;Sync Now&quot; is used
               on the{" "}
@@ -118,18 +162,20 @@ export default function ProcessStreetIntegrationPage() {
                 min={MIN_INTERVAL_HOURS}
                 max={MAX_INTERVAL_HOURS}
                 step={1}
-                value={intervalHours}
+                value={form.intervalHours}
                 onChange={(event) => {
                   setSaved(false);
                   const value = event.target.valueAsNumber;
-                  setIntervalHours(Number.isNaN(value) ? 0 : value);
+                  setForm((current) =>
+                    current ? { ...current, intervalHours: Number.isNaN(value) ? 0 : value } : current
+                  );
                 }}
                 className="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
               />
               <span className="text-sm text-slate-300">hours</span>
             </div>
 
-            {invalid && (
+            {(form.intervalHours < MIN_INTERVAL_HOURS || form.intervalHours > MAX_INTERVAL_HOURS) && (
               <p className="mt-2 text-xs text-slate-500">
                 Must be a whole number between {MIN_INTERVAL_HOURS} and {MAX_INTERVAL_HOURS}.
               </p>

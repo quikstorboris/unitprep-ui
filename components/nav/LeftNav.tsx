@@ -10,20 +10,60 @@ import { useCurrentUser } from "@/lib/currentUser";
 interface NavLink {
   label: string;
   href: string;
-  /** Omitted means "every signed-in user" (Clients, Account). Set means
-   * "only a caller holding this permission" -- checked against the same
-   * `permissions` list the backend resolves, so this can't drift from
-   * the real capability matrix the way a hardcoded role name could. */
+  /** Omitted means "every signed-in user" (Clients, Account > Security).
+   * Set means "only a caller holding this permission" -- checked against
+   * the same `permissions` list the backend resolves, so this can't
+   * drift from the real capability matrix the way a hardcoded role name
+   * could. */
   permission?: string;
 }
 
-// Config-driven on purpose — the platform vision expects more top-level
+// Config-driven on purpose -- the platform vision expects more top-level
 // sections later; adding one should mean adding an entry here, not
-// restructuring the nav. Administration groups everything gated by an
-// admin-shaped permission under one heading rather than four flat items
-// mixed in with Clients/Account, now that there's enough of them (Users,
-// Roles, Security Logs, Activity Logs, Security Policies) for that to matter.
-const TOP_LEVEL_LINKS: NavLink[] = [{ label: "Clients", href: "/clients" }];
+// restructuring the nav.
+//
+// Four groups (2026-09-09 restructure): Tools (the day-to-day
+// client-ops surfaces), Integrations (admin-only -- see below),
+// Administration (system/user administration), Account (this caller's
+// own settings). Integrations used to sit alongside Tools' items as a
+// flatter set of top-level links; QMS Tags/Activity Logs used to live
+// under Administration despite being client-ops tools, not system
+// administration -- Boris's call to regroup by "what kind of thing is
+// this" rather than "who happens to be able to see it".
+const TOOLS_LINKS: NavLink[] = [
+  { label: "Clients", href: "/clients" },
+  {
+    label: "QMS Tags",
+    href: "/admin/client-ops/qms-tags",
+    // Not admin-exclusive -- onboarding_manager and department_manager
+    // hold client_ops.manage_tags too (Boris's call: maintaining this
+    // reference catalog reads as system configuration, not a client
+    // operation, so all three client-ops-adjacent roles share it rather
+    // than following client_ops.perform's usual admin-excluded shape).
+    permission: "client_ops.manage_tags",
+  },
+  {
+    // The client-ops operations trail (imports, dedup/Unit Group runs,
+    // Process Street syncs) -- distinct from Administration's Security
+    // Logs, see that route's own module doc for why they're kept apart.
+    label: "Activity Logs",
+    href: "/admin/activity-logs",
+    permission: "activity_logs.read",
+  },
+];
+
+// Admin-only (2026-09-09): configuring a third-party integration's own
+// credentials/schedule is being treated as system administration, not a
+// client operation, unlike every other client-ops write in this app --
+// see the `integrations.manage` permission's own migration comment.
+// Gating every link here on that one admin-only permission is also what
+// makes the whole "Integrations" section itself admin-only below
+// (`visibleIntegrationsLinks.length > 0`), with no separate role check
+// needed.
+const INTEGRATIONS_LINKS: NavLink[] = [
+  { label: "Process Street", href: "/integrations/process-street", permission: "integrations.manage" },
+  { label: "DropBox", href: "/integrations/dropbox", permission: "integrations.manage" },
+];
 
 const ADMINISTRATION_LINKS: NavLink[] = [
   { label: "Users", href: "/admin/users", permission: "users.manage" },
@@ -37,51 +77,24 @@ const ADMINISTRATION_LINKS: NavLink[] = [
     permission: "users.manage_roles",
   },
   {
-    // The security audit trail (logins, role changes, authorization
-    // failures) -- renamed from "Audit Logs" (2026-09-02) once "Activity
-    // Logs" below existed as a genuinely separate operations trail, so
-    // the two names don't read as the same thing.
-    label: "Security Logs",
-    href: "/admin/security-logs",
-    permission: "audit_logs.read",
-  },
-  {
-    // The client-ops operations trail (imports, dedup/Unit Group runs,
-    // Process Street syncs) -- distinct from Security Logs above, see
-    // that route's own module doc for why they're kept apart.
-    label: "Activity Logs",
-    href: "/admin/activity-logs",
-    permission: "activity_logs.read",
-  },
-  {
     label: "Security Policies",
     href: "/admin/security-policies",
     permission: "security_policies.manage",
   },
   {
-    label: "QMS Tags",
-    href: "/admin/client-ops/qms-tags",
-    // Not admin-exclusive -- onboarding_manager and department_manager
-    // hold client_ops.manage_tags too (Boris's call: maintaining this
-    // reference catalog reads as system configuration, not a client
-    // operation, so all three client-ops-adjacent roles share it rather
-    // than following client_ops.perform's usual admin-excluded shape).
-    permission: "client_ops.manage_tags",
+    // The security audit trail (logins, role changes, authorization
+    // failures) -- renamed from "Audit Logs" (2026-09-02) once "Activity
+    // Logs" (now under Tools) existed as a genuinely separate operations
+    // trail, so the two names don't read as the same thing.
+    label: "Security Logs",
+    href: "/admin/security-logs",
+    permission: "audit_logs.read",
   },
 ];
 
-const INTEGRATIONS_LINKS: NavLink[] = [
-  {
-    label: "Process Street",
-    href: "/integrations/process-street",
-    // Same gate as the manual "Sync Now" trigger and the settings
-    // update it configures -- operational client-ops configuration, not
-    // admin territory (admin deliberately doesn't hold client_ops.perform).
-    permission: "client_ops.perform",
-  },
-];
-
-const ACCOUNT_LINK: NavLink = { label: "Account", href: "/account" };
+// Just the one page for now (Authenticator App) -- per Boris's explicit
+// scope, more account-level settings are a follow-up, not this pass.
+const ACCOUNT_LINKS: NavLink[] = [{ label: "Security", href: "/account/security" }];
 
 function visibleLinks(links: NavLink[], permissions: string[]): NavLink[] {
   return links.filter(
@@ -96,11 +109,6 @@ function NavItem({
 }: {
   link: NavLink;
   active: boolean;
-  /** For a caller that needs spacing (e.g. `mt-3` before the Account
-   * link) -- applied to this component's own `<li>` rather than having
-   * the caller wrap it in a second one, which is invalid HTML (`<li>`
-   * cannot be a descendant of `<li>` except via a nested `<ul>`/`<ol>`,
-   * which is what the Administration group below actually does). */
   className?: string;
 }) {
   return (
@@ -120,6 +128,38 @@ function NavItem({
   );
 }
 
+/** One nav group: an uppercase header plus its list of links, matching
+ * Administration's original nested-`<ul>` shape (a `<li>` cannot host
+ * another `<li>` directly, only via a nested `<ul>`/`<ol>`). Reused
+ * across all four groups now that there's more than one, rather than
+ * writing the same header/list markup four times. */
+function NavGroup({
+  title,
+  links,
+  pathname,
+  className,
+}: {
+  title: string;
+  links: NavLink[];
+  pathname: string;
+  className?: string;
+}) {
+  if (links.length === 0) return null;
+
+  return (
+    <li className={className}>
+      <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+        {title}
+      </p>
+      <ul className="flex flex-col gap-1">
+        {links.map((link) => (
+          <NavItem key={link.href} link={link} active={pathname.startsWith(link.href)} />
+        ))}
+      </ul>
+    </li>
+  );
+}
+
 export default function LeftNav() {
   const pathname = usePathname();
   const router = useRouter();
@@ -133,8 +173,9 @@ export default function LeftNav() {
   }
 
   const permissions = user?.permissions ?? [];
-  const visibleAdminLinks = visibleLinks(ADMINISTRATION_LINKS, permissions);
+  const visibleToolsLinks = visibleLinks(TOOLS_LINKS, permissions);
   const visibleIntegrationsLinks = visibleLinks(INTEGRATIONS_LINKS, permissions);
+  const visibleAdminLinks = visibleLinks(ADMINISTRATION_LINKS, permissions);
 
   return (
     <nav className="flex w-56 shrink-0 flex-col border-r border-slate-800 bg-slate-950 p-4">
@@ -150,53 +191,20 @@ export default function LeftNav() {
       </div>
 
       <ul className="flex flex-col gap-1">
-        {TOP_LEVEL_LINKS.map((link) => (
-          <NavItem
-            key={link.href}
-            link={link}
-            active={pathname.startsWith(link.href)}
-          />
-        ))}
-
-        {visibleIntegrationsLinks.length > 0 && (
-          <li className="mt-3">
-            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-              Integrations
-            </p>
-            <ul className="flex flex-col gap-1">
-              {visibleIntegrationsLinks.map((link) => (
-                <NavItem
-                  key={link.href}
-                  link={link}
-                  active={pathname.startsWith(link.href)}
-                />
-              ))}
-            </ul>
-          </li>
-        )}
-
-        {visibleAdminLinks.length > 0 && (
-          <li className="mt-3">
-            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-              Administration
-            </p>
-            <ul className="flex flex-col gap-1">
-              {visibleAdminLinks.map((link) => (
-                <NavItem
-                  key={link.href}
-                  link={link}
-                  active={pathname.startsWith(link.href)}
-                />
-              ))}
-            </ul>
-          </li>
-        )}
-
-        <NavItem
-          link={ACCOUNT_LINK}
-          active={pathname.startsWith(ACCOUNT_LINK.href)}
+        <NavGroup title="Tools" links={visibleToolsLinks} pathname={pathname} />
+        <NavGroup
+          title="Integrations"
+          links={visibleIntegrationsLinks}
+          pathname={pathname}
           className="mt-3"
         />
+        <NavGroup
+          title="Administration"
+          links={visibleAdminLinks}
+          pathname={pathname}
+          className="mt-3"
+        />
+        <NavGroup title="Account" links={ACCOUNT_LINKS} pathname={pathname} className="mt-3" />
       </ul>
 
       {/* Pinned to the bottom via mt-auto, separate from the routed nav

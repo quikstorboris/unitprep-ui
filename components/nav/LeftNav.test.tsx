@@ -26,6 +26,7 @@ const ADMIN_PERMISSIONS = [
   "activity_logs.read",
   "security_policies.manage",
   "client_ops.manage_tags",
+  "integrations.manage",
 ];
 
 describe("LeftNav", () => {
@@ -61,6 +62,18 @@ describe("LeftNav", () => {
       screen.getByRole("link", { name: "Clients" })
     ).toHaveAttribute("href", "/clients");
     expect(
+      screen.getByRole("link", { name: "QMS Tags" })
+    ).toHaveAttribute("href", "/admin/client-ops/qms-tags");
+    expect(
+      screen.getByRole("link", { name: "Activity Logs" })
+    ).toHaveAttribute("href", "/admin/activity-logs");
+    expect(
+      screen.getByRole("link", { name: "Process Street" })
+    ).toHaveAttribute("href", "/integrations/process-street");
+    expect(
+      screen.getByRole("link", { name: "DropBox" })
+    ).toHaveAttribute("href", "/integrations/dropbox");
+    expect(
       screen.getByRole("link", { name: "Users" })
     ).toHaveAttribute("href", "/admin/users");
     expect(
@@ -70,20 +83,14 @@ describe("LeftNav", () => {
       screen.getByRole("link", { name: "Security Logs" })
     ).toHaveAttribute("href", "/admin/security-logs");
     expect(
-      screen.getByRole("link", { name: "Activity Logs" })
-    ).toHaveAttribute("href", "/admin/activity-logs");
-    expect(
       screen.getByRole("link", { name: "Security Policies" })
     ).toHaveAttribute("href", "/admin/security-policies");
     expect(
-      screen.getByRole("link", { name: "QMS Tags" })
-    ).toHaveAttribute("href", "/admin/client-ops/qms-tags");
-    expect(
-      screen.getByRole("link", { name: "Account" })
-    ).toHaveAttribute("href", "/account");
+      screen.getByRole("link", { name: "Security" })
+    ).toHaveAttribute("href", "/account/security");
   });
 
-  it("hides every Administration link for a signed-in caller with no admin-shaped permissions", () => {
+  it("hides Integrations and every Administration link for a signed-in caller with no admin-shaped permissions", () => {
     usePathname.mockReturnValue("/clients");
     useCurrentUser.mockReturnValue({
       user: {
@@ -100,10 +107,11 @@ describe("LeftNav", () => {
     render(<LeftNav />);
 
     for (const label of [
+      "Process Street",
+      "DropBox",
       "Users",
       "Roles",
       "Security Logs",
-      "Activity Logs",
       "Security Policies",
       "QMS Tags",
     ]) {
@@ -131,22 +139,44 @@ describe("LeftNav", () => {
     expect(
       screen.getByRole("link", { name: "Security Logs" })
     ).toBeInTheDocument();
-    for (const label of ["Users", "Roles", "Activity Logs", "Security Policies"]) {
+    for (const label of ["Users", "Roles", "Security Policies"]) {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
   });
 
-  it("hides every Administration link when signed out", () => {
+  it("hides the entire Integrations section for a caller lacking integrations.manage even with other admin-shaped permissions", () => {
+    usePathname.mockReturnValue("/clients");
+    useCurrentUser.mockReturnValue({
+      user: {
+        user_id: "u4",
+        first_name: "Margaret",
+        last_name: "Hamilton",
+        roles: ["admin"],
+        permissions: ADMIN_PERMISSIONS.filter((p) => p !== "integrations.manage"),
+        totp_enrolled: true,
+      },
+      signOut: vi.fn(),
+    });
+
+    render(<LeftNav />);
+
+    expect(screen.queryByText("Integrations")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Process Street" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "DropBox" })).not.toBeInTheDocument();
+  });
+
+  it("hides every Administration and Integrations link when signed out", () => {
     usePathname.mockReturnValue("/clients");
     // Default beforeEach state: user: null.
 
     render(<LeftNav />);
 
     for (const label of [
+      "Process Street",
+      "DropBox",
       "Users",
       "Roles",
       "Security Logs",
-      "Activity Logs",
       "Security Policies",
       "QMS Tags",
     ]) {
