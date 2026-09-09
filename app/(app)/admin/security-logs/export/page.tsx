@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth-audit";
 import { useAuditLogFilterData } from "@/lib/useAuditLogFilterData";
 import { downloadBlob } from "@/lib/useSessionAction";
+import { resolveEventTypeFilter } from "@/lib/eventTypeFilter";
 
 const primaryButtonClass =
   "rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
@@ -85,10 +86,7 @@ export default function SecurityLogExportPage() {
     const result = await previewAuditLogsExport({
       dateFrom,
       dateTo,
-      eventTypes:
-        selectedEventTypes.length === allEventTypes.length
-          ? undefined
-          : selectedEventTypes,
+      eventTypes: resolveEventTypeFilter(selectedEventTypes, allEventTypes),
       userIds: selectedUserIds.length > 0 ? selectedUserIds : undefined,
       ipAddress: ipAddress.trim() || undefined,
     });
@@ -131,10 +129,7 @@ export default function SecurityLogExportPage() {
     const result = await exportAuditLogsPdf({
       dateFrom,
       dateTo,
-      eventTypes:
-        selectedEventTypes.length === allEventTypes.length
-          ? undefined
-          : selectedEventTypes,
+      eventTypes: resolveEventTypeFilter(selectedEventTypes, allEventTypes),
       userIds: selectedUserIds.length > 0 ? selectedUserIds : undefined,
       ipAddress: ipAddress.trim() || undefined,
     });

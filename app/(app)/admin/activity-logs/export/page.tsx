@@ -13,6 +13,7 @@ import {
 } from "@/lib/activity-log";
 import { useActivityLogFilterData } from "@/lib/useActivityLogFilterData";
 import { downloadBlob } from "@/lib/useSessionAction";
+import { resolveEventTypeFilter } from "@/lib/eventTypeFilter";
 
 const primaryButtonClass =
   "rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
@@ -65,7 +66,7 @@ export default function ActivityLogExportPage() {
     const result = await previewActivityLogsExport({
       dateFrom,
       dateTo,
-      eventTypes: selectedEventTypes.length === allEventTypes.length ? undefined : selectedEventTypes,
+      eventTypes: resolveEventTypeFilter(selectedEventTypes, allEventTypes),
       actorUserIds: selectedActorIds.length > 0 ? selectedActorIds : undefined,
     });
     setPreviewLoading(false);
@@ -98,7 +99,7 @@ export default function ActivityLogExportPage() {
     const result = await exportActivityLogsPdf({
       dateFrom,
       dateTo,
-      eventTypes: selectedEventTypes.length === allEventTypes.length ? undefined : selectedEventTypes,
+      eventTypes: resolveEventTypeFilter(selectedEventTypes, allEventTypes),
       actorUserIds: selectedActorIds.length > 0 ? selectedActorIds : undefined,
     });
     setExporting(false);
