@@ -4,8 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Spinner } from "@/components/Spinner";
-import { ProcessStreetLogo } from "@/components/icons/ProcessStreetLogo";
+import { OrchestratorLoader } from "@/components/OrchestratorLoader";
 import { formatPhone } from "@/lib/format";
 import {
   searchClients,
@@ -226,10 +225,8 @@ export default function ClientsSearchPage() {
         )}
 
         {loading && (
-          <div className="mt-10 flex flex-col items-center gap-4 text-center">
-            <ProcessStreetLogo className="h-10 w-10" />
-            <Spinner className="h-8 w-8 text-blue-400" />
-            <p className="text-sm text-slate-400">Fetching data from Process Street…</p>
+          <div className="mt-10">
+            <OrchestratorLoader label="Fetching data from Process Street…" />
           </div>
         )}
       </div>
