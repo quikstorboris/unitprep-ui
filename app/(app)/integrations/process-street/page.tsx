@@ -10,6 +10,7 @@ import {
   updateProcessStreetSettings,
   type ProcessStreetSettings,
 } from "@/lib/processStreetSettings";
+import { useSaveStatus } from "@/lib/useSaveStatus";
 
 const primaryButtonClass =
   "rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
@@ -52,9 +53,7 @@ export default function ProcessStreetIntegrationPage() {
   const [settings, setSettings] = useState<ProcessStreetSettings | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const { saving, saved, saveError, runSave, clearSaved } = useSaveStatus<ProcessStreetSettings>();
 
   useEffect(() => {
     queueMicrotask(async () => {
@@ -72,24 +71,16 @@ export default function ProcessStreetIntegrationPage() {
   async function handleSave() {
     if (form === null) return;
 
-    setSaving(true);
-    setSaveError(null);
-    setSaved(false);
+    const saved = await runSave(() =>
+      updateProcessStreetSettings({
+        syncIntervalHours: form.intervalHours,
+        apiKey: form.apiKey,
+      })
+    );
+    if (!saved) return;
 
-    const result = await updateProcessStreetSettings({
-      syncIntervalHours: form.intervalHours,
-      apiKey: form.apiKey,
-    });
-    setSaving(false);
-
-    if (result.kind !== "ok") {
-      setSaveError(result.message);
-      return;
-    }
-
-    setSettings(result.data);
-    setForm(formFromSettings(result.data));
-    setSaved(true);
+    setSettings(saved);
+    setForm(formFromSettings(saved));
   }
 
   const invalid =
@@ -135,7 +126,7 @@ export default function ProcessStreetIntegrationPage() {
               label="API key"
               value={form.apiKey}
               onChange={(value) => {
-                setSaved(false);
+                clearSaved();
                 setForm((current) => (current ? { ...current, apiKey: value } : current));
               }}
             />
@@ -164,7 +155,7 @@ export default function ProcessStreetIntegrationPage() {
                 step={1}
                 value={form.intervalHours}
                 onChange={(event) => {
-                  setSaved(false);
+                  clearSaved();
                   const value = event.target.valueAsNumber;
                   setForm((current) =>
                     current ? { ...current, intervalHours: Number.isNaN(value) ? 0 : value } : current

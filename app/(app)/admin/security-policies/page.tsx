@@ -8,6 +8,7 @@ import {
   updateAuthConfiguration,
   KNOWN_STEP_UP_ACTIONS,
 } from "@/lib/auth-config";
+import { useSaveStatus } from "@/lib/useSaveStatus";
 
 const primaryButtonClass =
   "rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
@@ -21,9 +22,8 @@ const primaryButtonClass =
 export default function AdminSecurityPoliciesPage() {
   const [stepUpActions, setStepUpActions] = useState<string[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const { saving, saved, saveError, runSave, clearSaved } =
+    useSaveStatus<{ step_up_actions: string[] }>();
 
   useEffect(() => {
     queueMicrotask(async () => {
@@ -38,7 +38,7 @@ export default function AdminSecurityPoliciesPage() {
   }, []);
 
   function toggleAction(action: string, enabled: boolean) {
-    setSaved(false);
+    clearSaved();
     setStepUpActions((current) => {
       const base = current ?? [];
       return enabled
@@ -50,20 +50,10 @@ export default function AdminSecurityPoliciesPage() {
   async function handleSave() {
     if (!stepUpActions) return;
 
-    setSaving(true);
-    setSaveError(null);
-    setSaved(false);
+    const saved = await runSave(() => updateAuthConfiguration(stepUpActions));
+    if (!saved) return;
 
-    const result = await updateAuthConfiguration(stepUpActions);
-    setSaving(false);
-
-    if (result.kind !== "ok") {
-      setSaveError(result.message);
-      return;
-    }
-
-    setStepUpActions(result.data.step_up_actions);
-    setSaved(true);
+    setStepUpActions(saved.step_up_actions);
   }
 
   return (
