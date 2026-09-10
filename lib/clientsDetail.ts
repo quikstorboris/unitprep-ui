@@ -288,6 +288,30 @@ export interface ElavonCandidate {
 }
 
 /**
+ * Mirrors `ElavonQmsCredentials` -- the "Add Credentials to QMS"
+ * checklist step's own 3 lines (2026-09-09). `account_id`/`pin_password`
+ * are real decrypted values straight from Process Street; `user_id` is
+ * always the literal `"QSSWEB"` -- QuikStor's own fixed QMS web login
+ * username, static text in that task's own template, not a per-facility
+ * field.
+ */
+export interface ElavonQmsCredentials {
+  account_id: string | null;
+  user_id: string;
+  pin_password: string | null;
+}
+
+/**
+ * Mirrors `ElavonPinpadCredentials` -- present only for a client that
+ * actually got a pin pad, per the same PS ticket's own "If customer got
+ * a Pin Pad" conditional; both fields `null` otherwise.
+ */
+export interface ElavonPinpadCredentials {
+  pinpad_user_id: string | null;
+  qss_api_pin: string | null;
+}
+
+/**
  * Mirrors `ElavonStatusResponse` -- a serde `tag = "status"` enum, so
  * the discriminant is the `status` field itself, not a wrapper.
  */
@@ -301,6 +325,8 @@ export type ElavonStatus =
       last_synced_at: string | null;
       parties: ElavonPartyInfo[];
       financials: ElavonFinancials;
+      qms_credentials: ElavonQmsCredentials;
+      pinpad_credentials: ElavonPinpadCredentials;
     }
   | {
       status: "unlinked";
@@ -349,6 +375,21 @@ export async function linkFacilityElavon(
  */
 export async function unlinkFacilityElavon(companyId: string, facilityId: string): Promise<ClientsResult<void>> {
   return clientsDelete(`/clients/${companyId}/facilities/${facilityId}/elavon/link`);
+}
+
+/**
+ * Refreshes a linked facility's whole Elavon/Merchant Account picture
+ * from Process Street -- rate provided, application status,
+ * `credentials_added_to_qms`, financials, QMS/pinpad credentials, and
+ * parties, all overwritten from a fresh PS pull (2026-09-09; the fix for
+ * `credentials_added_to_qms` having no refresh path once the "Add
+ * Credentials to QMS" checklist step gets completed after the initial
+ * link). 409 (`kind: "error"`) means this facility has no linked
+ * Merchant Account run to resync from -- link one first. A fresh
+ * `getFacilityElavon` afterward shows the refreshed values.
+ */
+export async function resyncElavonData(companyId: string, facilityId: string): Promise<ClientsResult<void>> {
+  return clientsPost(`/clients/${companyId}/facilities/${facilityId}/elavon/resync`);
 }
 
 /** Mirrors `FacilityPerson` -- one already-saved row on the Users tab. */

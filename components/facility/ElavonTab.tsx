@@ -5,8 +5,63 @@ import { useEffect, useState } from "react";
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
 import DetailSection from "@/components/clients/DetailSection";
 import PartyCard from "@/components/clients/PartyCard";
-import { getFacilityElavon, linkFacilityElavon, unlinkFacilityElavon, type ElavonStatus } from "@/lib/clientsDetail";
+import {
+  getFacilityElavon,
+  linkFacilityElavon,
+  resyncElavonData,
+  unlinkFacilityElavon,
+  type ElavonStatus,
+} from "@/lib/clientsDetail";
 import { formatDateOnly } from "@/lib/format";
+
+/** Fixed-width placeholder for a masked credential -- deliberately not
+ * shaped to the real value's length (unlike `PartyCard`'s SSN mask,
+ * which has one fixed real-world shape), so the masked state never
+ * hints at how long the underlying PIN/Password actually is. */
+const MASKED_CREDENTIAL = "••••••••••••";
+
+/**
+ * One QMS/pinpad credential row, with the same "revealable on demand"
+ * Show/Hide toggle `PartyCard`'s own SSN field uses -- for the two
+ * genuine secrets (PIN/Password, QSS API Pin). `revealable={false}`
+ * (Account ID, User ID, Pinpad User ID) skips the toggle entirely and
+ * just shows the value plainly, same as any other `DetailSection` field.
+ */
+function CredentialField({
+  label,
+  value,
+  revealable = true,
+}: {
+  label: string;
+  value: string | null;
+  revealable?: boolean;
+}) {
+  const [revealed, setRevealed] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <dt className="text-slate-400">{label}</dt>
+      <dd className="flex items-center gap-2 break-all">
+        {!value ? (
+          "—"
+        ) : !revealable ? (
+          <span>{value}</span>
+        ) : (
+          <>
+            <span>{revealed ? value : MASKED_CREDENTIAL}</span>
+            <button
+              type="button"
+              onClick={() => setRevealed((prev) => !prev)}
+              className="shrink-0 text-xs text-blue-400 hover:underline"
+            >
+              {revealed ? "Hide" : "Show"}
+            </button>
+          </>
+        )}
+      </dd>
+    </div>
+  );
+}
 
 /**
  * Elavon tab -- Phase 4 item 5. Fetched on its own, lazily, only once
@@ -32,6 +87,8 @@ export function ElavonTab({ companyId, facilityId }: { companyId: string; facili
   const [confirmingUnlink, setConfirmingUnlink] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [unlinkError, setUnlinkError] = useState<string | null>(null);
+  const [resyncing, setResyncing] = useState(false);
+  const [resyncError, setResyncError] = useState<string | null>(null);
 
   async function load() {
     const result = await getFacilityElavon(companyId, facilityId);
@@ -54,6 +111,7 @@ export function ElavonTab({ companyId, facilityId }: { companyId: string; facili
       setManualRunId("");
       setConfirmingUnlink(false);
       setUnlinkError(null);
+      setResyncError(null);
       await load();
     });
 
@@ -101,6 +159,23 @@ export function ElavonTab({ companyId, facilityId }: { companyId: string; facili
     refetchCompany();
   }
 
+  async function handleResync() {
+    setResyncing(true);
+    setResyncError(null);
+
+    const result = await resyncElavonData(companyId, facilityId);
+
+    setResyncing(false);
+
+    if (result.kind !== "ok") {
+      setResyncError(result.message);
+      return;
+    }
+
+    await load();
+    refetchCompany();
+  }
+
   if (loadError) {
     return (
       <p role="alert" className="text-sm text-red-400">
@@ -119,35 +194,45 @@ export function ElavonTab({ companyId, facilityId }: { companyId: string; facili
         <DetailSection
           title="Elavon"
           action={
-            confirmingUnlink ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-amber-400">Remove this link and its owner/financial data?</span>
-                <button
-                  type="button"
-                  onClick={handleUnlink}
-                  disabled={unlinking}
-                  className="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-700"
-                >
-                  {unlinking ? "Unlinking…" : "Yes, unlink"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmingUnlink(false)}
-                  disabled={unlinking}
-                  className="rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setConfirmingUnlink(true)}
-                className="rounded border border-red-900 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/30"
+                onClick={handleResync}
+                disabled={resyncing}
+                className="rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Unlink
+                {resyncing ? "Resyncing…" : "Resync Elavon Data"}
               </button>
-            )
+              {confirmingUnlink ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-amber-400">Remove this link and its owner/financial data?</span>
+                  <button
+                    type="button"
+                    onClick={handleUnlink}
+                    disabled={unlinking}
+                    className="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+                  >
+                    {unlinking ? "Unlinking…" : "Yes, unlink"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingUnlink(false)}
+                    disabled={unlinking}
+                    className="rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingUnlink(true)}
+                  className="rounded border border-red-900 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/30"
+                >
+                  Unlink
+                </button>
+              )}
+            </div>
           }
           fields={[
             { label: "Rate Provided", value: status.rate_provided },
@@ -156,11 +241,48 @@ export function ElavonTab({ companyId, facilityId }: { companyId: string; facili
             { label: "Process Street Run ID", value: status.ps_new_merchant_run_id },
           ]}
         />
+        {resyncError && (
+          <p role="alert" className="text-sm text-red-400">
+            {resyncError}
+          </p>
+        )}
         {unlinkError && (
           <p role="alert" className="text-sm text-red-400">
             {unlinkError}
           </p>
         )}
+
+        {/* QMS Credentials / Pin Pad Credentials -- the "Add Credentials
+            to QMS" checklist step's own values (2026-09-09), not
+            previously captured anywhere in Orchestrator. Refreshed by
+            the tab's own "Resync Elavon Data" button above, same as
+            everything else on this tab. */}
+        <section className="rounded border border-slate-800 p-5">
+          <h2 className="mb-4 text-lg font-semibold">QMS &amp; Pin Pad Credentials</h2>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">QMS Credentials</h3>
+              <dl className="flex flex-col gap-3 text-sm">
+                <CredentialField label="Account ID" value={status.qms_credentials.account_id} revealable={false} />
+                <CredentialField label="User ID" value={status.qms_credentials.user_id} revealable={false} />
+                <CredentialField label="PIN/Password" value={status.qms_credentials.pin_password} />
+              </dl>
+            </div>
+            <div>
+              <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">
+                Pin Pad Credentials
+              </h3>
+              <dl className="flex flex-col gap-3 text-sm">
+                <CredentialField
+                  label="Pinpad User ID"
+                  value={status.pinpad_credentials.pinpad_user_id}
+                  revealable={false}
+                />
+                <CredentialField label="QSS API Pin" value={status.pinpad_credentials.qss_api_pin} />
+              </dl>
+            </div>
+          </div>
+        </section>
 
         {/* Confirmed per-facility, not per-company (2026-09-03) -- Prairie
             Enterprises' 3 real facilities each answered these differently
