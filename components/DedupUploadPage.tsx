@@ -40,11 +40,13 @@ function isSupportedFile(
 
 interface DedupUploadPageProps {
   clientId: string;
+  facilityId: string;
   onChecked: (sessionId: string) => void;
 }
 
 export default function DedupUploadPage({
   clientId,
+  facilityId,
   onChecked,
 }: DedupUploadPageProps) {
   const { getClient } = useClients();
@@ -87,7 +89,7 @@ export default function DedupUploadPage({
     useState(false);
 
   const { pending: loading, run } =
-    useFileUploadAction("/dedup/check");
+    useFileUploadAction(`/dedup/check?facility_id=${facilityId}`);
 
   const { pending: detecting, run: runDetectVendor } =
     useFileUploadAction("/dedup/detect-vendor");
@@ -204,7 +206,7 @@ export default function DedupUploadPage({
     if (dropboxPath) {
       setApiError(null);
 
-      const result = await runImportDropbox({ path: dropboxPath });
+      const result = await runImportDropbox({ path: dropboxPath, facility_id: facilityId });
 
       if (result.kind === "sessionExpired") {
         setApiError("Your session has expired — please try again.");

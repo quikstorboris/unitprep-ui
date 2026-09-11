@@ -8,8 +8,9 @@ import { cancelSession } from "@/lib/api";
 export default function ResultsPage() {
   const router = useRouter();
 
-  const { clientId, sessionId } = useParams<{
+  const { clientId, facilityId, sessionId } = useParams<{
     clientId: string;
+    facilityId: string;
     sessionId: string;
   }>();
 
@@ -25,17 +26,17 @@ export default function ResultsPage() {
         onBack={() => {
           cancelSession(sessionId);
           router.push(
-            `/clients/${clientId}/unit-groups`
+            `/clients/${clientId}/facilities/${facilityId}/unit-groups`
           );
         }}
         onExport={() =>
           router.push(
-            `/clients/${clientId}/unit-groups/${sessionId}/export`
+            `/clients/${clientId}/facilities/${facilityId}/unit-groups/${sessionId}/export`
           )
         }
         onSessionExpired={() =>
           router.replace(
-            `/clients/${clientId}/info`
+            `/clients/${clientId}/facilities/${facilityId}`
           )
         }
       />

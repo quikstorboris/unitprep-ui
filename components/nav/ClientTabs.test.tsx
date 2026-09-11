@@ -12,63 +12,62 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("ClientTabs", () => {
-  it("renders a tab link per tool, pointed at this client", () => {
+  it("renders no tab bar at all when no facility is selected", () => {
     usePathname.mockReturnValue("/clients/c1/info");
 
-    render(<ClientTabs clientId="c1" />);
+    const { container } = render(<ClientTabs clientId="c1" />);
 
-    expect(
-      screen.getByRole("link", { name: "Client Info" })
-    ).toHaveAttribute("href", "/clients/c1/info");
-    expect(
-      screen.getByRole("link", { name: "Dedup" })
-    ).toHaveAttribute("href", "/clients/c1/dedup");
-    expect(
-      screen.getByRole("link", { name: "Unit Groups" })
-    ).toHaveAttribute("href", "/clients/c1/unit-groups");
-    expect(
-      screen.getByRole("link", { name: "Template Tagger" })
-    ).toHaveAttribute("href", "/clients/c1/template-tagger");
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("points every tab at the given client id", () => {
-    usePathname.mockReturnValue("/clients/c2/info");
+  it("renders a tab link per tool, pointed at the given client and facility, once a facility is selected", () => {
+    usePathname.mockReturnValue("/clients/c1/facilities/f1/dedup");
 
-    render(<ClientTabs clientId="c2" />);
+    render(<ClientTabs clientId="c1" facilityId="f1" />);
 
-    expect(
-      screen.getByRole("link", { name: "Client Info" })
-    ).toHaveAttribute("href", "/clients/c2/info");
     expect(
       screen.getByRole("link", { name: "Dedup" })
-    ).toHaveAttribute("href", "/clients/c2/dedup");
+    ).toHaveAttribute("href", "/clients/c1/facilities/f1/dedup");
     expect(
       screen.getByRole("link", { name: "Unit Groups" })
-    ).toHaveAttribute("href", "/clients/c2/unit-groups");
+    ).toHaveAttribute("href", "/clients/c1/facilities/f1/unit-groups");
     expect(
       screen.getByRole("link", { name: "Template Tagger" })
-    ).toHaveAttribute("href", "/clients/c2/template-tagger");
+    ).toHaveAttribute("href", "/clients/c1/facilities/f1/template-tagger");
   });
 
-  it("renders all four tabs regardless of which path is current", () => {
-    usePathname.mockReturnValue("/clients/c1");
+  it("points every tab at the given client and facility id", () => {
+    usePathname.mockReturnValue("/clients/c2/facilities/f2/dedup");
 
-    render(<ClientTabs clientId="c1" />);
+    render(<ClientTabs clientId="c2" facilityId="f2" />);
 
-    expect(screen.getAllByRole("link")).toHaveLength(4);
+    expect(
+      screen.getByRole("link", { name: "Dedup" })
+    ).toHaveAttribute("href", "/clients/c2/facilities/f2/dedup");
+    expect(
+      screen.getByRole("link", { name: "Unit Groups" })
+    ).toHaveAttribute("href", "/clients/c2/facilities/f2/unit-groups");
+    expect(
+      screen.getByRole("link", { name: "Template Tagger" })
+    ).toHaveAttribute("href", "/clients/c2/facilities/f2/template-tagger");
+  });
+
+  it("renders all three tool tabs regardless of which path is current", () => {
+    usePathname.mockReturnValue("/clients/c1/facilities/f1");
+
+    render(<ClientTabs clientId="c1" facilityId="f1" />);
+
+    expect(screen.getAllByRole("link")).toHaveLength(3);
   });
 
   it("marks only the active tab with aria-current", () => {
-    usePathname.mockReturnValue("/clients/c1/dedup");
+    usePathname.mockReturnValue("/clients/c1/facilities/f1/dedup");
 
-    render(<ClientTabs clientId="c1" />);
+    render(<ClientTabs clientId="c1" facilityId="f1" />);
 
     expect(
       screen.getByRole("link", { name: "Dedup" })
     ).toHaveAttribute("aria-current", "page");
-    expect(
-      screen.getByRole("link", { name: "Client Info" })
-    ).not.toHaveAttribute("aria-current");
     expect(
       screen.getByRole("link", { name: "Unit Groups" })
     ).not.toHaveAttribute("aria-current");

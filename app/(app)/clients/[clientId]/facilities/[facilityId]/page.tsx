@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
 import { CoverageTab } from "@/components/facility/CoverageTab";
@@ -10,6 +10,7 @@ import { DropboxTab } from "@/components/facility/DropboxTab";
 import { ElavonTab } from "@/components/facility/ElavonTab";
 import { FeesTab } from "@/components/facility/FeesTab";
 import { GeneralTab } from "@/components/facility/GeneralTab";
+import { OnboardingWorkTab } from "@/components/facility/OnboardingWorkTab";
 import { SpecialsTab } from "@/components/facility/SpecialsTab";
 import { TaxesTab } from "@/components/facility/TaxesTab";
 import { UsersTab } from "@/components/facility/UsersTab";
@@ -33,7 +34,17 @@ import { getFacilityDetail, getFacilityPolicies, type FacilityDetail, type Facil
  * state, the two facility-scoped fetches (`loadFacility`/
  * `loadPolicies`), and routing.
  */
-type Tab = "general" | "users" | "dropbox" | "elavon" | "fees" | "taxes" | "delinquency" | "coverage" | "specials";
+type Tab =
+  | "general"
+  | "users"
+  | "dropbox"
+  | "elavon"
+  | "fees"
+  | "taxes"
+  | "delinquency"
+  | "coverage"
+  | "specials"
+  | "onboarding_work";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "general", label: "General" },
@@ -45,6 +56,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "delinquency", label: "Delinquency" },
   { key: "coverage", label: "Coverage" },
   { key: "specials", label: "Specials" },
+  { key: "onboarding_work", label: "Onboarding Work" },
 ];
 
 function tabButtonClass(active: boolean) {
@@ -53,14 +65,27 @@ function tabButtonClass(active: boolean) {
   }`;
 }
 
+function isTab(value: string | null): value is Tab {
+  return TABS.some((t) => t.key === value);
+}
+
 export default function FacilityDetailPage() {
   const { clientId, facilityId } = useParams<{ clientId: string; facilityId: string }>();
+  const searchParams = useSearchParams();
   const { company, loadError: companyLoadError } = useCompanyDetail();
 
   const [facility, setFacility] = useState<FacilityDetail | null>(null);
   const [policies, setPolicies] = useState<FacilityPolicies | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("general");
+  // Seeded from `?tab=` when present (e.g. the Dedup completion screen's
+  // "View in Onboarding Work" link) so that deep link actually lands on
+  // the right tab instead of always defaulting to General -- read once
+  // at mount, not kept in sync with the URL afterward, same as every
+  // other piece of local UI-only state on this page.
+  const [tab, setTab] = useState<Tab>(() => {
+    const requested = searchParams.get("tab");
+    return isTab(requested) ? requested : "general";
+  });
 
   // Re-fetches just the policies -- passed to each split Fees/Taxes/
   // Delinquency/Coverage/Specials tab as `onSaved`, so a save reflects
@@ -205,6 +230,7 @@ export default function FacilityDetailPage() {
                 onSaved={loadFacility}
               />
             )}
+            {tab === "onboarding_work" && <OnboardingWorkTab companyId={clientId} facilityId={facilityId} />}
           </div>
         )}
       </div>

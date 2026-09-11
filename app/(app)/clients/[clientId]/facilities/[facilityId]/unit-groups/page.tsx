@@ -9,8 +9,8 @@ import { cancelSession } from "@/lib/api";
 export default function UnitGroupsHome() {
   const router = useRouter();
 
-  const { clientId } =
-    useParams<{ clientId: string }>();
+  const { clientId, facilityId } =
+    useParams<{ clientId: string; facilityId: string }>();
 
   const {
     selectedFiles,
@@ -57,7 +57,7 @@ export default function UnitGroupsHome() {
         }
         onScan={() =>
           router.push(
-            `/clients/${clientId}/unit-groups/${sessionId}`
+            `/clients/${clientId}/facilities/${facilityId}/unit-groups/${sessionId}`
           )
         }
         onBack={() => {
@@ -66,12 +66,12 @@ export default function UnitGroupsHome() {
           }
 
           router.push(
-            `/clients/${clientId}/info`
+            `/clients/${clientId}/facilities/${facilityId}`
           );
         }}
         onSessionExpired={() =>
           router.replace(
-            `/clients/${clientId}/info`
+            `/clients/${clientId}/facilities/${facilityId}`
           )
         }
       />

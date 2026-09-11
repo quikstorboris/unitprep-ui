@@ -12,8 +12,12 @@ interface TabItem {
 // Config-driven — adding a future tool (e.g. a lease document processor)
 // is one entry here, not a nav rewrite. Order here is just display order;
 // tools are reachable in any order regardless of position.
+//
+// No "Client Info" entry -- the company page renders with no tab bar at
+// all (see the `facilityId` check below). These three only make sense
+// once a facility is selected, since every tool run now gets recorded
+// against that facility.
 const TABS: TabItem[] = [
-  { key: "info", label: "Client Info", segment: "info" },
   { key: "dedup", label: "Dedup", segment: "dedup" },
   {
     key: "unit-groups",
@@ -29,16 +33,23 @@ const TABS: TabItem[] = [
 
 export default function ClientTabs({
   clientId,
+  facilityId,
 }: {
   clientId: string;
+  /** `undefined` on the company page -- no facility selected yet, so no tool tabs. */
+  facilityId?: string;
 }) {
   const pathname = usePathname();
+
+  if (!facilityId) {
+    return null;
+  }
 
   return (
     <div className="border-b border-slate-800">
       <nav className="flex gap-1 px-8">
         {TABS.map((tab) => {
-          const href = `/clients/${clientId}/${tab.segment}`;
+          const href = `/clients/${clientId}/facilities/${facilityId}/${tab.segment}`;
           const active = pathname.startsWith(href);
 
           return (

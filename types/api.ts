@@ -327,6 +327,37 @@ export type DedupDetectVendorResponse = {
 /** `"both"` returns a ZIP containing both files in one download. */
 export type DedupExportFormat = "csv" | "xlsx" | "both";
 
+/**
+ * Mirrors `ToolRunSummary` (unitprep-api/src/api/tool_runs.rs) -- one
+ * row of a facility's Onboarding Work tab. `report_summary` is a
+ * `DedupReportView` verbatim today (the only tool that writes
+ * `client_ops.tool_runs` rows yet); a later tool's differently-shaped
+ * report would still fit this same field, so this isn't narrowed to
+ * `DedupReportView` even though every value currently is one.
+ */
+export type ToolRunOutputKind = "none" | "download" | "dropbox";
+
+export type ToolRunSummary = {
+  id: string;
+  sequence_number: number;
+  tool: string;
+  actor_user_id: string | null;
+  actor_first_name: string | null;
+  actor_last_name: string | null;
+  actor_email: string | null;
+  source_file_name: string;
+  source_dropbox_path: string | null;
+  /** Whether this run's original source file was captured into the DB
+   * -- a Dropbox-sourced path can be moved/renamed/deleted later, so
+   * this is the one reference that always still works. */
+  has_source_file: boolean;
+  report_summary: DedupReportView;
+  output_kind: ToolRunOutputKind;
+  output_dropbox_path: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
 // QMS Template Tagging Assistant contracts — mirror unitprep-api's
 // enriched view types 1:1:
 //   TaggerCheckResponse, CandidateView, RegionView, TierView

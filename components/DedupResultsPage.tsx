@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import { DropboxLogo } from "./icons/DropboxLogo";
 import DedupSummaryStats from "./dedup/DedupSummaryStats";
@@ -17,6 +18,7 @@ import type { DedupExportFormat } from "@/types/api";
 
 interface DedupResultsPageProps {
   clientId: string;
+  facilityId: string;
   sessionId: string;
   onHome: () => void;
 }
@@ -93,6 +95,7 @@ function DropboxSaveAction({
 
 export default function DedupResultsPage({
   clientId,
+  facilityId,
   sessionId,
   onHome,
 }: DedupResultsPageProps) {
@@ -159,11 +162,18 @@ export default function DedupResultsPage({
           onClick={onHome}
           className="rounded bg-slate-700 px-4 py-2 text-white"
         >
-          Home
+          Back to Company
         </button>
       </div>
     );
   }
+
+  // "Complete" the moment either export path succeeds -- a Dropbox-only
+  // save (no local download ever clicked) is just as much a finished
+  // export as a plain download is, and previously only the download
+  // path flipped this, so a Dropbox-only save left the user staring at
+  // the same Export Format panel with no completion state at all.
+  const completed = downloadComplete || savedPath !== null;
 
   const noIssuesFound =
     report !== null &&
@@ -226,7 +236,7 @@ export default function DedupResultsPage({
         </div>
       )}
 
-      {!downloadComplete && (
+      {!completed && (
         <div className="mt-8 rounded border border-slate-700 p-4">
           <div className="mb-3 font-semibold">
             Export Format
@@ -292,18 +302,19 @@ export default function DedupResultsPage({
         </div>
       )}
 
-      {downloadComplete && (
+      {completed && (
         <div className="mt-8 space-y-4">
           <div className="text-xl text-green-400">
-            Export Downloaded
-            Successfully
+            {downloadComplete && savedPath
+              ? "Export Downloaded & Saved to Dropbox"
+              : downloadComplete
+                ? "Export Downloaded Successfully"
+                : "Export Saved to Dropbox"}
           </div>
 
           <div className="text-slate-300">
-            Your duplicate tenant
-            check export has been
-            generated and
-            downloaded.
+            This duplicate tenant check is recorded on the facility&apos;s Onboarding Work tab, where you can come
+            back and review it (and its export) at any time.
           </div>
 
           <div className="flex flex-wrap items-center gap-4">
@@ -315,7 +326,7 @@ export default function DedupResultsPage({
               }
               className="rounded bg-blue-600 px-4 py-2"
             >
-              Download Again
+              {downloadComplete ? "Download Again" : "Download Export"}
             </button>
 
             <DropboxSaveAction
@@ -326,11 +337,18 @@ export default function DedupResultsPage({
               sizeClassName="px-4 py-2"
             />
 
+            <Link
+              href={`/clients/${clientId}/facilities/${facilityId}?tab=onboarding_work`}
+              className="rounded border border-slate-600 px-4 py-2 text-slate-200 transition-colors hover:bg-slate-800"
+            >
+              View in Onboarding Work
+            </Link>
+
             <button
               onClick={onHome}
               className="rounded bg-slate-700 px-4 py-2"
             >
-              Home
+              Back to Company
             </button>
           </div>
 

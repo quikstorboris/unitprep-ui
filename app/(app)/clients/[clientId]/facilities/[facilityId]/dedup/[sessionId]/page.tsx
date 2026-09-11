@@ -8,8 +8,9 @@ import { cancelSession } from "@/lib/api";
 export default function DedupResultsRoute() {
   const router = useRouter();
 
-  const { clientId, sessionId } = useParams<{
+  const { clientId, facilityId, sessionId } = useParams<{
     clientId: string;
+    facilityId: string;
     sessionId: string;
   }>();
 
@@ -21,6 +22,7 @@ export default function DedupResultsRoute() {
         // from a session this page previously rendered.
         key={sessionId}
         clientId={clientId}
+        facilityId={facilityId}
         sessionId={sessionId}
         onHome={() => {
           cancelSession(sessionId);

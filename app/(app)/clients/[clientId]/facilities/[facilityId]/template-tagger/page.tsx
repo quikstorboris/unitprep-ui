@@ -7,7 +7,7 @@ import TaggerUploadPage from "@/components/TaggerUploadPage";
 export default function TemplateTaggerHome() {
   const router = useRouter();
 
-  const { clientId } = useParams<{ clientId: string }>();
+  const { clientId, facilityId } = useParams<{ clientId: string; facilityId: string }>();
 
   return (
     <main className="p-8">
@@ -15,7 +15,7 @@ export default function TemplateTaggerHome() {
         <TaggerUploadPage
           clientId={clientId}
           onChecked={(sessionId) =>
-            router.push(`/clients/${clientId}/template-tagger/${sessionId}`)
+            router.push(`/clients/${clientId}/facilities/${facilityId}/template-tagger/${sessionId}`)
           }
         />
       </div>

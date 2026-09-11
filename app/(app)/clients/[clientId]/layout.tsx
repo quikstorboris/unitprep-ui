@@ -13,8 +13,8 @@ export default function ClientLayout({
 }: {
   children: ReactNode;
 }) {
-  const { clientId } =
-    useParams<{ clientId: string }>();
+  const { clientId, facilityId } =
+    useParams<{ clientId: string; facilityId?: string }>();
 
   const { getClient, hydrated } = useClients();
 
@@ -60,7 +60,7 @@ export default function ClientLayout({
         </h1>
       </div>
 
-      <ClientTabs clientId={clientId} />
+      <ClientTabs clientId={clientId} facilityId={facilityId} />
 
       <CompanyDetailProvider companyId={clientId}>
         <div>{children}</div>

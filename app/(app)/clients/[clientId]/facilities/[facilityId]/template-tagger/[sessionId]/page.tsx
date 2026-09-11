@@ -8,8 +8,9 @@ import { cancelSession } from "@/lib/api";
 export default function TemplateTaggerResultsRoute() {
   const router = useRouter();
 
-  const { clientId, sessionId } = useParams<{
+  const { clientId, facilityId, sessionId } = useParams<{
     clientId: string;
+    facilityId: string;
     sessionId: string;
   }>();
 
@@ -23,7 +24,7 @@ export default function TemplateTaggerResultsRoute() {
         sessionId={sessionId}
         onHome={() => {
           cancelSession(sessionId);
-          router.replace(`/clients/${clientId}/info`);
+          router.replace(`/clients/${clientId}/facilities/${facilityId}`);
         }}
       />
     </main>
