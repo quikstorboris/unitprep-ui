@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import RequirePermission from "@/components/auth/RequirePermission";
-import EventTypeMultiSelect from "@/components/audit/EventTypeMultiSelect";
+import MultiSelectDropdown from "@/components/shared/MultiSelectDropdown";
 import UserMultiSelect from "@/components/audit/UserMultiSelect";
 import {
   exportAuditLogsPdf,
@@ -195,10 +195,11 @@ export default function SecurityLogExportPage() {
 
           <div className="flex items-center gap-3">
             <span className={filterLabelClass}>Event type</span>
-            <EventTypeMultiSelect
-              allEventTypes={allEventTypes}
+            <MultiSelectDropdown
+              options={allEventTypes.map((eventType) => ({ value: eventType, label: eventType }))}
               selected={selectedEventTypes}
               onChange={setSelectedEventTypes}
+              noun="events"
               className="w-64"
             />
           </div>

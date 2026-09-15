@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import Link from "next/link";
 
 import RequirePermission from "@/components/auth/RequirePermission";
-import EventTypeMultiSelect from "@/components/audit/EventTypeMultiSelect";
+import MultiSelectDropdown from "@/components/shared/MultiSelectDropdown";
 import UserMultiSelect from "@/components/audit/UserMultiSelect";
 import ActorCell from "@/components/audit/ActorCell";
 import EntityCell from "@/components/audit/EntityCell";
@@ -72,10 +72,11 @@ export default function AdminActivityLogsPage() {
         <div className="mb-6 flex flex-wrap items-end gap-4">
           <label className="flex flex-col gap-1 text-sm text-slate-300">
             Event type
-            <EventTypeMultiSelect
-              allEventTypes={allEventTypes}
+            <MultiSelectDropdown
+              options={allEventTypes.map((eventType) => ({ value: eventType, label: eventType }))}
               selected={selectedEventTypes}
               onChange={setSelectedEventTypes}
+              noun="events"
               className={filterControlWidthClass}
             />
           </label>

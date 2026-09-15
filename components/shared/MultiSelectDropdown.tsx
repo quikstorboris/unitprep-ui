@@ -3,29 +3,49 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Checkbox-list-with-search dropdown for picking a subset of audit event
- * types. Shared by the inline Audit Logs filter bar and the audit-log
- * export filters page -- one component, not two independently-drifting
- * copies of the same idea.
+ * Checkbox-list-with-search dropdown for picking a subset of a small,
+ * known option set. Promoted from `components/audit/EventTypeMultiSelect.tsx`
+ * (2026-09-11) so the Audit Logs event-type filter and the Clients
+ * directory's four checkbox filters (Implementation Manager, Sales Rep,
+ * State, Previous PMS) share one implementation instead of drifting
+ * copies of the same behavior -- a mechanical generalization
+ * (string-only options became `{value, label}` pairs, and the
+ * event-specific "events" wording became the `noun` prop), not a
+ * behavior redesign.
  *
- * `allEventTypes` is expected to come from `listAuditLogEventTypes()`
- * (the backend's own canonical list), not a hand-maintained copy.
+ * `components/audit/UserMultiSelect.tsx` is a related but genuinely
+ * different pattern (fuzzy search-to-chips over a large user list, plus
+ * a raw-UUID escape hatch) and stays its own component -- it was never
+ * folded into this one.
  *
  * Keyboard-navigable (arrow up/down to move the highlight, Enter to
- * toggle the highlighted checkbox, Escape to close) as well as click --
- * same standing UI/UX expectation applied to UserMultiSelect's dropdown,
- * not something to add only to whichever one happens to get asked for.
- * Enter *toggles* rather than selecting-and-closing, unlike
- * UserMultiSelect: this list is a set of independent on/off switches,
- * not a pick-one-then-done combobox, so closing on every Enter would
- * undo the point of being able to check several in a row.
+ * toggle the highlighted checkbox, Escape to close) as well as click.
+ * Enter *toggles* rather than selecting-and-closing: this list is a set
+ * of independent on/off switches, not a pick-one-then-done combobox, so
+ * closing on every Enter would undo the point of being able to check
+ * several in a row.
  */
-export interface EventTypeMultiSelectProps {
-  allEventTypes: string[];
+export interface MultiSelectOption {
+  value: string;
+  label: string;
+  /** Extra terms the search box should also match against besides
+   * `label` -- e.g. a state option labeled "California" carrying
+   * `["CA"]` so typing the postal abbreviation still finds it, even
+   * though the displayed/selected value is the full name. */
+  keywords?: string[];
+}
+
+export interface MultiSelectDropdownProps {
+  options: MultiSelectOption[];
   selected: string[];
   onChange: (selected: string[]) => void;
+  /** Plural noun used in the trigger's summary text and the "no
+   * matches" message (e.g. "events", "states", "reps") -- kept a prop
+   * rather than hardcoded so this one component reads naturally in
+   * every filter it backs. */
+  noun?: string;
   /** Matches the width of whatever filter control sits next to this one
-   * (e.g. the User ID input) -- callers own layout, this owns behaviour. */
+   * -- callers own layout, this owns behaviour. */
   className?: string;
 }
 
@@ -38,19 +58,20 @@ const panelInputClass =
 const panelButtonClass =
   "rounded px-2 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800";
 
-function summaryLabel(selected: string[], total: number): string {
-  if (total === 0) return "No events available";
-  if (selected.length === total) return `All events (${total})`;
-  if (selected.length === 0) return "No events selected";
-  return `${selected.length} of ${total} events`;
+function summaryLabel(selected: string[], total: number, noun: string): string {
+  if (total === 0) return `No ${noun} available`;
+  if (selected.length === total) return `All ${noun} (${total})`;
+  if (selected.length === 0) return `No ${noun} selected`;
+  return `${selected.length} of ${total} ${noun}`;
 }
 
-export default function EventTypeMultiSelect({
-  allEventTypes,
+export default function MultiSelectDropdown({
+  options,
   selected,
   onChange,
+  noun = "items",
   className,
-}: EventTypeMultiSelectProps) {
+}: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -74,37 +95,40 @@ export default function EventTypeMultiSelect({
   }, [open]);
 
   const selectedSet = new Set(selected);
-  const visibleEventTypes = allEventTypes.filter((eventType) =>
-    eventType.toLowerCase().includes(search.trim().toLowerCase())
+  const normalizedSearch = search.trim().toLowerCase();
+  const visibleOptions = options.filter(
+    (option) =>
+      option.label.toLowerCase().includes(normalizedSearch) ||
+      (option.keywords ?? []).some((keyword) => keyword.toLowerCase().includes(normalizedSearch))
   );
 
   useEffect(() => {
     itemRefs.current[highlightedIndex]?.scrollIntoView({ block: "nearest" });
   }, [highlightedIndex]);
 
-  function toggle(eventType: string) {
-    if (selectedSet.has(eventType)) {
-      onChange(selected.filter((value) => value !== eventType));
+  function toggle(value: string) {
+    if (selectedSet.has(value)) {
+      onChange(selected.filter((existing) => existing !== value));
     } else {
-      onChange([...selected, eventType]);
+      onChange([...selected, value]);
     }
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (!open || visibleEventTypes.length === 0) return;
+    if (!open || visibleOptions.length === 0) return;
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setHighlightedIndex((index) => (index + 1) % visibleEventTypes.length);
+      setHighlightedIndex((index) => (index + 1) % visibleOptions.length);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setHighlightedIndex(
-        (index) => (index - 1 + visibleEventTypes.length) % visibleEventTypes.length
+        (index) => (index - 1 + visibleOptions.length) % visibleOptions.length
       );
     } else if (event.key === "Enter") {
       event.preventDefault();
-      const eventType = visibleEventTypes[highlightedIndex];
-      if (eventType) toggle(eventType);
+      const option = visibleOptions[highlightedIndex];
+      if (option) toggle(option.value);
     } else if (event.key === "Escape") {
       setOpen(false);
     }
@@ -118,7 +142,7 @@ export default function EventTypeMultiSelect({
         className={triggerClass}
       >
         <span className="truncate">
-          {summaryLabel(selected, allEventTypes.length)}
+          {summaryLabel(selected, options.length, noun)}
         </span>
         <span className="ml-2 text-slate-500">▾</span>
       </button>
@@ -138,14 +162,14 @@ export default function EventTypeMultiSelect({
               setHighlightedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Search events…"
+            placeholder={`Search ${noun}…`}
             className={`${panelInputClass} mb-2`}
           />
 
           <div className="mb-2 flex items-center justify-between">
             <button
               type="button"
-              onClick={() => onChange(allEventTypes)}
+              onClick={() => onChange(options.map((option) => option.value))}
               className={panelButtonClass}
             >
               Select all
@@ -160,14 +184,14 @@ export default function EventTypeMultiSelect({
           </div>
 
           <div className="max-h-64 overflow-y-auto">
-            {visibleEventTypes.length === 0 ? (
+            {visibleOptions.length === 0 ? (
               <p className="px-2 py-1 text-xs text-slate-500">
-                No matching events.
+                No matching {noun}.
               </p>
             ) : (
-              visibleEventTypes.map((eventType, index) => (
+              visibleOptions.map((option, index) => (
                 <label
-                  key={eventType}
+                  key={option.value}
                   ref={(el) => {
                     itemRefs.current[index] = el;
                   }}
@@ -178,11 +202,11 @@ export default function EventTypeMultiSelect({
                 >
                   <input
                     type="checkbox"
-                    checked={selectedSet.has(eventType)}
-                    onChange={() => toggle(eventType)}
+                    checked={selectedSet.has(option.value)}
+                    onChange={() => toggle(option.value)}
                     className="accent-blue-600"
                   />
-                  <span className="truncate">{eventType}</span>
+                  <span className="truncate">{option.label}</span>
                 </label>
               ))
             )}
