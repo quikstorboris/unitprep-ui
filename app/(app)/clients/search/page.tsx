@@ -10,6 +10,7 @@ import {
   searchClients,
   type FacilityMatch,
   type MatchedVia,
+  type MerchantAccountMatch,
   type PersonMatch,
   type PsWorkflow,
   type SearchClientsResponse,
@@ -386,6 +387,58 @@ export default function ClientsSearchPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </section>
+
+            <section>
+              <h2 className="mb-3 text-xl font-semibold">
+                Merchant Account (Elavon) applications{" "}
+                <span className="text-slate-400">({result.merchant_account_matches.length})</span>
+              </h2>
+              <p className="mb-3 text-sm text-slate-400">
+                Live Elavon application data, searched separately from Facilities above (a
+                real client can have one with no matching Intake run found -- e.g. MSS
+                Jenks, LLC). Visibility only: importing a facility into OO still needs its
+                own Intake run, found via the Facilities search above.
+              </p>
+
+              {result.merchant_account_matches.length === 0 ? (
+                <p className="text-sm text-slate-400">No Merchant Account name matches.</p>
+              ) : (
+                <div className="w-full overflow-x-auto rounded border border-slate-800">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-900 text-slate-400">
+                      <tr>
+                        <th className="px-6 py-2.5 font-medium">Application</th>
+                        <th className="px-6 py-2.5 font-medium">Status</th>
+                        <th className="px-6 py-2.5 font-medium">Last Activity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.merchant_account_matches.map((match: MerchantAccountMatch) => (
+                        <tr
+                          key={match.run_id}
+                          className={`border-t border-slate-800 ${
+                            match.already_linked ? "text-slate-500" : ""
+                          }`}
+                        >
+                          <td className="px-6 py-2.5">
+                            {displayFacilityName(match.run_name)}
+                            {match.already_linked && (
+                              <span className="ml-2 text-xs text-slate-500">
+                                (already linked to a facility in OO)
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-2.5 text-slate-400">
+                            <StatusCell status={match.status} />
+                          </td>
+                          <td className="px-6 py-2.5 text-slate-400">{formatActivity(match.updated_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </section>

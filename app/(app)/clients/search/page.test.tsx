@@ -47,6 +47,7 @@ describe("ClientsSearchPage", () => {
             duplicate: null,
           },
         ],
+        merchant_account_matches: [],
         person_matches: [],
       },
     });
@@ -92,6 +93,7 @@ describe("ClientsSearchPage", () => {
             duplicate: null,
           },
         ],
+        merchant_account_matches: [],
         person_matches: [],
       },
     });
@@ -138,6 +140,7 @@ describe("ClientsSearchPage", () => {
             duplicate: null,
           },
         ],
+        merchant_account_matches: [],
         person_matches: [
           {
             workflow: "intake",
@@ -202,6 +205,7 @@ describe("ClientsSearchPage", () => {
             },
           },
         ],
+        merchant_account_matches: [],
         person_matches: [],
       },
     });
@@ -273,7 +277,7 @@ describe("ClientsSearchPage", () => {
 
     resolveSearch({
       kind: "ok",
-      data: { facility_matches: [], person_matches: [] },
+      data: { facility_matches: [], merchant_account_matches: [], person_matches: [] },
     });
 
     expect(await screen.findByText(/No facility\/company name matches/)).toBeInTheDocument();
@@ -285,6 +289,7 @@ describe("ClientsSearchPage", () => {
       kind: "ok",
       data: {
         facility_matches: [],
+        merchant_account_matches: [],
         person_matches: [
           {
             workflow: "intake",

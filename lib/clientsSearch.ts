@@ -61,9 +61,32 @@ export interface PersonMatch {
   role: string;
 }
 
+/**
+ * A New Merchant Account run whose own title matched the query --
+ * mirrors `MerchantAccountMatch` in `unitprep-api`'s `clients_search.rs`.
+ * Added 2026-09-14: a facility can have a real, live Elavon application
+ * with no discoverable Intake run (MSS Jenks, LLC's own case), so this
+ * is searched and shown as its own list -- visibility only, **not**
+ * something the UI should offer to "Add" directly, since actually
+ * creating a facility still requires an Intake run (address, PMS, etc.
+ * all come from Intake, never Merchant Account).
+ */
+export interface MerchantAccountMatch {
+  run_id: string;
+  run_name: string;
+  status: string;
+  /** ISO datetime -- PS's own `audit.updatedDate`. */
+  updated_at: string;
+  /** Whether some real facility already has this run attached via
+   * `clients.facility_merchant_accounts` -- the Merchant Account analog
+   * of `FacilityMatch.already_imported`. */
+  already_linked: boolean;
+}
+
 /** Mirrors `SearchClientsResponse` in `unitprep-api`'s `clients_search.rs`. */
 export interface SearchClientsResponse {
   facility_matches: FacilityMatch[];
+  merchant_account_matches: MerchantAccountMatch[];
   person_matches: PersonMatch[];
 }
 
