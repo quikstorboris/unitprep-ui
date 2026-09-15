@@ -45,6 +45,29 @@ describe("useDedupExport", () => {
     expect(JSON.parse(init.body)).toEqual({ session_id: "s1", format: "csv" });
   });
 
+  it("threads client_id and facility_id into the request body when provided", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Blob(["csv"]), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useDedupExport("s1", "client-1", "facility-1")
+    );
+
+    await act(async () => {
+      await result.current.handleExport("csv");
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({
+      session_id: "s1",
+      format: "csv",
+      client_id: "client-1",
+      facility_id: "facility-1",
+    });
+  });
+
   it("triggers a download and sets downloadComplete on success", async () => {
     vi.stubGlobal(
       "fetch",

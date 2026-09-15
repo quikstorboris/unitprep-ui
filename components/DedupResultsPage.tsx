@@ -112,7 +112,7 @@ export default function DedupResultsPage({
     error: exportError,
     sessionExpired: exportExpired,
     handleExport,
-  } = useDedupExport(sessionId, clientId);
+  } = useDedupExport(sessionId, clientId, facilityId);
 
   const {
     saving,
@@ -120,7 +120,7 @@ export default function DedupResultsPage({
     error: saveError,
     sessionExpired: saveExpired,
     handleSave,
-  } = useDedupSaveToDropbox(sessionId);
+  } = useDedupSaveToDropbox(sessionId, clientId);
 
   const { defaultFolderPath } = useDedupSaveLocation(sessionId);
 
@@ -289,7 +289,7 @@ export default function DedupResultsPage({
               defaultFolderPath={defaultFolderPath}
               savedPath={savedPath}
               saving={saving}
-              onSave={() => defaultFolderPath && handleSave(exportFormat, defaultFolderPath)}
+              onSave={() => defaultFolderPath && handleSave(exportFormat, defaultFolderPath, facilityId)}
               sizeClassName="px-5 py-3"
             />
           </div>
@@ -333,7 +333,7 @@ export default function DedupResultsPage({
               defaultFolderPath={defaultFolderPath}
               savedPath={savedPath}
               saving={saving}
-              onSave={() => defaultFolderPath && handleSave(exportFormat, defaultFolderPath)}
+              onSave={() => defaultFolderPath && handleSave(exportFormat, defaultFolderPath, facilityId)}
               sizeClassName="px-4 py-2"
             />
 

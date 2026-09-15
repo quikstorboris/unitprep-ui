@@ -36,7 +36,14 @@ export function useDedupExport(
   /** The client this check was run for, when opened from a client's own
    * Dedup tab -- recorded on the Activity Log entry `/dedup/export`
    * writes on success. `undefined` for a standalone run. */
-  clientId?: string
+  clientId?: string,
+  /** The facility this check was run for -- passed to the backend so it
+   * can compute the real, facility-scoped export filename
+   * (`{ABBREV}_v{N}_pull_check_{MM-DD-YYYY}.{ext}`) rather than the
+   * static `FALLBACK_FILENAMES` this hook only falls back to when the
+   * response's Content-Disposition header is somehow missing.
+   * `undefined` for a standalone run. */
+  facilityId?: string
 ): UseDedupExportResult {
   const { pending, error, sessionExpired, run } =
     useSessionAction(
@@ -69,7 +76,11 @@ export function useDedupExport(
     setDownloadComplete(false);
 
     try {
-      const result = await run({ format, client_id: clientId });
+      const result = await run({
+        format,
+        client_id: clientId,
+        facility_id: facilityId,
+      });
 
       if (result.kind !== "ok") return;
 

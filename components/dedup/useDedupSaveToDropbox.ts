@@ -4,7 +4,14 @@ import { useRef, useState } from "react";
 
 import { useSessionAction } from "@/lib/useSessionAction";
 import type { DedupExportFormat } from "@/types/api";
-import { FALLBACK_FILENAMES } from "./useDedupExport";
+
+/** Mirrors the backend's `/dedup/export-dropbox` response -- `path` is the
+ * real final Dropbox path (folder + the backend's own computed filename,
+ * `{ABBREV}_v{N}_pull_check_{MM-DD-YYYY}.{ext}`), not a client-assembled
+ * one. */
+interface DedupExportDropboxResponse {
+  path: string;
+}
 
 interface UseDedupSaveToDropboxResult {
   saving: boolean;
@@ -13,29 +20,9 @@ interface UseDedupSaveToDropboxResult {
   sessionExpired: boolean;
   handleSave: (
     format: DedupExportFormat,
-    folderPath: string
+    folderPath: string,
+    facilityId: string | undefined
   ) => Promise<void>;
-}
-
-/**
- * Inserts a local timestamp before the extension, e.g.
- * "duplicate_tenant_check.csv" -> "duplicate_tenant_check_2026-08-28_1423.csv".
- * `DropboxClient::upload` (unitprep-api) is overwrite-only -- without
- * this, saving the same session's export to the same folder twice would
- * silently replace the first file with no warning.
- */
-function withTimestamp(fileName: string): string {
-  const dot = fileName.lastIndexOf(".");
-  const base = dot === -1 ? fileName : fileName.slice(0, dot);
-  const ext = dot === -1 ? "" : fileName.slice(dot);
-
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
-    now.getDate()
-  )}_${pad(now.getHours())}${pad(now.getMinutes())}`;
-
-  return `${base}_${stamp}${ext}`;
 }
 
 /**
@@ -47,7 +34,12 @@ function withTimestamp(fileName: string): string {
  * than actually removing duplication.
  */
 export function useDedupSaveToDropbox(
-  sessionId: string
+  sessionId: string,
+  /** The client this check was run for, when opened from a client's own
+   * Dedup tab -- recorded on the Activity Log entry `/dedup/export-dropbox`
+   * writes on success. `undefined` for a standalone run. Mirrors
+   * useDedupExport's own `clientId` constructor param. */
+  clientId?: string
 ): UseDedupSaveToDropboxResult {
   const { pending, error, sessionExpired, run } = useSessionAction(
     sessionId,
@@ -62,7 +54,8 @@ export function useDedupSaveToDropbox(
 
   const handleSave = async (
     format: DedupExportFormat,
-    folderPath: string
+    folderPath: string,
+    facilityId: string | undefined
   ) => {
     if (saveInFlight.current) return;
     saveInFlight.current = true;
@@ -70,17 +63,23 @@ export function useDedupSaveToDropbox(
     setSavedPath(null);
 
     try {
-      const fileName = withTimestamp(FALLBACK_FILENAMES[format]);
-      const dropboxPath = `${folderPath}/${fileName}`;
-
+      // The backend now owns filename generation -- it computes the real,
+      // facility-scoped filename (`{ABBREV}_v{N}_pull_check_{MM-DD-YYYY}.{ext}`)
+      // from `facility_id` and appends it to `folder_path` itself, returning
+      // the final path it actually used in the response below.
       const result = await run({
         format,
-        dropbox_path: dropboxPath,
+        folder_path: folderPath,
+        facility_id: facilityId ?? null,
+        client_id: clientId,
       });
 
       if (result.kind !== "ok") return;
 
-      setSavedPath(dropboxPath);
+      const data: DedupExportDropboxResponse =
+        await result.response.json();
+
+      setSavedPath(data.path);
     } finally {
       saveInFlight.current = false;
     }
