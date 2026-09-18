@@ -15,6 +15,12 @@ const POLL_INTERVAL_MS = 1500;
  * picks up and displays a scheduled sync's progress if one happens to be
  * running when this page loads -- not just syncs this button itself
  * started.
+ *
+ * "Force Full Resync" is the same trigger with `?force=true` -- it
+ * bypasses the delta check so every run gets re-fetched, not just the
+ * ones PS itself says changed. Confirmed via a native dialog rather than
+ * a second undifferentiated button, since it costs real shared PS API
+ * budget.
  */
 export default function SyncButton() {
   const [status, setStatus] = useState<SyncStatus | null>(null);
@@ -68,9 +74,25 @@ export default function SyncButton() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status?.state]);
 
-  async function handleClick() {
+  async function handleClick(force: boolean) {
+    if (force) {
+      // A full resync re-fetches every run in every workflow from PS
+      // regardless of what actually changed -- real, shared API budget
+      // (see startSync's own doc comment) -- so this stays a deliberate,
+      // confirmed action rather than a second one-click button sitting
+      // next to the cheap default.
+      const confirmed = window.confirm(
+        "This re-syncs every Process Street run from scratch instead of just what changed, " +
+          "which uses a lot more of PS's shared API rate limit. Only do this if you specifically " +
+          "need to backfill or refresh data the normal sync wouldn't touch. Continue?",
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
     setActionError(null);
-    const result = await startSync();
+    const result = await startSync(force);
 
     if (result.kind !== "ok") {
       // A 409 ("already running") lands here too -- either way,
@@ -89,11 +111,21 @@ export default function SyncButton() {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={handleClick}
+          onClick={() => handleClick(false)}
           disabled={isRunning}
           className="rounded bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:text-slate-500"
         >
           {isRunning ? "Syncing…" : "Sync Now"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleClick(true)}
+          disabled={isRunning}
+          title="Re-syncs every run from scratch instead of just what changed -- uses much more of Process Street's shared API rate limit."
+          className="rounded border border-slate-700 px-4 py-2 text-sm font-medium text-slate-400 transition-colors hover:border-slate-500 hover:text-slate-200 disabled:cursor-not-allowed disabled:text-slate-600"
+        >
+          Force Full Resync…
         </button>
 
         {status && (

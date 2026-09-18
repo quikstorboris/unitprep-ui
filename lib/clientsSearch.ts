@@ -119,9 +119,15 @@ export interface SyncStatus {
  * nightly background one. Returns as soon as the sync has *started* --
  * poll `getSyncStatus` for progress. A 409 (surfaced as `kind: "error"`)
  * means one (manual or nightly) was already running.
+ *
+ * `force: true` re-syncs every run in every workflow from scratch,
+ * ignoring PS's own `ps_updated_at` delta check -- real Process Street
+ * API cost (see `unitprep-api`'s `sync::orchestrator::sync_runs_within`
+ * doc comment), so this should stay an explicit, occasional choice, not
+ * the default.
  */
-export async function startSync(): Promise<ClientsResult<{ started: boolean }>> {
-  return clientsPost("/clients/sync");
+export async function startSync(force = false): Promise<ClientsResult<{ started: boolean }>> {
+  return clientsPost(force ? "/clients/sync?force=true" : "/clients/sync");
 }
 
 /** Poll this while a sync is running to drive a progress bar. */
