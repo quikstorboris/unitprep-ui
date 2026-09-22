@@ -60,6 +60,11 @@ export interface ResyncConflict {
 export interface PreviewResyncResponse {
   safe_update_count: number;
   conflicts: ResyncConflict[];
+  /** How many linked facilities' Elavon/Merchant Account data will be
+   * refreshed -- always a full overwrite (no manual-edit protection on
+   * that tab), so there's nothing to list per-field the way `conflicts`
+   * does for company/facility fields. */
+  merchant_accounts_to_refresh: number;
 }
 
 export async function previewResync(companyId: string): Promise<ClientsResult<PreviewResyncResponse>> {
@@ -77,6 +82,10 @@ export interface ConflictResolution {
 
 export interface ApplyResyncResponse {
   updated_count: number;
+  /** How many linked facilities' Elavon/Merchant Account data was
+   * refreshed (task checklist + `credentials_added_to_qms`, financials,
+   * parties) -- see `PreviewResyncResponse.merchant_accounts_to_refresh`. */
+  merchant_accounts_refreshed: number;
 }
 
 export async function applyResync(
