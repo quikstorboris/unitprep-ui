@@ -7,8 +7,10 @@ import RequirePermission from "@/components/auth/RequirePermission";
 import { SecretField } from "@/components/integrations/SecretField";
 import {
   getProcessStreetSettings,
+  TIMEZONE_OPTIONS,
   updateProcessStreetSettings,
   type ProcessStreetSettings,
+  type ScheduleMode,
 } from "@/lib/processStreetSettings";
 import { useSaveStatus } from "@/lib/useSaveStatus";
 
@@ -17,14 +19,28 @@ const primaryButtonClass =
 
 const MIN_INTERVAL_HOURS = 1;
 const MAX_INTERVAL_HOURS = 168;
+const DEFAULT_SYNC_TIME = "03:00";
 
 type FormState = {
+  scheduleMode: ScheduleMode;
   intervalHours: number;
+  /** `"HH:MM"`, what `<input type="time">` produces/expects. */
+  syncTime: string;
+  syncTimezone: string;
   apiKey: string;
 };
 
 function formFromSettings(settings: ProcessStreetSettings): FormState {
-  return { intervalHours: settings.sync_interval_hours, apiKey: settings.api_key };
+  return {
+    scheduleMode: settings.schedule_mode,
+    intervalHours: settings.sync_interval_hours,
+    // "HH:MM:SS" -> "HH:MM" when a value exists; otherwise a sane
+    // default so switching into daily_time mode doesn't start on an
+    // empty, immediately-invalid time field.
+    syncTime: settings.sync_time?.slice(0, 5) ?? DEFAULT_SYNC_TIME,
+    syncTimezone: settings.sync_timezone ?? TIMEZONE_OPTIONS[0].value,
+    apiKey: settings.api_key,
+  };
 }
 
 /**
@@ -73,7 +89,10 @@ export default function ProcessStreetIntegrationPage() {
 
     const saved = await runSave(() =>
       updateProcessStreetSettings({
+        scheduleMode: form.scheduleMode,
         syncIntervalHours: form.intervalHours,
+        syncTime: form.scheduleMode === "daily_time" ? form.syncTime : null,
+        syncTimezone: form.scheduleMode === "daily_time" ? form.syncTimezone : null,
         apiKey: form.apiKey,
       })
     );
@@ -83,12 +102,21 @@ export default function ProcessStreetIntegrationPage() {
     setForm(formFromSettings(saved));
   }
 
+  const intervalInvalid =
+    form !== null &&
+    (!Number.isInteger(form.intervalHours) ||
+      form.intervalHours < MIN_INTERVAL_HOURS ||
+      form.intervalHours > MAX_INTERVAL_HOURS);
+
+  const dailyTimeInvalid =
+    form !== null &&
+    (form.syncTime.length === 0 ||
+      !TIMEZONE_OPTIONS.some((tz) => tz.value === form.syncTimezone));
+
   const invalid =
     form === null ||
-    !Number.isInteger(form.intervalHours) ||
-    form.intervalHours < MIN_INTERVAL_HOURS ||
-    form.intervalHours > MAX_INTERVAL_HOURS ||
-    form.apiKey.length === 0;
+    form.apiKey.length === 0 ||
+    (form.scheduleMode === "interval" ? intervalInvalid : dailyTimeInvalid);
 
   return (
     <RequirePermission permission="integrations.manage">
@@ -133,7 +161,7 @@ export default function ProcessStreetIntegrationPage() {
 
             <h2 className="mb-1 mt-6 text-sm font-semibold text-slate-100">Sync schedule</h2>
             <p className="mb-3 text-sm text-slate-400">
-              Runs automatically on this interval, plus whenever &quot;Sync Now&quot; is used
+              Runs automatically on this schedule, plus whenever &quot;Sync Now&quot; is used
               on the{" "}
               <Link href="/clients/search" className="underline hover:text-slate-200">
                 search page
@@ -143,33 +171,104 @@ export default function ProcessStreetIntegrationPage() {
               safe to set. A running sync always finishes before the next scheduled one starts.
             </p>
 
-            <div className="flex items-center gap-2">
-              <label htmlFor="sync-interval-hours" className="text-sm text-slate-300">
-                Sync every
-              </label>
-              <input
-                id="sync-interval-hours"
-                type="number"
-                min={MIN_INTERVAL_HOURS}
-                max={MAX_INTERVAL_HOURS}
-                step={1}
-                value={form.intervalHours}
-                onChange={(event) => {
-                  clearSaved();
-                  const value = event.target.valueAsNumber;
-                  setForm((current) =>
-                    current ? { ...current, intervalHours: Number.isNaN(value) ? 0 : value } : current
-                  );
-                }}
-                className="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
-              />
-              <span className="text-sm text-slate-300">hours</span>
+            <div className="mb-3 flex gap-2" role="radiogroup" aria-label="Schedule mode">
+              {(
+                [
+                  { value: "interval", label: "Every N hours" },
+                  { value: "daily_time", label: "At a specific time" },
+                ] as const
+              ).map((mode) => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={form.scheduleMode === mode.value}
+                  onClick={() => {
+                    clearSaved();
+                    setForm((current) =>
+                      current ? { ...current, scheduleMode: mode.value } : current
+                    );
+                  }}
+                  className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+                    form.scheduleMode === mode.value
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              ))}
             </div>
 
-            {(form.intervalHours < MIN_INTERVAL_HOURS || form.intervalHours > MAX_INTERVAL_HOURS) && (
-              <p className="mt-2 text-xs text-slate-500">
-                Must be a whole number between {MIN_INTERVAL_HOURS} and {MAX_INTERVAL_HOURS}.
-              </p>
+            {form.scheduleMode === "interval" ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="sync-interval-hours" className="text-sm text-slate-300">
+                    Sync every
+                  </label>
+                  <input
+                    id="sync-interval-hours"
+                    type="number"
+                    min={MIN_INTERVAL_HOURS}
+                    max={MAX_INTERVAL_HOURS}
+                    step={1}
+                    value={form.intervalHours}
+                    onChange={(event) => {
+                      clearSaved();
+                      const value = event.target.valueAsNumber;
+                      setForm((current) =>
+                        current
+                          ? { ...current, intervalHours: Number.isNaN(value) ? 0 : value }
+                          : current
+                      );
+                    }}
+                    className="w-20 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
+                  />
+                  <span className="text-sm text-slate-300">hours</span>
+                </div>
+
+                {intervalInvalid && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Must be a whole number between {MIN_INTERVAL_HOURS} and {MAX_INTERVAL_HOURS}.
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor="sync-time" className="text-sm text-slate-300">
+                  Sync at
+                </label>
+                <input
+                  id="sync-time"
+                  type="time"
+                  value={form.syncTime}
+                  onChange={(event) => {
+                    clearSaved();
+                    const value = event.target.value;
+                    setForm((current) => (current ? { ...current, syncTime: value } : current));
+                  }}
+                  className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
+                />
+                <select
+                  id="sync-timezone"
+                  aria-label="Timezone"
+                  value={form.syncTimezone}
+                  onChange={(event) => {
+                    clearSaved();
+                    const value = event.target.value;
+                    setForm((current) =>
+                      current ? { ...current, syncTimezone: value } : current
+                    );
+                  }}
+                  className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
+                >
+                  {TIMEZONE_OPTIONS.map((tz) => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
 
             {saveError && (

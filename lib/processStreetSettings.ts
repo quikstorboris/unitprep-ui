@@ -13,13 +13,36 @@ export type { SettingsResult };
  * gives for keeping it separate from `lib/auth.ts`.
  */
 
+/** `"interval"` | `"daily_time"` -- mirrors `schedule_mode` in
+ * `unitprep-api`'s `process_street_settings.rs`. */
+export type ScheduleMode = "interval" | "daily_time";
+
+/** The closed set of timezones the "daily_time" schedule mode offers --
+ * must match `ALLOWED_TIMEZONES` in `unitprep-api`'s
+ * `process_street_settings.rs` exactly, since the backend validates
+ * against that same list. Real IANA zone names (not fixed UTC offsets)
+ * so Daylight Saving Time is handled automatically. */
+export const TIMEZONE_OPTIONS: { value: string; label: string }[] = [
+  { value: "America/Los_Angeles", label: "Pacific (PST/PDT)" },
+  { value: "America/Denver", label: "Mountain (MST/MDT)" },
+  { value: "America/Chicago", label: "Central (CST/CDT)" },
+  { value: "America/New_York", label: "Eastern (EST/EDT)" },
+  { value: "UTC", label: "UTC" },
+  { value: "Europe/Belgrade", label: "Serbia (CET/CEST)" },
+];
+
 /** Mirrors `ProcessStreetSettingsResponse` in `unitprep-api`'s
  * `process_street_settings.rs`. `api_key` is the real, current value
  * (masked/revealed client-side) -- `api_key_source` says whether it
  * came from a saved row or is the live `PROCESS_STREET_API_KEY` env var
- * fallback. */
+ * fallback. `sync_time`/`sync_timezone` are only meaningful (non-`null`)
+ * when `schedule_mode === "daily_time"`. */
 export interface ProcessStreetSettings {
+  schedule_mode: ScheduleMode;
   sync_interval_hours: number;
+  /** `"HH:MM:SS"` or `null`. */
+  sync_time: string | null;
+  sync_timezone: string | null;
   api_key: string;
   api_key_source: ConfigSource;
   updated_at: string;
@@ -31,12 +54,22 @@ export async function getProcessStreetSettings(): Promise<SettingsResult<Process
 }
 
 export async function updateProcessStreetSettings(input: {
+  scheduleMode: ScheduleMode;
   syncIntervalHours: number;
+  /** `"HH:MM"`, required when `scheduleMode === "daily_time"`. */
+  syncTime: string | null;
+  syncTimezone: string | null;
   apiKey: string;
 }): Promise<SettingsResult<ProcessStreetSettings>> {
   return trySettingsFetch(
     "/integrations/process-street/settings",
-    { sync_interval_hours: input.syncIntervalHours, api_key: input.apiKey },
+    {
+      schedule_mode: input.scheduleMode,
+      sync_interval_hours: input.syncIntervalHours,
+      sync_time: input.syncTime,
+      sync_timezone: input.syncTimezone,
+      api_key: input.apiKey,
+    },
     "PUT"
   );
 }

@@ -60,7 +60,13 @@ export default function LoginPage() {
     }
 
     await refresh();
-    router.replace("/clients");
+    // A hard navigation, not router.replace() -- after a long-idle tab,
+    // next dev's Turbopack HMR connection can go stale, and the next
+    // client-side soft navigation silently fails to complete (no error,
+    // URL/content just don't update; only a hard reload recovers). Login
+    // success is rare enough that trading an instant client transition
+    // for a guaranteed-fresh full page load here is a good trade.
+    window.location.assign("/clients");
   }
 
   return (
