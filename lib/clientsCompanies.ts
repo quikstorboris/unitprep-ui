@@ -94,3 +94,31 @@ export async function applyResync(
 ): Promise<ClientsResult<ApplyResyncResponse>> {
   return clientsPost(`/clients/${companyId}/resync/apply`, { resolutions });
 }
+
+/** Mirrors `ManualLinkWorkflow` (unitprep-api/src/api/clients_manual_link.rs). */
+export type ManualLinkWorkflow = "intake" | "merchant_account";
+
+export interface ManualLinkRequest {
+  facility_id: string;
+  workflow: ManualLinkWorkflow;
+  run_id: string;
+}
+
+export interface ManualLinkResponse {
+  workflow: string;
+}
+
+/**
+ * Company page's "Manual Link" button -- repoints one facility's Intake
+ * or Merchant Account run to a different run id, in place, whether or
+ * not it's already linked to something else. See the backend module's
+ * own doc comment for why this exists alongside (not instead of) the
+ * Elavon tab's own "Link Manually", which only covers the not-yet-linked
+ * Merchant Account case.
+ */
+export async function manualLink(
+  companyId: string,
+  request: ManualLinkRequest
+): Promise<ClientsResult<ManualLinkResponse>> {
+  return clientsPost(`/clients/${companyId}/manual-link`, request);
+}

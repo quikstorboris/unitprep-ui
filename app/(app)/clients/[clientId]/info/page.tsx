@@ -6,6 +6,7 @@ import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
 import DetailSection from "@/components/clients/DetailSection";
 import FacilityRail from "@/components/clients/FacilityRail";
 import FieldReferenceHelp from "@/components/clients/FieldReferenceHelp";
+import ManualLinkDialog from "@/components/clients/ManualLinkDialog";
 import PartyCard from "@/components/clients/PartyCard";
 import ResyncButton from "@/components/clients/ResyncButton";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
@@ -60,6 +61,7 @@ export default function ClientInfoPage() {
             <div className="flex items-center gap-2">
               <FieldReferenceHelp />
               <ResyncButton companyId={clientId} />
+              <ManualLinkDialog companyId={clientId} />
             </div>
           </div>
 
