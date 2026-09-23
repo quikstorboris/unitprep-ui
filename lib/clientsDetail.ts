@@ -547,6 +547,19 @@ export async function listFacilityToolRuns(
   return clientsGet(`/clients/${companyId}/facilities/${facilityId}/tool-runs?${query.toString()}`);
 }
 
+/**
+ * Deletes one tool run -- the "clear a mistaken run" action (e.g. a
+ * Dedup check accidentally run against the wrong facility's data).
+ * Requires `client_ops.perform`; permanent, no undo.
+ */
+export async function deleteToolRun(
+  companyId: string,
+  facilityId: string,
+  runId: string
+): Promise<ClientsResult<void>> {
+  return clientsDelete(`/clients/${companyId}/facilities/${facilityId}/tool-runs/${runId}`);
+}
+
 /** The download URL for one run's stored output file -- fetched (not
  * navigated to directly) by `useToolRunOutputDownload`, same reasoning
  * as every other authenticated download in this app: a plain `<a href>`

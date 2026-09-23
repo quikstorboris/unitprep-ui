@@ -8,7 +8,7 @@ import RelatedTenantsSection from "@/components/dedup/RelatedTenantsSection";
 import TypoVariantsSection from "@/components/dedup/TypoVariantsSection";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import { downloadToolRunOutput, downloadToolRunSource } from "@/components/facility/useToolRunOutputDownload";
-import { listFacilityToolRuns } from "@/lib/clientsDetail";
+import { deleteToolRun, listFacilityToolRuns } from "@/lib/clientsDetail";
 import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
 import { useInfiniteLogFeed, type LogFeedResult } from "@/lib/useInfiniteLogFeed";
 import type { ToolRunSummary } from "@/types/api";
@@ -150,7 +150,92 @@ function RunSourceAction({
   );
 }
 
-function RunCard({ companyId, facilityId, run }: { companyId: string; facilityId: string; run: ToolRunSummary }) {
+/**
+ * "Clear a mistaken run" action -- e.g. a Dedup check accidentally run
+ * against the wrong facility's data (2026-09-23). Permanent, so it goes
+ * through the same click-to-confirm shape `ElavonTab`'s own Unlink
+ * button already uses, rather than a single click.
+ */
+function DeleteRunButton({
+  companyId,
+  facilityId,
+  run,
+  onDeleted,
+}: {
+  companyId: string;
+  facilityId: string;
+  run: ToolRunSummary;
+  onDeleted: (runId: string) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    setError(null);
+
+    const result = await deleteToolRun(companyId, facilityId, run.id);
+
+    setDeleting(false);
+
+    if (result.kind !== "ok") {
+      setError(result.message);
+      return;
+    }
+
+    onDeleted(run.id);
+  };
+
+  if (confirming) {
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-amber-400">Delete this run permanently?</span>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+          >
+            {deleting ? "Deleting…" : "Yes, delete"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            disabled={deleting}
+            className="rounded border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        </div>
+        {error && <p className="text-xs text-red-400">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setConfirming(true)}
+      className="rounded border border-red-900 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/30"
+    >
+      Delete
+    </button>
+  );
+}
+
+function RunCard({
+  companyId,
+  facilityId,
+  run,
+  onDeleted,
+}: {
+  companyId: string;
+  facilityId: string;
+  run: ToolRunSummary;
+  onDeleted: (runId: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const report = run.report_summary;
 
@@ -192,6 +277,9 @@ function RunCard({ companyId, facilityId, run }: { companyId: string; facilityId
             </div>
             <RunSourceAction companyId={companyId} facilityId={facilityId} run={run} />
             <RunOutputAction companyId={companyId} facilityId={facilityId} run={run} />
+            <div className="ml-auto">
+              <DeleteRunButton companyId={companyId} facilityId={facilityId} run={run} onDeleted={onDeleted} />
+            </div>
           </div>
 
           <DedupSummaryStats report={report} />
@@ -241,6 +329,18 @@ export function OnboardingWorkTab({ companyId, facilityId }: { companyId: string
     PAGE_SIZE
   );
 
+  // Client-side only -- `useInfiniteLogFeed` is shared with Security/
+  // Activity Logs and has no removal API of its own, so a deleted run
+  // is just hidden from the already-fetched page rather than plumbed
+  // back through the hook's fetch/cursor state, which a delete doesn't
+  // otherwise need to disturb.
+  const [deletedRunIds, setDeletedRunIds] = useState<Set<string>>(new Set());
+  const visibleEntries = entries.filter((run) => !deletedRunIds.has(run.id));
+
+  const handleDeleted = useCallback((runId: string) => {
+    setDeletedRunIds((current) => new Set(current).add(runId));
+  }, []);
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Onboarding Work</h2>
@@ -258,8 +358,8 @@ export function OnboardingWorkTab({ companyId, facilityId }: { companyId: string
       ) : (
         <>
           <div className="space-y-3">
-            {entries.map((run) => (
-              <RunCard key={run.id} companyId={companyId} facilityId={facilityId} run={run} />
+            {visibleEntries.map((run) => (
+              <RunCard key={run.id} companyId={companyId} facilityId={facilityId} run={run} onDeleted={handleDeleted} />
             ))}
           </div>
 
