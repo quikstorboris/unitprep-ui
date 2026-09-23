@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { CompanyDetailProvider } from "@/components/clients/CompanyDetailContext";
 import ClientTabs from "@/components/nav/ClientTabs";
+import CompanyTabs from "@/components/nav/CompanyTabs";
 import { useClients } from "@/lib/clients";
 
 export default function ClientLayout({
@@ -60,6 +61,7 @@ export default function ClientLayout({
         </h1>
       </div>
 
+      <CompanyTabs clientId={clientId} facilityId={facilityId} />
       <ClientTabs clientId={clientId} facilityId={facilityId} />
 
       <CompanyDetailProvider companyId={clientId}>

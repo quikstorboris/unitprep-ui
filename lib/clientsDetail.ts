@@ -60,6 +60,27 @@ export async function getCompanyDetail(companyId: string): Promise<ClientsResult
   return clientsGet(`/clients/${companyId}`);
 }
 
+/** Mirrors `FacilityOnboardingSummary` (unitprep-api/src/api/clients_onboarding_summary.rs). */
+export interface FacilityOnboardingSummary {
+  facility_id: string;
+  facility_name: string;
+  elavon_linked: boolean;
+  elavon_next_step: string | null;
+  elavon_awaiting_credentials: boolean;
+  duplicate_checks_completed: number;
+}
+
+/** Mirrors `OnboardingSummaryResponse`. */
+export interface OnboardingSummaryResponse {
+  facilities: FacilityOnboardingSummary[];
+}
+
+export async function getCompanyOnboardingSummary(
+  companyId: string
+): Promise<ClientsResult<OnboardingSummaryResponse>> {
+  return clientsGet(`/clients/${companyId}/onboarding-summary`);
+}
+
 /** Mirrors `FacilityDetailResponse`. */
 export interface FacilityDetail {
   id: string;
