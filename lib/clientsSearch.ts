@@ -29,6 +29,20 @@ export interface DuplicateCandidate {
    * Merchant Account run, the value that actually differs between
    * duplicate candidates. */
   merchant_account_updated_at: string;
+  /** This candidate's own masked EIN and business address, when
+   * answered -- added 2026-09-23 after the Knapp's Self Stor of Milton
+   * Freewater / "Milton Self Storage" mix-up, so a manager picking
+   * between candidates has more to go on than which title sounds
+   * closer. `null` for both on a run that never got past its own first
+   * form section. */
+  ein_last_4: string | null;
+  business_address: string | null;
+  /** Whether every candidate in this same group that answered a
+   * business address agrees with every other one that did (fuzzy --
+   * tolerant of formatting like "Ave" vs. "Ave." vs. "Avenue"). `null`
+   * when fewer than two candidates have an address to compare.
+   * Identical across every row in the same group. */
+  addresses_agree: boolean | null;
 }
 
 /** Mirrors `FacilityMatch` in `unitprep-api`'s `clients_search.rs`. */
@@ -81,6 +95,18 @@ export interface MerchantAccountMatch {
    * `clients.facility_merchant_accounts` -- the Merchant Account analog
    * of `FacilityMatch.already_imported`. */
   already_linked: boolean;
+  /** Same disambiguation fields as `DuplicateCandidate` -- see its own
+   * doc comment. */
+  ein_last_4: string | null;
+  business_address: string | null;
+  /** Facility titles from this same search that share a significant
+   * word with this run's own title without being a straightforward
+   * substring match either way -- the real Knapp's Self Stor of Milton
+   * Freewater / "Milton Self Storage" shape: similar-sounding,
+   * textually unrelated by the stricter check, and two different real
+   * businesses. Empty when nothing in this search shares any
+   * vocabulary with this run's own title. */
+  similar_facility_names: string[];
 }
 
 /** Mirrors `SearchClientsResponse` in `unitprep-api`'s `clients_search.rs`. */

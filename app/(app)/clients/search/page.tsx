@@ -346,7 +346,17 @@ export default function ClientsSearchPage() {
                       <div className="border-b-2 border-amber-600 px-4 py-2 text-sm text-amber-400">
                         ⚠ Potential Duplicates — {displayFacilityName(group[0].run_name)} has {group.length}{" "}
                         candidate Merchant Account matches. Pick the correct one below (or select both), using
-                        Merchant Account Updated to judge which is current.
+                        EIN/Address to check whether these are really the same business.
+                        {group[0].duplicate?.addresses_agree === false && (
+                          <span className="ml-1 font-medium">
+                            Their addresses don&apos;t match — these may be two different businesses.
+                          </span>
+                        )}
+                        {group[0].duplicate?.addresses_agree === true && (
+                          <span className="ml-1 text-amber-300/70">
+                            Their addresses match — likely the same application submitted more than once.
+                          </span>
+                        )}
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
@@ -358,6 +368,8 @@ export default function ClientsSearchPage() {
                               <th className="px-4 py-2 font-medium">Matched via</th>
                               <th className="px-4 py-2 font-medium">Status</th>
                               <th className="px-4 py-2 font-medium">Merchant Account Updated</th>
+                              <th className="px-4 py-2 font-medium">EIN</th>
+                              <th className="px-4 py-2 font-medium">Address</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -379,6 +391,12 @@ export default function ClientsSearchPage() {
                                 </td>
                                 <td className="px-4 py-2 text-slate-300">
                                   {formatActivity(match.duplicate?.merchant_account_updated_at ?? null)}
+                                </td>
+                                <td className="px-4 py-2 font-mono text-xs text-slate-300">
+                                  {match.duplicate?.ein_last_4 ?? "—"}
+                                </td>
+                                <td className="px-4 py-2 text-slate-300">
+                                  {match.duplicate?.business_address ?? "—"}
                                 </td>
                               </tr>
                             ))}
@@ -413,6 +431,8 @@ export default function ClientsSearchPage() {
                         <th className="px-6 py-2.5 font-medium">Application</th>
                         <th className="px-6 py-2.5 font-medium">Status</th>
                         <th className="px-6 py-2.5 font-medium">Last Activity</th>
+                        <th className="px-6 py-2.5 font-medium">EIN</th>
+                        <th className="px-6 py-2.5 font-medium">Address</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -430,11 +450,23 @@ export default function ClientsSearchPage() {
                                 (already linked to a facility in OO)
                               </span>
                             )}
+                            {match.similar_facility_names.length > 0 && (
+                              <div className="mt-1 text-xs text-amber-400">
+                                ⚠ Similar name to{" "}
+                                {match.similar_facility_names.map(displayFacilityName).join(", ")} above — make
+                                sure you&apos;re looking at the right business before using this run&apos;s id
+                                anywhere.
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-2.5 text-slate-400">
                             <StatusCell status={match.status} />
                           </td>
                           <td className="px-6 py-2.5 text-slate-400">{formatActivity(match.updated_at)}</td>
+                          <td className="px-6 py-2.5 font-mono text-xs text-slate-400">
+                            {match.ein_last_4 ?? "—"}
+                          </td>
+                          <td className="px-6 py-2.5 text-slate-400">{match.business_address ?? "—"}</td>
                         </tr>
                       ))}
                     </tbody>
