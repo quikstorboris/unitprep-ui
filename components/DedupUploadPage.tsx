@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
 import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import { useClients } from "@/lib/clients";
@@ -51,6 +52,7 @@ export default function DedupUploadPage({
 }: DedupUploadPageProps) {
   const { getClient } = useClients();
   const client = getClient(clientId);
+  const { company } = useCompanyDetail();
 
   // Mutually exclusive with `dropboxPath` below -- selecting one source
   // clears the other, since a single check runs against exactly one
@@ -180,6 +182,24 @@ export default function DedupUploadPage({
     const result = await getFacilityDropboxFolder(clientId, facilityName);
     setFacilityDropboxPath(result.kind === "ok" ? result.data.path : null);
   };
+
+  // Pre-selects the facility this tab is already scoped to -- the
+  // dropdown above still lets the user override it, but defaulting to
+  // "nothing picked yet" made it too easy to import against the wrong
+  // facility (2026-09-23: a real Dedup check run against the wrong
+  // facility's data, needing Onboarding Work's own delete action to
+  // undo). Only fires once per facility -- `autoSelectedFacilityIdRef`
+  // stops it from re-firing and fighting a deliberate manual re-pick.
+  const autoSelectedFacilityIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const facilityName = company?.facilities.find((f) => f.id === facilityId)?.name;
+    if (!facilityName) return;
+    if (autoSelectedFacilityIdRef.current === facilityId) return;
+
+    autoSelectedFacilityIdRef.current = facilityId;
+    void handleFacilitySelected(facilityName);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleFacilitySelected is stable in shape; only re-run when the resolvable facility changes
+  }, [company, facilityId]);
 
   const handleDropboxPathSelected = (path: string) => {
     setSelectedFile(null);
