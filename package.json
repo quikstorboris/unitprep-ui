@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "generate-types": "cd ../unitprep-api && TS_RS_EXPORT_DIR=\"$(pwd)/../unitprep-ui/types/generated\" cargo test --workspace export_bindings"
   },
   "dependencies": {
     "@types/qrcode": "^1.5.6",
