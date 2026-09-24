@@ -24,7 +24,8 @@ For a production build: `npm run build && npm run start`.
 npm run test
 ```
 
-414 tests via Vitest, plus a Playwright end-to-end suite (`npm run
+633 tests via Vitest as of 2026-09-24 (grows over time, don't treat
+this figure as exact), plus a Playwright end-to-end suite (`npm run
 test:e2e`).
 
 ## What's here
@@ -57,6 +58,10 @@ page that depends on an existing session treats an HTTP 404 from the
 API as an expired/invalid session and renders an explicit
 "session expired" screen rather than a confusing empty result —
 sessions are in-memory on the API side with a 10-minute idle timeout.
+(A separate, unrelated meaning of "session" — the signed-in auth
+session, DB-backed with its own 30-minute idle / 12-hour absolute
+timeout, see `unitprep-api`'s AUTHENTICATION.md above — has no bearing
+on this one; don't conflate the two.)
 
 ## Project layout
 
