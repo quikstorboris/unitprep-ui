@@ -8,6 +8,7 @@ import {
   errorMessageFrom,
 } from "@/lib/api";
 import { notifyUnauthorized } from "@/lib/sessionExpiry";
+import { isAbortError, useAbortableOperation } from "@/lib/useAbortableOperation";
 
 /**
  * What `run` resolved to, checked by the caller immediately after
@@ -18,16 +19,30 @@ import { notifyUnauthorized } from "@/lib/sessionExpiry";
  * `pending`/`error`/`sessionExpired` fields are for rendering the
  * button's own UI (a "Saving..." label, an inline error) — this return
  * value is for deciding what to do next.
+ *
+ * "cancelled" is its own outcome, not folded into "error" -- the user
+ * asking to stop is not a failure, and a caller that shows an error
+ * banner on `{kind: "error"}` shouldn't show one for this.
  */
 export type SessionActionResult =
   | { kind: "ok"; response: Response }
   | { kind: "sessionExpired" }
+  | { kind: "cancelled" }
   | { kind: "error"; message: string };
 
 interface UseJsonPostActionResult {
   pending: boolean;
   error: string | null;
   sessionExpired: boolean;
+  /** True once `cancel()` has fired for the request currently (or most
+   * recently) in flight -- see useAbortableOperation. */
+  cancelled: boolean;
+  /** Milliseconds elapsed since the current/last `run()` started --
+   * see useAbortableOperation. */
+  elapsedMs: number;
+  /** Aborts the in-flight `run()`, resolving it with
+   * `{kind: "cancelled"}`. A no-op if nothing is in flight. */
+  cancel: () => void;
   /** Fires one POST of `body` (verbatim, no field merged in) to `path`. */
   run: (
     body: Record<string, unknown>
@@ -57,9 +72,19 @@ export function useJsonPostAction(
     setSessionExpired,
   ] = useState(false);
 
+  const {
+    elapsedMs,
+    cancelled,
+    start,
+    finish,
+    cancel,
+  } = useAbortableOperation();
+
   const run = async (
     body: Record<string, unknown>
   ): Promise<SessionActionResult> => {
+    const controller = start();
+
     try {
       setPending(true);
       setError(null);
@@ -79,6 +104,7 @@ export function useJsonPostAction(
               "application/json",
           },
           body: JSON.stringify(body),
+          signal: controller.signal,
         }
       );
 
@@ -112,12 +138,21 @@ export function useJsonPostAction(
 
       return { kind: "ok", response };
     } catch (err) {
+      // The user's own cancel() call aborted this request -- not a real
+      // failure, so this must not land in `error` (a caller showing an
+      // error banner on that field would otherwise flash one for a
+      // cancel the user asked for themselves).
+      if (isAbortError(err)) {
+        return { kind: "cancelled" };
+      }
+
       const message =
         describeFetchError(err);
       setError(message);
       return { kind: "error", message };
     } finally {
       setPending(false);
+      finish();
     }
   };
 
@@ -125,6 +160,9 @@ export function useJsonPostAction(
     pending,
     error,
     sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancel,
     run,
   };
 }
@@ -133,6 +171,9 @@ interface UseSessionActionResult {
   pending: boolean;
   error: string | null;
   sessionExpired: boolean;
+  cancelled: boolean;
+  elapsedMs: number;
+  cancel: () => void;
   /**
    * Fires the action. `extraBody` is merged alongside `session_id` in
    * the request body.
@@ -159,6 +200,9 @@ export function useSessionAction(
     pending,
     error,
     sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancel,
     run: runJsonPost,
   } = useJsonPostAction(path);
 
@@ -174,6 +218,9 @@ export function useSessionAction(
     pending,
     error,
     sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancel,
     run,
   };
 }

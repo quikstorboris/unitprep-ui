@@ -438,6 +438,127 @@ describe("useDiscoveryFlow", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("resolves cancelled (not apiError) when cancel() aborts the in-flight upload", async () => {
+    const fetchMock = vi.fn().mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => {
+            reject(new DOMException("aborted", "AbortError"));
+          });
+        })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useDiscoveryFlow());
+
+    act(() => {
+      result.current.handleFileSelection(
+        makeFileList([new File(["a"], "units.csv")])
+      );
+    });
+
+    let discoverPromise!: Promise<void>;
+    act(() => {
+      discoverPromise = result.current.handleDiscover();
+    });
+
+    act(() => {
+      result.current.cancel();
+    });
+
+    await act(async () => {
+      await discoverPromise;
+    });
+
+    expect(result.current.cancelled).toBe(true);
+    expect(result.current.apiError).toBeNull();
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("resolves cancelled when cancel() aborts the in-flight discover call", async () => {
+    const fetchMock = vi.fn((url: string, init: RequestInit) => {
+      if (url.includes("/upload")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              session_id: "s1",
+              files_uploaded: 1,
+              files_failed: 0,
+              multipart_errors: 0,
+            }),
+            { status: 200 }
+          )
+        );
+      }
+
+      // /discover: never settles on its own -- only cancel()'s abort
+      // ends it.
+      return new Promise((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => {
+          reject(new DOMException("aborted", "AbortError"));
+        });
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useDiscoveryFlow());
+
+    act(() => {
+      result.current.handleFileSelection(
+        makeFileList([new File(["a"], "units.csv")])
+      );
+    });
+
+    let discoverPromise!: Promise<void>;
+    act(() => {
+      discoverPromise = result.current.handleDiscover();
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      result.current.cancel();
+    });
+
+    await act(async () => {
+      await discoverPromise;
+    });
+
+    expect(result.current.cancelled).toBe(true);
+    expect(result.current.apiError).toBeNull();
+  });
+
+  it("ticks elapsedMs while the pipeline is in flight", async () => {
+    vi.useFakeTimers();
+
+    const fetchMock = vi.fn(
+      () => new Promise<Response>(() => {})
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useDiscoveryFlow());
+
+    act(() => {
+      result.current.handleFileSelection(
+        makeFileList([new File(["a"], "units.csv")])
+      );
+    });
+
+    act(() => {
+      void result.current.handleDiscover();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(result.current.elapsedMs).toBeGreaterThanOrEqual(1000);
+
+    vi.useRealTimers();
+  });
+
   it("applies an externally-updated discovery via handleDiscoveryUpdated", () => {
     const { result } = renderHook(() => useDiscoveryFlow());
     const updated = discoverResponse({ ready: true });

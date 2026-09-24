@@ -79,6 +79,8 @@ export function FormatConfirmationSection({
       return;
     }
 
+    if (result.kind === "cancelled") return;
+
     // The next discovery response describes a different file (or
     // none, if everything's resolved) — any in-progress manual
     // mapping belonged to whichever file was just resolved.
@@ -113,6 +115,8 @@ export function FormatConfirmationSection({
       if (result.kind === "error") {
         return;
       }
+
+      if (result.kind === "cancelled") return;
 
       onDiscoveryUpdated(
         await result.response.json()

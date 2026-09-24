@@ -6,6 +6,7 @@ import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import type { Client } from "@/lib/clients";
 import { getFacilityDropboxFolder } from "@/lib/dropbox";
+import { formatElapsed } from "@/lib/useAbortableOperation";
 
 interface SourceFolderSectionProps {
   clientId: string;
@@ -14,6 +15,13 @@ interface SourceFolderSectionProps {
   dropboxPath: string | null;
   sessionId: string;
   loading: boolean;
+  /** Milliseconds elapsed since the current upload/discover pipeline
+   * started -- rendered next to Discover/Cancel instead of a fake
+   * progress bar, since neither /upload(-dropbox) nor /discover streams
+   * a real percentage back. */
+  elapsedMs: number;
+  /** Aborts the in-flight upload/discover pipeline. */
+  onCancel: () => void;
   onFileSelection: (files: FileList | null) => void;
   onDropboxPathSelected: (path: string) => void;
   onDiscover: () => void;
@@ -33,6 +41,8 @@ export function SourceFolderSection({
   dropboxPath,
   sessionId,
   loading,
+  elapsedMs,
+  onCancel,
   onFileSelection,
   onDropboxPathSelected,
   onDiscover,
@@ -142,6 +152,21 @@ export function SourceFolderSection({
         >
           {loading ? "Uploading & Discovering..." : "Discover"}
         </button>
+
+        {loading && (
+          <>
+            <span className="text-sm text-slate-400">
+              {formatElapsed(elapsedMs)} elapsed
+            </span>
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

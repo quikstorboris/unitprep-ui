@@ -12,6 +12,7 @@ import { useTaggerSaveToDropbox } from "./tagger/useTaggerSaveToDropbox";
 import SessionExpiredPage from "./SessionExpiredPage";
 import { listQmsTags, type QmsTag } from "@/lib/clientOps";
 import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
+import { formatElapsed } from "@/lib/useAbortableOperation";
 import type { CandidateView, ConfirmedSubstitution } from "@/types/api";
 
 /** Same definition `tagger-pipeline` itself uses (`is_underscore_run`):
@@ -55,6 +56,9 @@ export default function TaggerResultsPage({
     loading,
     error: reportError,
     sessionExpired: reportExpired,
+    cancelled: reportCancelled,
+    elapsedMs: reportElapsedMs,
+    cancel: cancelReport,
   } = useTaggerReport(sessionId);
 
   const {
@@ -62,6 +66,9 @@ export default function TaggerResultsPage({
     downloadComplete,
     error: applyError,
     sessionExpired: applyExpired,
+    cancelled: applyCancelled,
+    elapsedMs: applyElapsedMs,
+    cancelApply,
     handleApply,
   } = useTaggerApply(sessionId);
 
@@ -204,7 +211,32 @@ export default function TaggerResultsPage({
   }
 
   if (loading) {
-    return <div className="text-slate-100">Recognizing tags in this document...</div>;
+    return (
+      <div className="space-y-3 text-slate-100">
+        <div>
+          Recognizing tags in this document... ({formatElapsed(reportElapsedMs)})
+        </div>
+        <button
+          onClick={cancelReport}
+          className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  // The report fetch was cancelled mid-flight (rather than failing) --
+  // its own distinct state, not folded into `reportError`'s banner.
+  if (reportCancelled && !candidates) {
+    return (
+      <div className="space-y-4">
+        <div className="text-amber-400">Tag recognition cancelled.</div>
+        <button onClick={onHome} className="rounded bg-slate-700 px-4 py-2 text-white">
+          Home
+        </button>
+      </div>
+    );
   }
 
   if (reportError) {
@@ -288,6 +320,10 @@ export default function TaggerResultsPage({
         <div className="mt-8 rounded bg-red-900 p-3 text-red-200">{applyError}</div>
       )}
 
+      {applyCancelled && !applying && (
+        <div className="mt-4 text-sm text-amber-400">Apply cancelled.</div>
+      )}
+
       {saveError && (
         <div className="mt-4 rounded bg-red-900 p-3 text-red-200">{saveError}</div>
       )}
@@ -304,6 +340,19 @@ export default function TaggerResultsPage({
                 ? "Applying..."
                 : `Apply ${confirmedCount} Substitution${confirmedCount === 1 ? "" : "s"}`}
             </button>
+
+            {applying && (
+              <span className="inline-flex items-center gap-3 text-sm text-slate-400">
+                {formatElapsed(applyElapsedMs)} elapsed
+                <button
+                  type="button"
+                  onClick={cancelApply}
+                  className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 transition-colors hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+              </span>
+            )}
 
             {savedPath ? (
               <a

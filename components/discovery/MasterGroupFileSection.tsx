@@ -90,6 +90,7 @@ export function MasterGroupFileSection({
     }
 
     if (result.kind === "error") return;
+    if (result.kind === "cancelled") return;
 
     onDiscoveryUpdated(await result.response.json());
   };
@@ -107,6 +108,7 @@ export function MasterGroupFileSection({
     }
 
     if (result.kind === "error") return;
+    if (result.kind === "cancelled") return;
 
     setForceShowGroupFileCandidates(false);
 

@@ -118,6 +118,8 @@ export function UnitFileSelectionSection({
       return;
     }
 
+    if (result.kind === "cancelled") return;
+
     onSelectionConfirmed();
 
     onDiscoveryUpdated(await result.response.json());

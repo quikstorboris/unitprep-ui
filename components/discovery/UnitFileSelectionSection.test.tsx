@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UnitFileSelectionSection } from "./UnitFileSelectionSection";
+import { MockXMLHttpRequest } from "@/lib/testUtils/MockXMLHttpRequest";
 import type { DiscoverResponse } from "@/types/api";
 
 function baseDiscovery(
@@ -72,6 +73,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  MockXMLHttpRequest.reset();
 });
 
 describe("UnitFileSelectionSection", () => {
@@ -254,11 +256,10 @@ describe("UnitFileSelectionSection", () => {
       requires_format_resolution: true,
     });
 
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => updatedDiscovery,
-    });
+    // The manual upload goes through useFileUploadAction, which is
+    // built on XMLHttpRequest (not fetch) so it can report real upload
+    // progress -- see lib/useFileUploadAction.ts's own doc comment.
+    vi.stubGlobal("XMLHttpRequest", MockXMLHttpRequest);
 
     const { container } = render(
       <UnitFileSelectionSection
@@ -284,10 +285,20 @@ describe("UnitFileSelectionSection", () => {
     await userEvent.upload(input, file);
 
     await waitFor(() =>
+      expect(MockXMLHttpRequest.instances.length).toBeGreaterThan(0)
+    );
+    act(() => {
+      MockXMLHttpRequest.latest().respond(
+        200,
+        JSON.stringify(updatedDiscovery)
+      );
+    });
+
+    await waitFor(() =>
       expect(onDiscoveryUpdated).toHaveBeenCalledWith(updatedDiscovery)
     );
 
-    const [url] = fetchMock.mock.calls[0];
-    expect(url).toContain("/unit-file/upload");
+    const xhr = MockXMLHttpRequest.latest();
+    expect(xhr.url).toContain("/unit-file/upload");
   });
 });

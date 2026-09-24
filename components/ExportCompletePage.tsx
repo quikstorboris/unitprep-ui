@@ -11,6 +11,7 @@ import { useUnitGroupSaveLocation } from "./export/useUnitGroupSaveLocation";
 import { useUnitGroupSaveToDropbox } from "./export/useUnitGroupSaveToDropbox";
 import SessionExpiredPage from "./SessionExpiredPage";
 import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
+import { formatElapsed } from "@/lib/useAbortableOperation";
 
 interface ExportCompletePageProps {
   sessionId: string;
@@ -70,6 +71,33 @@ function DropboxSaveAction({
   );
 }
 
+interface ExportProgressProps {
+  exporting: boolean;
+  elapsedMs: number;
+  onCancel: () => void;
+}
+
+/** The export/download button's own elapsed-time label + Cancel button,
+ * shown only while generating -- /export doesn't stream a real
+ * percentage, so this is an honest "still working" indicator instead of
+ * a fake progress bar. Mirrors DedupResultsPage's own `ExportProgress`. */
+function ExportProgress({ exporting, elapsedMs, onCancel }: ExportProgressProps) {
+  if (!exporting) return null;
+
+  return (
+    <span className="inline-flex items-center gap-3 text-sm text-slate-400">
+      {formatElapsed(elapsedMs)} elapsed
+      <button
+        type="button"
+        onClick={onCancel}
+        className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 transition-colors hover:bg-slate-800"
+      >
+        Cancel
+      </button>
+    </span>
+  );
+}
+
 export default function ExportCompletePage({
   sessionId,
   clientId,
@@ -81,6 +109,9 @@ export default function ExportCompletePage({
     loading,
     error: analysisError,
     sessionExpired: analysisExpired,
+    cancelled: analysisCancelled,
+    elapsedMs: analysisElapsedMs,
+    cancel: cancelAnalysis,
   } = useAnalysis(sessionId);
 
   const {
@@ -88,6 +119,9 @@ export default function ExportCompletePage({
     downloadComplete,
     error: exportError,
     sessionExpired: exportExpired,
+    cancelled: exportCancelled,
+    elapsedMs: exportElapsedMs,
+    cancelExport,
     handleExport,
   } = useExportDownload(sessionId, clientId);
 
@@ -111,8 +145,35 @@ export default function ExportCompletePage({
 
   if (loading) {
     return (
-      <div className="text-slate-100">
-        Running analysis...
+      <div className="space-y-3 text-slate-100">
+        <div>
+          Running analysis... ({formatElapsed(analysisElapsedMs)})
+        </div>
+        <button
+          onClick={cancelAnalysis}
+          className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  // The analysis fetch was cancelled mid-flight (rather than failing) --
+  // its own distinct state, not folded into `analysisError`'s banner.
+  if (analysisCancelled && !analysis) {
+    return (
+      <div className="space-y-4">
+        <div className="text-amber-400">Analysis cancelled.</div>
+
+        <div className="flex gap-4">
+          <button onClick={onBack} className="rounded bg-slate-700 px-4 py-2 text-white">
+            ← Back
+          </button>
+          <button onClick={onHome} className="rounded bg-slate-700 px-4 py-2 text-white">
+            Home
+          </button>
+        </div>
       </div>
     );
   }
@@ -200,6 +261,10 @@ export default function ExportCompletePage({
         </div>
       )}
 
+      {exportCancelled && !exporting && (
+        <div className="mt-4 text-sm text-amber-400">Export cancelled.</div>
+      )}
+
       {saveError && (
         <div className="mt-4 rounded bg-red-900 p-3 text-red-200">
           {saveError}
@@ -217,6 +282,12 @@ export default function ExportCompletePage({
               ? "Generating ZIP..."
               : "Download Export ZIP"}
           </button>
+
+          <ExportProgress
+            exporting={exporting}
+            elapsedMs={exportElapsedMs}
+            onCancel={cancelExport}
+          />
 
           <DropboxSaveAction
             defaultFolderPath={defaultFolderPath}
@@ -243,10 +314,17 @@ export default function ExportCompletePage({
           <div className="flex flex-wrap items-center gap-4">
             <button
               onClick={handleExport}
-              className="rounded bg-blue-600 px-4 py-2"
+              disabled={exporting}
+              className="rounded bg-blue-600 px-4 py-2 disabled:opacity-50"
             >
-              Download Again
+              {exporting ? "Generating ZIP..." : "Download Again"}
             </button>
+
+            <ExportProgress
+              exporting={exporting}
+              elapsedMs={exportElapsedMs}
+              onCancel={cancelExport}
+            />
 
             <DropboxSaveAction
               defaultFolderPath={defaultFolderPath}

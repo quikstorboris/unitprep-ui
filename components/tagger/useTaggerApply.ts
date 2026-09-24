@@ -10,6 +10,13 @@ interface UseTaggerApplyResult {
   downloadComplete: boolean;
   error: string | null;
   sessionExpired: boolean;
+  /** True once `cancelApply()` has fired for the apply currently (or
+   * most recently) in flight -- see useAbortableOperation. */
+  cancelled: boolean;
+  /** Milliseconds elapsed since the current/last apply started. */
+  elapsedMs: number;
+  /** Aborts the in-flight apply. A no-op if nothing is in flight. */
+  cancelApply: () => void;
   handleApply: (
     confirmed: ConfirmedSubstitution[],
     preserveUnderscores: boolean
@@ -27,7 +34,15 @@ const FALLBACK_FILENAME = "tagged.docx";
 export function useTaggerApply(
   sessionId: string
 ): UseTaggerApplyResult {
-  const { pending, error, sessionExpired, run } = useSessionAction(
+  const {
+    pending,
+    error,
+    sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancel: cancelApply,
+    run,
+  } = useSessionAction(
     sessionId,
     "/tagger/apply"
   );
@@ -79,6 +94,9 @@ export function useTaggerApply(
     downloadComplete,
     error,
     sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancelApply,
     handleApply,
   };
 }

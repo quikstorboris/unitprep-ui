@@ -14,6 +14,7 @@ import { useDedupSaveLocation } from "./dedup/useDedupSaveLocation";
 import { useDedupSaveToDropbox } from "./dedup/useDedupSaveToDropbox";
 import SessionExpiredPage from "./SessionExpiredPage";
 import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
+import { formatElapsed } from "@/lib/useAbortableOperation";
 import type { DedupExportFormat } from "@/types/api";
 
 interface DedupResultsPageProps {
@@ -48,6 +49,36 @@ interface DropboxSaveActionProps {
    * buttons' size (the Export Format panel's own buttons are bigger
    * than Download Again/Home's). */
   sizeClassName: string;
+}
+
+interface ExportProgressProps {
+  exporting: boolean;
+  elapsedMs: number;
+  onCancel: () => void;
+}
+
+/**
+ * The export/download button's own elapsed-time label + Cancel button,
+ * shown only while generating -- /dedup/export doesn't stream a real
+ * percentage, so this is an honest "still working" indicator instead of
+ * a fake progress bar. Shared between the pre- and post-download
+ * panels below, which each have their own Download button.
+ */
+function ExportProgress({ exporting, elapsedMs, onCancel }: ExportProgressProps) {
+  if (!exporting) return null;
+
+  return (
+    <span className="inline-flex items-center gap-3 text-sm text-slate-400">
+      {formatElapsed(elapsedMs)} elapsed
+      <button
+        type="button"
+        onClick={onCancel}
+        className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 transition-colors hover:bg-slate-800"
+      >
+        Cancel
+      </button>
+    </span>
+  );
 }
 
 /**
@@ -104,6 +135,9 @@ export default function DedupResultsPage({
     loading,
     error: reportError,
     sessionExpired: reportExpired,
+    cancelled: reportCancelled,
+    elapsedMs: reportElapsedMs,
+    cancel: cancelReport,
   } = useDedupReport(sessionId);
 
   const {
@@ -111,6 +145,9 @@ export default function DedupResultsPage({
     downloadComplete,
     error: exportError,
     sessionExpired: exportExpired,
+    cancelled: exportCancelled,
+    elapsedMs: exportElapsedMs,
+    cancelExport,
     handleExport,
   } = useDedupExport(sessionId, clientId, facilityId);
 
@@ -141,9 +178,35 @@ export default function DedupResultsPage({
 
   if (loading) {
     return (
-      <div className="text-slate-100">
-        Running duplicate tenant
-        check...
+      <div className="space-y-3 text-slate-100">
+        <div>
+          Running duplicate tenant check... ({formatElapsed(reportElapsedMs)})
+        </div>
+        <button
+          onClick={cancelReport}
+          className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  // The report fetch was cancelled mid-flight (rather than failing) --
+  // its own distinct state, not folded into `reportError`'s banner,
+  // since the user asked to stop rather than hitting a real failure.
+  if (reportCancelled && !report) {
+    return (
+      <div className="space-y-4">
+        <div className="text-amber-400">
+          Duplicate tenant check cancelled.
+        </div>
+        <button
+          onClick={onHome}
+          className="rounded bg-slate-700 px-4 py-2 text-white"
+        >
+          Back to Company
+        </button>
       </div>
     );
   }
@@ -236,6 +299,12 @@ export default function DedupResultsPage({
         </div>
       )}
 
+      {exportCancelled && !exporting && (
+        <div className="mt-4 text-sm text-amber-400">
+          Export cancelled.
+        </div>
+      )}
+
       {!completed && (
         <div className="mt-8 rounded border border-slate-700 p-4">
           <div className="mb-3 font-semibold">
@@ -285,6 +354,12 @@ export default function DedupResultsPage({
                 : "Download Export"}
             </button>
 
+            <ExportProgress
+              exporting={exporting}
+              elapsedMs={exportElapsedMs}
+              onCancel={cancelExport}
+            />
+
             <DropboxSaveAction
               defaultFolderPath={defaultFolderPath}
               savedPath={savedPath}
@@ -324,10 +399,21 @@ export default function DedupResultsPage({
                   exportFormat
                 )
               }
-              className="rounded bg-blue-600 px-4 py-2"
+              disabled={exporting}
+              className="rounded bg-blue-600 px-4 py-2 disabled:opacity-50"
             >
-              {downloadComplete ? "Download Again" : "Download Export"}
+              {exporting
+                ? "Generating..."
+                : downloadComplete
+                  ? "Download Again"
+                  : "Download Export"}
             </button>
+
+            <ExportProgress
+              exporting={exporting}
+              elapsedMs={exportElapsedMs}
+              onCancel={cancelExport}
+            />
 
             <DropboxSaveAction
               defaultFolderPath={defaultFolderPath}

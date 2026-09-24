@@ -52,6 +52,7 @@ export function useManualGroupFileUpload({
     }
 
     if (result.kind === "error") return;
+    if (result.kind === "cancelled") return;
 
     onDiscoveryUpdated(await result.response.json());
   }

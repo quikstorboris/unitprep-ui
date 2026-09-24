@@ -123,6 +123,74 @@ describe("useSessionAction", () => {
       "Could not reach the API server"
     );
   });
+
+  it("resolves cancelled (not error) when cancel() aborts an in-flight run()", async () => {
+    // A fetch that never settles on its own -- only cancel()'s abort()
+    // call should end it, so this can only pass if the signal is
+    // actually wired through to fetch.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener("abort", () => {
+              reject(
+                new DOMException("aborted", "AbortError")
+              );
+            });
+          })
+      )
+    );
+
+    const { result } = renderHook(() => useSessionAction("s1", "/correct"));
+
+    let outcome;
+    await act(async () => {
+      const runPromise = result.current.run();
+      result.current.cancel();
+      outcome = await runPromise;
+    });
+
+    expect(outcome).toEqual({ kind: "cancelled" });
+    expect(result.current.cancelled).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(result.current.pending).toBe(false);
+  });
+
+  it("ticks elapsedMs while a run() is in flight, via useAbortableOperation", async () => {
+    vi.useFakeTimers();
+
+    let releaseFetch: () => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(
+        () =>
+          new Promise<Response>((resolve) => {
+            releaseFetch = () =>
+              resolve(new Response(null, { status: 200 }));
+          })
+      )
+    );
+
+    const { result } = renderHook(() => useSessionAction("s1", "/correct"));
+
+    act(() => {
+      void result.current.run();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(result.current.elapsedMs).toBeGreaterThanOrEqual(1000);
+
+    await act(async () => {
+      releaseFetch();
+      await Promise.resolve();
+    });
+
+    vi.useRealTimers();
+  });
 });
 
 describe("downloadBlob", () => {

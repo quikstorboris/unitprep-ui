@@ -10,6 +10,13 @@ interface UseDedupExportResult {
   downloadComplete: boolean;
   error: string | null;
   sessionExpired: boolean;
+  /** True once `cancelExport()` has fired for the export currently (or
+   * most recently) in flight -- see useAbortableOperation. */
+  cancelled: boolean;
+  /** Milliseconds elapsed since the current/last export started. */
+  elapsedMs: number;
+  /** Aborts the in-flight export. A no-op if nothing is in flight. */
+  cancelExport: () => void;
   handleExport: (
     format: DedupExportFormat
   ) => Promise<void>;
@@ -45,8 +52,15 @@ export function useDedupExport(
    * `undefined` for a standalone run. */
   facilityId?: string
 ): UseDedupExportResult {
-  const { pending, error, sessionExpired, run } =
-    useSessionAction(
+  const {
+    pending,
+    error,
+    sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancel: cancelExport,
+    run,
+  } = useSessionAction(
       sessionId,
       "/dedup/export"
     );
@@ -106,6 +120,9 @@ export function useDedupExport(
     downloadComplete,
     error,
     sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancelExport,
     handleExport,
   };
 }

@@ -8,6 +8,7 @@ import { ScanResultsStatTiles } from "@/components/scan-results/ScanResultsStatT
 import { ValidationStatusBanner } from "@/components/scan-results/ValidationStatusBanner";
 import { WarningsSection } from "@/components/scan-results/WarningsSection";
 import { useScanResultsDerivedState } from "@/components/scan-results/useScanResultsDerivedState";
+import { formatElapsed } from "@/lib/useAbortableOperation";
 import type { ValidateResponse } from "@/types/api";
 
 interface ScanResultsPageProps {
@@ -28,6 +29,9 @@ export default function ScanResultsPage({
     loading,
     error,
     sessionExpired: fetchSessionExpired,
+    cancelled,
+    elapsedMs,
+    cancel,
   } = useSessionPost<ValidateResponse>(
     sessionId,
     "/validate"
@@ -105,8 +109,16 @@ export default function ScanResultsPage({
 
   if (loading) {
     return (
-      <div className="text-slate-100">
-        Loading validation results...
+      <div className="space-y-3 text-slate-100">
+        <div>
+          Loading validation results... ({formatElapsed(elapsedMs)})
+        </div>
+        <button
+          onClick={cancel}
+          className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800"
+        >
+          Cancel
+        </button>
       </div>
     );
   }
@@ -115,6 +127,20 @@ export default function ScanResultsPage({
     return (
       <div className="text-red-400">
         Error: {error}
+      </div>
+    );
+  }
+
+  // The validation fetch was cancelled mid-flight (rather than failing)
+  // -- its own distinct state, not folded into the generic "No
+  // validation results available" message below.
+  if (cancelled && !results) {
+    return (
+      <div className="space-y-4">
+        <div className="text-amber-400">Validation cancelled.</div>
+        <button onClick={onBack} className="rounded bg-slate-700 px-4 py-2">
+          ← Back
+        </button>
       </div>
     );
   }

@@ -6,6 +6,7 @@ import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import { useClients } from "@/lib/clients";
 import { getFacilityDropboxFolder } from "@/lib/dropbox";
+import { formatElapsed } from "@/lib/useAbortableOperation";
 import { useFileUploadAction } from "@/lib/useFileUploadAction";
 import { useJsonPostAction } from "@/lib/useSessionAction";
 import { stashTaggerCheck } from "@/lib/taggerReportCache";
@@ -48,10 +49,21 @@ export default function TaggerUploadPage({
     string | null | undefined
   >(undefined);
 
-  const { pending: loading, run } = useFileUploadAction("/tagger/check");
-  const { pending: importing, run: runImportDropbox } = useJsonPostAction(
-    "/tagger/import-dropbox"
-  );
+  const {
+    pending: loading,
+    run,
+    cancelled: uploadCancelled,
+    elapsedMs: uploadElapsedMs,
+    uploadProgress,
+    cancel: cancelUpload,
+  } = useFileUploadAction("/tagger/check");
+  const {
+    pending: importing,
+    run: runImportDropbox,
+    cancelled: importCancelled,
+    elapsedMs: importElapsedMs,
+    cancel: cancelImport,
+  } = useJsonPostAction("/tagger/import-dropbox");
 
   const handleFacilitySelected = async (facilityName: string) => {
     setSelectedFacility(facilityName || null);
@@ -113,6 +125,10 @@ export default function TaggerUploadPage({
         return;
       }
 
+      // The user clicked Cancel while the import was in flight -- not an
+      // error, nothing more to do.
+      if (result.kind === "cancelled") return;
+
       finishChecked(await result.response.json());
       return;
     }
@@ -139,11 +155,22 @@ export default function TaggerUploadPage({
       return;
     }
 
+    // The user clicked Cancel while the upload was in flight -- not an
+    // error, nothing more to do.
+    if (result.kind === "cancelled") return;
+
     finishChecked(await result.response.json());
   };
 
   const hasSource = !!selectedFile || !!dropboxPath;
   const isChecking = loading || importing;
+
+  // Whichever of the two request shapes (local upload vs. Dropbox
+  // import) is actually running -- see DedupUploadPage's identical
+  // reasoning.
+  const checkElapsedMs = dropboxPath ? importElapsedMs : uploadElapsedMs;
+  const checkCancelled = dropboxPath ? importCancelled : uploadCancelled;
+  const cancelCheck = () => (dropboxPath ? cancelImport() : cancelUpload());
 
   return (
     <div>
@@ -216,17 +243,50 @@ export default function TaggerUploadPage({
           )}
         </div>
 
-        <button
-          onClick={handleCheck}
-          disabled={isChecking || !hasSource}
-          className="mt-6 rounded bg-blue-600 px-4 py-2 disabled:opacity-50"
-        >
-          {isChecking
-            ? dropboxPath
-              ? "Importing & Recognizing..."
-              : "Uploading & Recognizing..."
-            : "Find Tags"}
-        </button>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleCheck}
+            disabled={isChecking || !hasSource}
+            className="rounded bg-blue-600 px-4 py-2 disabled:opacity-50"
+          >
+            {isChecking
+              ? dropboxPath
+                ? "Importing & Recognizing..."
+                : "Uploading & Recognizing..."
+              : "Find Tags"}
+          </button>
+
+          {isChecking && (
+            <>
+              {/* An honest elapsed-time counter, not a fake progress bar --
+                  neither /tagger/check nor /tagger/import-dropbox streams a
+                  real percentage back. The local upload's own outgoing
+                  bytes are the one leg the browser can report truthfully
+                  (see useFileUploadAction) -- shown alongside elapsed time,
+                  not instead of it, since it only covers the upload, not
+                  the server's own parse/recognize time after that. */}
+              <span className="text-sm text-slate-400">
+                {!dropboxPath &&
+                  uploadProgress !== null &&
+                  uploadProgress < 1 &&
+                  `${Math.round(uploadProgress * 100)}% uploaded — `}
+                {formatElapsed(checkElapsedMs)} elapsed
+              </span>
+
+              <button
+                type="button"
+                onClick={cancelCheck}
+                className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+            </>
+          )}
+        </div>
+
+        {checkCancelled && !isChecking && (
+          <div className="mt-3 text-sm text-amber-400">Check cancelled.</div>
+        )}
       </div>
 
       {apiError && (

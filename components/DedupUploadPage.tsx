@@ -8,6 +8,7 @@ import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import { useClients } from "@/lib/clients";
 import { stashDedupReport } from "@/lib/dedupReportCache";
 import { getFacilityDropboxFolder } from "@/lib/dropbox";
+import { formatElapsed } from "@/lib/useAbortableOperation";
 import { useFileUploadAction } from "@/lib/useFileUploadAction";
 import { useJsonPostAction } from "@/lib/useSessionAction";
 import type { DedupCheckResponse, DedupDetectVendorResponse } from "@/types/api";
@@ -90,14 +91,25 @@ export default function DedupUploadPage({
   const [vendorConfirmed, setVendorConfirmed] =
     useState(false);
 
-  const { pending: loading, run } =
-    useFileUploadAction(`/dedup/check?facility_id=${facilityId}`);
+  const {
+    pending: loading,
+    run,
+    cancelled: uploadCancelled,
+    elapsedMs: uploadElapsedMs,
+    uploadProgress,
+    cancel: cancelUpload,
+  } = useFileUploadAction(`/dedup/check?facility_id=${facilityId}`);
 
   const { pending: detecting, run: runDetectVendor } =
     useFileUploadAction("/dedup/detect-vendor");
 
-  const { pending: importing, run: runImportDropbox } =
-    useJsonPostAction("/dedup/import-dropbox");
+  const {
+    pending: importing,
+    run: runImportDropbox,
+    cancelled: importCancelled,
+    elapsedMs: importElapsedMs,
+    cancel: cancelImport,
+  } = useJsonPostAction("/dedup/import-dropbox");
 
   const { pending: detectingDropbox, run: runDetectVendorDropbox } =
     useJsonPostAction("/dedup/detect-vendor-dropbox");
@@ -121,6 +133,11 @@ export default function DedupUploadPage({
       return;
     }
 
+    // Nothing calls detectVendor's cancel() today, but the shared hook's
+    // result type now always includes this branch -- handled the same
+    // as "nothing to show" for consistency with every other call site.
+    if (result.kind === "cancelled") return;
+
     const data: DedupDetectVendorResponse = await result.response.json();
     setVendorName(data.vendor_name);
   };
@@ -137,6 +154,11 @@ export default function DedupUploadPage({
       setApiError(result.message);
       return;
     }
+
+    // Nothing calls this detect's cancel() today, but the shared hook's
+    // result type now always includes this branch -- handled the same
+    // as "nothing to show" for consistency with every other call site.
+    if (result.kind === "cancelled") return;
 
     const data: DedupDetectVendorResponse = await result.response.json();
     setVendorName(data.vendor_name);
@@ -238,6 +260,11 @@ export default function DedupUploadPage({
         return;
       }
 
+      // The user clicked Cancel while the import was in flight -- not an
+      // error, nothing more to do (canRunCheck already reflects the
+      // hook's own `pending` going back to false).
+      if (result.kind === "cancelled") return;
+
       finishChecked(await result.response.json());
       return;
     }
@@ -275,6 +302,11 @@ export default function DedupUploadPage({
       return;
     }
 
+    // The user clicked Cancel while the upload was in flight -- not an
+    // error, nothing more to do (canRunCheck already reflects the
+    // hook's own `pending` going back to false).
+    if (result.kind === "cancelled") return;
+
     finishChecked(await result.response.json());
   };
 
@@ -291,6 +323,15 @@ export default function DedupUploadPage({
   // backend trusts.
   const canRunCheck =
     !isChecking && hasSource && vendorConfirmed;
+
+  // Whichever of the two request shapes (local upload vs. Dropbox
+  // import) is actually the one running -- there's only ever one at a
+  // time, gated by `dropboxPath` the same way handleCheck itself
+  // branches, so a single Cancel button and elapsed-time label can
+  // cover both without the user having to know which path they took.
+  const checkElapsedMs = dropboxPath ? importElapsedMs : uploadElapsedMs;
+  const checkCancelled = dropboxPath ? importCancelled : uploadCancelled;
+  const cancelCheck = () => (dropboxPath ? cancelImport() : cancelUpload());
 
   return (
     <div>
@@ -410,17 +451,53 @@ export default function DedupUploadPage({
           </div>
         )}
 
-        <button
-          onClick={handleCheck}
-          disabled={!canRunCheck}
-          className="mt-6 rounded bg-blue-600 px-4 py-2 disabled:opacity-50"
-        >
-          {isChecking
-            ? dropboxPath
-              ? "Importing & Checking..."
-              : "Uploading & Checking..."
-            : "Run Check"}
-        </button>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleCheck}
+            disabled={!canRunCheck}
+            className="rounded bg-blue-600 px-4 py-2 disabled:opacity-50"
+          >
+            {isChecking
+              ? dropboxPath
+                ? "Importing & Checking..."
+                : "Uploading & Checking..."
+              : "Run Check"}
+          </button>
+
+          {isChecking && (
+            <>
+              {/* An honest elapsed-time counter, not a fake progress bar --
+                  neither /dedup/check nor /dedup/import-dropbox streams a
+                  real percentage back. The one exception is the local
+                  upload's own outgoing bytes, which the browser *can*
+                  report truthfully (see useFileUploadAction) -- shown
+                  alongside elapsed time when available, not in place of it,
+                  since it only covers the upload leg, not the server's own
+                  parse/check time after that. */}
+              <span className="text-sm text-slate-400">
+                {!dropboxPath &&
+                  uploadProgress !== null &&
+                  uploadProgress < 1 &&
+                  `${Math.round(uploadProgress * 100)}% uploaded — `}
+                {formatElapsed(checkElapsedMs)} elapsed
+              </span>
+
+              <button
+                type="button"
+                onClick={cancelCheck}
+                className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+            </>
+          )}
+        </div>
+
+        {checkCancelled && !isChecking && (
+          <div className="mt-3 text-sm text-amber-400">
+            Check cancelled.
+          </div>
+        )}
       </div>
 
       {apiError && (

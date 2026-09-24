@@ -7,6 +7,7 @@ import {
   describeFetchError,
   errorMessageFrom,
 } from "@/lib/api";
+import { isAbortError, useAbortableOperation } from "@/lib/useAbortableOperation";
 import type {
   DiscoverResponse,
   UploadResponse,
@@ -50,6 +51,10 @@ type State = {
   uploadSummary: UploadSummary | null;
   loading: boolean;
   apiError: string | null;
+  /** True once cancel() has fired for the upload/discover pipeline
+   * currently (or most recently) in flight -- distinct from apiError,
+   * since the user asking to stop isn't a failure. */
+  cancelled: boolean;
 };
 
 const initialState: State = {
@@ -60,6 +65,7 @@ const initialState: State = {
   uploadSummary: null,
   loading: false,
   apiError: null,
+  cancelled: false,
 };
 
 type Action =
@@ -76,6 +82,7 @@ type Action =
       discovery: DiscoverResponse;
     }
   | { type: "discover_failed"; message: string }
+  | { type: "discover_cancelled" }
   | { type: "discover_finished" };
 
 // One reducer instead of six independently-updated useState calls — the
@@ -113,6 +120,7 @@ function reducer(
         ...state,
         loading: true,
         apiError: null,
+        cancelled: false,
         // Clear the previous attempt's uploadSummary/discovery too --
         // otherwise a retry after a failure can briefly render a stale
         // summary/discovery panel from the run before this one while the
@@ -142,6 +150,13 @@ function reducer(
         apiError: action.message,
       };
 
+    case "discover_cancelled":
+      return {
+        ...state,
+        discovery: null,
+        cancelled: true,
+      };
+
     case "discover_finished":
       return {
         ...state,
@@ -161,6 +176,17 @@ export interface UseDiscoveryFlowResult {
   uploadSummary: UploadSummary | null;
   loading: boolean;
   apiError: string | null;
+  /** True once cancel() has fired for the upload/discover pipeline
+   * currently (or most recently) in flight -- see useAbortableOperation. */
+  cancelled: boolean;
+  /** Milliseconds elapsed since the current/last handleDiscover() call
+   * started -- covers both the upload and discover legs under one
+   * timer, since the user sees them as a single "Uploading &
+   * Discovering..." step. */
+  elapsedMs: number;
+  /** Aborts whichever request (upload or discover) is currently in
+   * flight. A no-op if nothing is in flight. */
+  cancel: () => void;
   handleFileSelection: (
     files: FileList | null
   ) => void;
@@ -195,7 +221,10 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
     uploadSummary,
     loading,
     apiError,
+    cancelled,
   } = state;
+
+  const { elapsedMs, start, finish, cancel } = useAbortableOperation();
 
   const handleFileSelection = (
     files: FileList | null
@@ -239,6 +268,12 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
     if (discoverInFlight.current) return;
     discoverInFlight.current = true;
 
+    // One AbortController for the whole pipeline -- upload, then
+    // discover -- so a single cancel() (and a single elapsed-time
+    // reading) covers both legs, matching how the UI presents them as
+    // one "Uploading & Discovering..." step rather than two.
+    const controller = start();
+
     try {
       dispatch({
         type: "discover_started",
@@ -260,6 +295,7 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
             credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ path: dropboxPath }),
+            signal: controller.signal,
           }
         );
 
@@ -316,6 +352,7 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
               // request looks signed-out regardless of a valid session.
               credentials: "include",
               body: formData,
+              signal: controller.signal,
             }
           );
 
@@ -379,6 +416,7 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
               session_id:
                 uploadData.session_id,
             }),
+            signal: controller.signal,
           }
         );
 
@@ -396,16 +434,21 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
         discovery: discoveryData,
       });
     } catch (error) {
-      dispatch({
-        type: "discover_failed",
-        message:
-          describeFetchError(error),
-      });
+      if (isAbortError(error)) {
+        dispatch({ type: "discover_cancelled" });
+      } else {
+        dispatch({
+          type: "discover_failed",
+          message:
+            describeFetchError(error),
+        });
+      }
     } finally {
       dispatch({
         type: "discover_finished",
       });
       discoverInFlight.current = false;
+      finish();
     }
   };
 
@@ -426,6 +469,9 @@ export function useDiscoveryFlow(): UseDiscoveryFlowResult {
     uploadSummary,
     loading,
     apiError,
+    cancelled,
+    elapsedMs,
+    cancel,
     handleFileSelection,
     handleDropboxPathSelected,
     handleDiscover,

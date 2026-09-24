@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterGroupFileSection } from "./MasterGroupFileSection";
+import { MockXMLHttpRequest } from "@/lib/testUtils/MockXMLHttpRequest";
 import type { DiscoverResponse } from "@/types/api";
 
 function baseDiscovery(
@@ -59,6 +60,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  MockXMLHttpRequest.reset();
 });
 
 describe("MasterGroupFileSection", () => {
@@ -237,11 +239,10 @@ describe("MasterGroupFileSection", () => {
       selected_group_file_name: "manual.csv",
     });
 
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => updatedDiscovery,
-    });
+    // The manual upload goes through useFileUploadAction, which is
+    // built on XMLHttpRequest (not fetch) so it can report real upload
+    // progress -- see lib/useFileUploadAction.ts's own doc comment.
+    vi.stubGlobal("XMLHttpRequest", MockXMLHttpRequest);
 
     const { container } = render(
       <MasterGroupFileSection
@@ -258,29 +259,33 @@ describe("MasterGroupFileSection", () => {
     await user.upload(fileInput, file);
 
     await waitFor(() =>
+      expect(MockXMLHttpRequest.instances.length).toBeGreaterThan(0)
+    );
+    act(() => {
+      MockXMLHttpRequest.latest().respond(
+        200,
+        JSON.stringify(updatedDiscovery)
+      );
+    });
+
+    await waitFor(() =>
       expect(onDiscoveryUpdated).toHaveBeenCalledWith(updatedDiscovery)
     );
 
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toContain("/group-file/upload");
-    expect(init.method).toBe("POST");
+    const xhr = MockXMLHttpRequest.latest();
+    expect(xhr.url).toContain("/group-file/upload");
+    expect(xhr.method).toBe("POST");
   });
 
-  // Regression test: this handler's manual-upload fetch is hand-rolled
-  // rather than routed through useSessionAction (see its sibling
-  // confirm/select actions above), and used to only check for a 404,
-  // unlike every other action in this component. Now that passkey auth
-  // has actually shipped, a session lapsing mid-upload is a real,
-  // reachable case and must show the same session-expired treatment as
-  // every other action here, not a raw error banner.
+  // Regression test: this handler's manual-upload request used to only
+  // check for a 404, unlike every other action in this component. Now
+  // that passkey auth has actually shipped, a session lapsing mid-upload
+  // is a real, reachable case and must show the same session-expired
+  // treatment as every other action here, not a raw error banner.
   it("treats a 401 on manual upload as a session expiry", async () => {
     const onSessionExpired = vi.fn();
 
-    fetchMock.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      text: async () => "",
-    });
+    vi.stubGlobal("XMLHttpRequest", MockXMLHttpRequest);
 
     const { container } = render(
       <MasterGroupFileSection
@@ -295,6 +300,13 @@ describe("MasterGroupFileSection", () => {
 
     const user = userEvent.setup();
     await user.upload(fileInput, file);
+
+    await waitFor(() =>
+      expect(MockXMLHttpRequest.instances.length).toBeGreaterThan(0)
+    );
+    act(() => {
+      MockXMLHttpRequest.latest().respond(401, "");
+    });
 
     await waitFor(() =>
       expect(onSessionExpired).toHaveBeenCalledTimes(1)

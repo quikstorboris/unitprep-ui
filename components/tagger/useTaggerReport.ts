@@ -11,6 +11,15 @@ interface UseTaggerReportResult {
   loading: boolean;
   error: string | null;
   sessionExpired: boolean;
+  /** True once `cancel()` has fired for this fetch -- see
+   * useAbortableOperation. Always false when `candidates` came from the
+   * stashed cache instead of a real fetch. */
+  cancelled: boolean;
+  /** Milliseconds elapsed since this report's fetch started. */
+  elapsedMs: number;
+  /** Aborts the in-flight report fetch. A no-op once it's settled, or
+   * if the response came from the stashed cache and never fetched at all. */
+  cancel: () => void;
 }
 
 /**
@@ -31,7 +40,7 @@ export function useTaggerReport(
     takeTaggerCheck(sessionId)
   );
 
-  const { data, loading, error, sessionExpired } =
+  const { data, loading, error, sessionExpired, cancelled, elapsedMs, cancel } =
     useSessionPost<TaggerCheckResponse>(
       sessionId,
       "/tagger/report",
@@ -43,5 +52,8 @@ export function useTaggerReport(
     loading,
     error,
     sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancel,
   };
 }

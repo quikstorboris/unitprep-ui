@@ -43,6 +43,8 @@ export function ExemptButton({
       return;
     }
 
+    if (result.kind === "cancelled") return;
+
     const data: ValidateResponse =
       await result.response.json();
 

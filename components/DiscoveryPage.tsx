@@ -20,6 +20,15 @@ interface DiscoveryPageProps {
   uploadSummary: UploadSummary | null;
   loading: boolean;
   apiError: string | null;
+  /** True once onCancel() has fired for the upload/discover pipeline
+   * currently (or most recently) in flight -- see useAbortableOperation. */
+  cancelled: boolean;
+  /** Milliseconds elapsed since the current/last upload/discover
+   * pipeline started. */
+  elapsedMs: number;
+  /** Aborts whichever request (upload or discover) is currently in
+   * flight. */
+  onCancel: () => void;
 
   onFileSelection: (
     files: FileList | null
@@ -49,6 +58,9 @@ export default function DiscoveryPage({
   uploadSummary,
   loading,
   apiError,
+  cancelled,
+  elapsedMs,
+  onCancel,
   onFileSelection,
   onDropboxPathSelected,
   onDiscover,
@@ -102,6 +114,8 @@ export default function DiscoveryPage({
         dropboxPath={dropboxPath}
         sessionId={sessionId}
         loading={loading}
+        elapsedMs={elapsedMs}
+        onCancel={onCancel}
         onFileSelection={onFileSelection}
         onDropboxPathSelected={onDropboxPathSelected}
         onDiscover={onDiscover}
@@ -114,6 +128,12 @@ export default function DiscoveryPage({
       {apiError && (
         <div className="mt-4 rounded bg-red-900 p-3 text-red-200">
           {apiError}
+        </div>
+      )}
+
+      {cancelled && !loading && !uploadSummary && (
+        <div className="mt-4 rounded bg-amber-900 p-3 text-amber-200">
+          Upload/discovery cancelled.
         </div>
       )}
 

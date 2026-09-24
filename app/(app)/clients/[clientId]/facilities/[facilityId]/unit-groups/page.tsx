@@ -20,6 +20,9 @@ export default function UnitGroupsHome() {
     uploadSummary,
     loading,
     apiError,
+    cancelled,
+    elapsedMs,
+    cancel,
     handleFileSelection,
     handleDropboxPathSelected,
     handleDiscover,
@@ -45,6 +48,9 @@ export default function UnitGroupsHome() {
         }
         loading={loading}
         apiError={apiError}
+        cancelled={cancelled}
+        elapsedMs={elapsedMs}
+        onCancel={cancel}
         onFileSelection={
           handleFileSelection
         }

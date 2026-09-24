@@ -8,12 +8,24 @@ import {
   errorMessageFrom,
 } from "@/lib/api";
 import { notifyUnauthorized } from "@/lib/sessionExpiry";
+import { isAbortError, useAbortableOperation } from "@/lib/useAbortableOperation";
 
 interface UseSessionPostResult<TResponse> {
   data: TResponse | null;
   loading: boolean;
   error: string | null;
   sessionExpired: boolean;
+  /** True once `cancel()` has fired for the fetch currently (or most
+   * recently) in flight -- see useAbortableOperation. Distinct from
+   * `error`: the user asking to stop mid-processing isn't a failure. */
+  cancelled: boolean;
+  /** Milliseconds elapsed since this sessionId's fetch started -- see
+   * useAbortableOperation. Ticks while `loading` is true. */
+  elapsedMs: number;
+  /** Aborts the in-flight fetch, setting `cancelled` and stopping
+   * `loading`. A no-op if nothing is in flight (e.g. `initialData` was
+   * used and no fetch ever ran). */
+  cancel: () => void;
 }
 
 /**
@@ -60,6 +72,14 @@ export function useSessionPost<TResponse>(
     setSessionExpired,
   ] = useState(false);
 
+  const {
+    elapsedMs,
+    cancelled,
+    start,
+    finish,
+    cancel,
+  } = useAbortableOperation();
+
   useEffect(() => {
     if (!sessionId) {
       return;
@@ -72,6 +92,7 @@ export function useSessionPost<TResponse>(
     }
 
     let ignore = false;
+    const controller = start();
 
     const run = async () => {
       try {
@@ -101,6 +122,7 @@ export function useSessionPost<TResponse>(
             body: JSON.stringify({
               session_id: sessionId,
             }),
+            signal: controller.signal,
           }
         );
 
@@ -132,13 +154,21 @@ export function useSessionPost<TResponse>(
 
         if (!ignore) setData(body);
       } catch (err) {
-        if (!ignore) {
-          setError(
-            describeFetchError(err)
-          );
-        }
+        if (ignore) return;
+
+        // A cleanup-triggered abort (sessionId changed, or this
+        // component unmounted) also lands here -- but `ignore` is
+        // already true by the time that happens (see the cleanup
+        // below), so it's already filtered out above. What reaches
+        // here is only a real user cancel() call, which isn't an error.
+        if (isAbortError(err)) return;
+
+        setError(
+          describeFetchError(err)
+        );
       } finally {
         if (!ignore) setLoading(false);
+        finish();
       }
     };
 
@@ -146,13 +176,20 @@ export function useSessionPost<TResponse>(
 
     return () => {
       ignore = true;
+      // Not routed through cancel() -- this is React's own cleanup (a
+      // sessionId change or unmount), not the user asking to stop, so
+      // it must not flip `cancelled` and show a "cancelled" UI state.
+      controller.abort();
     };
-  }, [sessionId, path, initialData]);
+  }, [sessionId, path, initialData, start, finish]);
 
   return {
     data,
     loading,
     error,
     sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancel,
   };
 }

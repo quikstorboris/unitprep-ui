@@ -88,6 +88,8 @@ export function GroupCorrectionCard({
       return;
     }
 
+    if (result.kind === "cancelled") return;
+
     const data: ValidateResponse =
       await result.response.json();
 
@@ -109,6 +111,8 @@ export function GroupCorrectionCard({
     if (result.kind === "error") {
       return;
     }
+
+    if (result.kind === "cancelled") return;
 
     const data: ValidateResponse =
       await result.response.json();

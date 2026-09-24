@@ -11,6 +11,15 @@ interface UseDedupReportResult {
   loading: boolean;
   error: string | null;
   sessionExpired: boolean;
+  /** True once `cancel()` has fired for this fetch -- see
+   * useAbortableOperation. Always false when `report` came from the
+   * stashed cache instead of a real fetch. */
+  cancelled: boolean;
+  /** Milliseconds elapsed since this report's fetch started. */
+  elapsedMs: number;
+  /** Aborts the in-flight report fetch. A no-op once it's settled, or
+   * if the report came from the stashed cache and never fetched at all. */
+  cancel: () => void;
 }
 
 /**
@@ -33,7 +42,7 @@ export function useDedupReport(
   // useSessionPost a different value on each call.
   const [cached] = useState(() => takeDedupReport(sessionId));
 
-  const { data, loading, error, sessionExpired } =
+  const { data, loading, error, sessionExpired, cancelled, elapsedMs, cancel } =
     useSessionPost<DedupReportView>(
       sessionId,
       "/dedup/report",
@@ -45,5 +54,8 @@ export function useDedupReport(
     loading,
     error,
     sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancel,
   };
 }

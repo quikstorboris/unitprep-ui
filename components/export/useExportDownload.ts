@@ -9,6 +9,13 @@ interface UseExportDownloadResult {
   downloadComplete: boolean;
   error: string | null;
   sessionExpired: boolean;
+  /** True once `cancelExport()` has fired for the export currently (or
+   * most recently) in flight -- see useAbortableOperation. */
+  cancelled: boolean;
+  /** Milliseconds elapsed since the current/last export started. */
+  elapsedMs: number;
+  /** Aborts the in-flight export. A no-op if nothing is in flight. */
+  cancelExport: () => void;
   handleExport: () => Promise<void>;
 }
 
@@ -29,8 +36,15 @@ export function useExportDownload(
    * `/export` writes on success. `undefined` for a standalone run. */
   clientId?: string
 ): UseExportDownloadResult {
-  const { pending, error, sessionExpired, run } =
-    useSessionAction(sessionId, "/export");
+  const {
+    pending,
+    error,
+    sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancel: cancelExport,
+    run,
+  } = useSessionAction(sessionId, "/export");
 
   const [
     downloadComplete,
@@ -80,6 +94,9 @@ export function useExportDownload(
     downloadComplete,
     error,
     sessionExpired,
+    cancelled,
+    elapsedMs,
+    cancelExport,
     handleExport,
   };
 }
