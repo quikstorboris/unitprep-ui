@@ -8,6 +8,777 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.39] - 2026-09-24
+
+Frontend coverage-audit follow-through, paired with the backend's ts-rs
+codegen work (`unitprep-api` v1.9.37).
+
+### Added
+- Test coverage across four priority tiers from a coverage audit:
+  auth/session infrastructure (`RequirePermission`, `sessionExpiry`,
+  `currentUser`, `auth-session`, `auth-shared`), admin/destructive flows
+  (`useUsersAdmin`, `UserRow`, `SecretField`, `useAuditLogFilterData`),
+  the API-client lib layer (`auth-users`, `auth-audit`, `auth-config`,
+  `clientsDetail`, `dropbox`, `processStreetSettings`, plus their shared
+  plumbing), and the two edit/save-heavy facility policy tabs (`FeesTab`,
+  `DelinquencyTab`, plus their shared `PolicyTabShared`) -- suite grew
+  from 442 to 633 tests (63 to 83 files).
+
+### Changed
+- The core tool-session response types (`UploadResponse`,
+  `DiscoverResponse`, `ValidateResponse`, `AnalyzeResponse`, and their
+  transitive dependencies -- 11 types spanning the main crate and the
+  `unit-group` library crate) are now consumed from files generated
+  directly off the Rust structs via `ts-rs`, instead of hand-mirrored in
+  `types/api.ts` -- closes a drift risk that had already broken once at
+  runtime (an `output_path` field removal that `types/api.ts`'s own
+  header comment claimed would show up as a TypeScript error, but
+  nothing actually enforced). `npm run generate-types` regenerates them;
+  see `types/generated/README.md` for exactly which types are covered --
+  the dedup/tagger types further down `types/api.ts` are still
+  hand-mirrored, not yet migrated.
+
+## [1.6.38] - 2026-09-23
+
+### Added
+- **Onboarding Summary tab** on the Company page -- one row per
+  facility, two columns: Elavon Status (the next outstanding step in
+  that facility's Merchant Account Process Street workflow, walked up to
+  and capped at "Add Credentials to QMS" -- everything after that step
+  is PS-internal/per-vendor follow-up an onboarding coordinator doesn't
+  track here; shows a reminder note under both the pending step and
+  Complete, since "Complete" only means PS's own checklist is checked,
+  not that OO has independently verified QMS itself), and a Duplicate
+  Checks count linking straight to that facility's Onboarding Work tab.
+- **Delete** action on an Onboarding Work tool-run card, for a mistaken
+  run (e.g. a Dedup check accidentally run against another facility's
+  uploaded data) -- the underlying table is otherwise append-only.
+- **Manual Link** action on the Company page (next to Field Reference/
+  Re-sync) -- relinks a facility's Intake or Merchant Account record to
+  a specific Process Street run id by hand, including relinking *over*
+  an already-linked run, to correct a wrong correlation in place without
+  deleting and recreating the client record.
+- Merchant Account search matches now show EIN (last 4, masked) and
+  business address, with fuzzy address comparison (tolerant of "Ave"/
+  "Avenue"/"Av." formatting noise) and a "⚠ Similar name to..." warning
+  when a standalone match shares real vocabulary with a facility match
+  in the same search without being an outright substring match either
+  way -- decision-support only, nothing auto-resolves a correlation.
+
+### Changed
+- The Dedup tab's facility picker now auto-selects the facility the tab
+  is already scoped to (and its Dropbox folder), instead of defaulting
+  to blank before every check.
+
+## [1.6.37] - 2026-09-22
+
+### Changed
+- Re-sync response types mirror the backend's new
+  `merchant_accounts_to_refresh`/`merchant_accounts_refreshed` counts,
+  now that the general per-client Re-sync also refreshes a linked
+  facility's Elavon/Merchant Account data (task checklist,
+  `credentials_added_to_qms`) instead of that only ever happening via
+  the Elavon tab's own dedicated Resync button.
+
+## [1.6.36] - 2026-09-22
+
+### Added
+- A daily-time scheduling mode for the Process Street background sync
+  (alongside the existing hourly-interval mode), with timezone
+  selection -- reviewed and folded into this release from an
+  already-in-progress feature found sitting uncommitted in the working
+  tree.
+
+### Fixed
+- Signing back in via passkey after a tab had sat idle a long time
+  looked like it worked (prompted, submitted, no visible error) but the
+  UI stayed on `/login`, recoverable only with a hard reload. Traced to
+  the post-login redirect using a client-side soft navigation
+  (`router.replace`) that depends on Turbopack dev mode's HMR/router
+  connection, which can go stale after a long idle period. Now uses a
+  hard `window.location.assign("/clients")` navigation instead,
+  structurally immune to stale client-router state.
+
+## [1.6.35] - 2026-09-18
+
+### Added
+- **"Force Full Resync..."** button next to Sync Now on the Process
+  Street search page -- bypasses the normal delta check and re-fetches
+  every workflow run instead of just what Process Street says changed,
+  behind a `window.confirm` warning about the real, shared PS API cost
+  so it can't be triggered by accident next to the cheap default.
+
+## [1.6.34] - 2026-09-15
+
+### Changed
+- Dedup export and Save-to-Dropbox filenames are now computed
+  server-side (a real, facility-scoped, versioned name) instead of
+  assembled client-side -- `useDedupExport`/`useDedupSaveToDropbox` now
+  thread `facilityId` through instead of building a filename/timestamp
+  themselves, and "Save to Dropbox" sends only the destination folder,
+  reading the real saved path back from the response.
+
+## [1.6.33] - 2026-09-15
+
+### Added
+- Merchant Account (Elavon) matches now show on the Process Street
+  search page as their own section below Facilities, each row flagged
+  if already linked -- explicitly visibility-only, since importing a
+  facility still requires a matching Intake run.
+
+## [1.6.32] - 2026-09-15
+
+### Changed
+- **Clients page reworked into a searchable, filterable grid** -- a
+  5-column button grid (company name only) grouped by Implementation
+  Manager (the internal name for what Process Street itself calls
+  "conductor"), with live substring search (3-character minimum) over
+  facility-side data and checkbox filters for Implementation Manager,
+  Sales Rep, State, and Previous PMS -- replaces the plain
+  company-name-and-facilities list.
+
+## [1.6.31] - 2026-09-11
+
+### Added
+- **Onboarding Work tab** on the facility page -- a durable, queryable
+  history of every tool run against that facility (Dedup first), listing
+  each run's ordinal ("1st Duplicate Check"), who ran it and when, its
+  source file (downloadable from the DB, independent of whether the
+  original Dropbox path still exists), and its output (a download
+  button, or an "Open in Dropbox" link, whichever was chosen at export
+  time). Dedup/Unit Groups/Template Tagger routes moved from
+  client-scoped (`/clients/{id}/dedup`) to facility-scoped
+  (`/clients/{id}/facilities/{id}/dedup`) to match -- every run is now
+  recorded against a specific facility.
+
+### Fixed
+- A Dropbox-only export (no local download ever clicked) previously left
+  the user on the same Export Format panel with no completed state at
+  all -- only the local-download path used to flip it.
+
+## [1.6.30] - 2026-09-10
+
+### Added
+- **QMS Credentials / Pin Pad Credentials** sections on the Elavon tab
+  (Account ID, PIN/Password, Pinpad User ID, QSS API Pin) -- these 4
+  fields had already been fetched, mapped, and encrypted into the
+  facility's Merchant Account secrets since the Elavon tab first
+  shipped, just never decrypted back out for display. Covered by the
+  same revealable Show/Hide convention as the existing SSN field.
+
+### Changed
+- The Elavon tab's credentials-only resync button was replaced entirely
+  by one broader **"Resync Elavon Data"** button that refreshes rate,
+  status, `credentials_added_to_qms`, financials, credentials, and
+  parties together -- the narrow, credentials-only version deliberately
+  never re-checked Process Street's own task list, so it had no path to
+  ever flip `credentials_added_to_qms` to true after the "Add
+  Credentials to QMS" step was actually completed in Process Street.
+  Unlike Intake data, nothing in Merchant Account data has a manual-edit
+  UI in OO, so a full overwrite from a fresh PS pull is exactly as safe
+  as the narrow version was.
+
+## [1.6.29] - 2026-09-09
+
+A large session: a left-nav restructure, several DRY/file-split
+refactors following an external code-quality review (independently
+re-verified before acting on it -- two of its claims turned out
+overstated), and a README rewrite.
+
+### Added
+- Shared `OrchestratorLoader` component, adopted on the client
+  search/create pages.
+- **Left nav rearranged into four groups** -- Tools, Integrations,
+  Administration, Account -- with a new admin-only **Integrations**
+  section (Process Street settings plus a new DropBox settings page)
+  gated on a new `integrations.manage` permission, since `admin`
+  deliberately never holds `client_ops.perform`, the permission
+  Integrations pages were gated on before. Account's own page (the
+  Authenticator App management UI) moved to `/account/security`, with a
+  client-side redirect left at the old `/account` path.
+
+### Changed
+- Security Logs and Activity Logs now share one `useInfiniteLogFeed`
+  pagination hook instead of two independent implementations.
+- The three settings pages that share a saving/saved/error state machine
+  (Dropbox settings, Process Street settings, Security Policies) now
+  share one `useSaveStatus` hook -- an external review's claim of 8
+  shared-pattern files was checked against the real code first and
+  corrected down to the actual 3.
+- **Facility detail page split** from one 2283-line file into 9
+  per-tab components under `components/facility/`, plus a shared
+  `PolicyTabShared.tsx` for the header chrome three of those tabs have
+  in common.
+- README rewritten to describe the real, current system -- it still
+  described an early, no-auth, single-tool shape ("Authentication exists
+  but is not yet enforced") when the real app has enforced passkey/TOTP
+  auth, RBAC, a Process-Street-sourced client-management platform, and
+  three tools.
+
+## [1.6.28] - 2026-09-08
+
+### Added
+- **Remove** button on each Users-tab roster row -- unlinks directly by
+  person/role, independent of a matching "already linked" candidate
+  chip (needed once a roster row's name no longer matches any real
+  candidate).
+- **Permanent client Delete**, distinct from archive -- a confirmed
+  (`window.confirm`), separate red "Delete" button on both active and
+  archived client rows.
+
+## [1.6.27] - 2026-09-08
+
+### Fixed
+- **Real person-identity bug**: the Users tab's "already linked"
+  candidate matching was keyed on `(email, role)` alone, so several
+  distinct real people sharing one family inbox (a genuine, observed
+  pattern) showed as red "already linked" chips even though they'd
+  never actually been added -- only the first person to resolve to that
+  shared email ever made it onto the roster. Matching now includes full
+  name too, mirroring the backend's own identity fix.
+
+## [1.6.26] - 2026-09-08
+
+### Fixed
+- The "No Company Information Captured" fallback banner (offers to copy
+  a first-time facility's own contact data onto a blank Company section)
+  only fired when the whole Company section was completely blank -- a
+  facility with a resolved legal name/subdomain but genuinely blank
+  contact fields (email/phone/street/city/state/zip) never saw it. Now
+  checks the contact fields specifically, still gated on the source run
+  being the company's own first-time facility; the accept action no
+  longer overwrites an already-resolved legal name/subdomain. Renamed
+  to "No Company Contact Info Captured" to match what it actually does.
+
+## [1.6.25] - 2026-09-08
+
+### Changed
+- A search match found only via a person-name match (which deliberately
+  skips a live per-candidate status lookup to avoid N+1 Process Street
+  calls) now shows "Unknown" status instead of a bare dash -- a blank
+  cell next to real "Active" values read as a missing Intake form,
+  which it wasn't.
+
+## [1.6.24] - 2026-09-08
+
+### Changed
+- The Specials textarea auto-grows to fit its content and starts taller
+  when blank.
+
+## [1.6.23] - 2026-09-08
+
+### Changed
+- Facility page content area widened (`max-w-5xl` to `max-w-6xl`) -- the
+  whole tab area was cramped.
+- Taxes tab's edit row resized: Description gets more room (it's a name
+  like "Parking Space County Tax", not a code); Flat Price/Attribute
+  Payable shrink to fit a number.
+- Copy All on the Users tab now groups the roster under Owner(s)/
+  District Manager(s)/Manager(s) headings (skipping any role the
+  facility has none of) instead of one flat list.
+
+## [1.6.22] - 2026-09-08
+
+### Added
+- **DropBox tab** on the facility page, replacing its placeholder --
+  link or change a facility's Dropbox folder, reusing the same
+  `DropboxFolderPicker` every other Dropbox flow already uses.
+
+## [1.6.21] - 2026-09-08
+
+### Added
+- **"+ Add Person Manually"** on the Users tab, and an Edit button on
+  every roster row (name/email/phone/role) -- editing a Process
+  Street-sourced person shows a "protect from resync" checkbox that, if
+  checked, marks them manual so the edit survives the next auto-heal
+  pass instead of silently reverting.
+- A Source column (Process Street / Manual) on the roster table,
+  excluded from Copy All.
+
+## [1.6.20] - 2026-09-08
+
+### Changed
+- **Taxes and Delinquency tabs rebuilt with real structured fields**,
+  replacing free text: Taxes is now one row per tax (name, description,
+  flat dollar amount, attribute-payable percent, recurring flag);
+  Delinquency is a required dollar amount, an optional days-after count,
+  and a real trigger (either the facility's own Paid Through Date, or
+  another entry on the same schedule referenced by category). A
+  facility's pre-existing legacy free-text data, where it has any, is
+  still shown read-only alongside the new structured entries rather
+  than discarded.
+
+## [1.6.19] - 2026-09-04
+
+### Changed
+- **Facility Policies split into 5 editable tabs** (Fees / Taxes /
+  Delinquency / Coverage / Specials), replacing the single stacked
+  page -- the first editable data anywhere in this app. Each tab gets
+  its own Edit button revealing real input fields, a "manually
+  maintained, never synced" note once a category is flagged
+  QSX-exempt, and a banner on an empty category explaining why Process
+  Street has nothing there for a QSX-legacy facility.
+
+## [1.6.18] - 2026-09-04
+
+### Changed
+- The Users tab now explains why roster rows aren't directly editable
+  there: the data always reflects Process Street's own Intake fields,
+  and the auto-heal on load would silently overwrite a local edit
+  anyway.
+
+## [1.6.17] - 2026-09-04
+
+### Added
+- **Copy All** on the Users tab -- puts the roster on the clipboard as
+  one paragraph per person (name, phone, email, each only if present).
+
+### Changed
+- The roster now renders as a real table so email/phone line up across
+  rows instead of a loose inline string. An already-linked candidate's
+  chip renders red and unlinks on click instead of re-adding it; the
+  self-heal that click used to trigger moved to the backend's own read
+  path, so no click is needed for that anymore.
+
+## [1.6.16] - 2026-09-04
+
+### Added
+- **Facility Users tab** -- the saved roster (name/email/phone/role)
+  plus pill-chip candidates pulled from the facility's own Process
+  Street Intake sync, with no search box. Clicking a chip always
+  upserts (the backend does the actual overwrite), shown with a
+  checkmark style when that email is already on the roster so
+  re-clicking to refresh a stale entry reads as intentional.
+
+## [1.6.15] - 2026-09-04
+
+### Changed
+- A bold red hint now explains that a folder, not a file, is what gets
+  selected when Unit Groups' folder-mode Dropbox picker lists files for
+  reference -- the plain grey file listing previously read as broken
+  rather than intentional.
+
+## [1.6.14] - 2026-09-04
+
+### Fixed
+- `DropboxFolderPicker` tied file visibility to its mode (select-folder
+  vs. select-file), so Unit Groups (folder mode) never showed file
+  entries even though the backend already returned them -- visibility
+  is now controlled by its own `showFiles` prop.
+- The picker no longer renders at all while a facility's Dropbox folder
+  is still resolving asynchronously, instead of mounting at the QMS
+  Onboarding root and correcting a moment later -- eliminates a visible
+  flash of the wrong folder's contents before the real one loads, across
+  all three tools' upload pages (Dedup, Tagger, Unit Groups).
+
+## [1.6.13] - 2026-09-04
+
+### Added
+- Group Prep's discovery and export pages gained the same Dropbox
+  import/save pattern Dedup and the Template Tagger already had, in
+  folder-select mode (`mode="select-folder"`, posting to
+  `/upload-dropbox`) since a Group Prep session's source is a whole
+  folder of files, not one file -- no format choice on export, since
+  Unit Groups always produces one ZIP.
+
+## [1.6.12] - 2026-09-04
+
+### Added
+- The Template Tagger's upload and results pages gained the same
+  facility-select + Dropbox import/save pattern Dedup already had.
+
+## [1.6.11] - 2026-09-04
+
+### Fixed
+- `DropboxFolderPicker`'s load effect only ran once per open/close
+  transition, so a facility's default Dropbox folder resolving a moment
+  *after* the picker had already opened (e.g. right after picking a
+  facility from Dedup's dropdown) was silently missed -- browsing stayed
+  at the root even though the backend had already resolved the right
+  folder. Now re-runs whenever the initial path itself changes.
+
+## [1.6.10] - 2026-09-04
+
+### Changed
+- Removed the separate "Save to Dropbox" section and its own picker --
+  "Save to Facility Folder" / "Open Destination Folder" now sit next to
+  Download Export (and again next to Download Again post-download, so
+  saving to Dropbox stays available independent of downloading locally).
+
+### Fixed
+- `DropboxFolderPicker` in select-file mode re-listed the previously
+  selected *file's* own path when reopened (a genuine Dropbox 409
+  `not_folder` error) instead of its containing folder.
+
+## [1.6.9] - 2026-09-04
+
+### Added
+- A one-click "Save to Facility Folder" action next to Browse, using the
+  already-computed default destination path instead of requiring the
+  picker to be opened and navigated manually -- once saved, the picker
+  is replaced by an "Open Destination Folder" link that opens the
+  destination in the Dropbox web app.
+
+### Fixed
+- `DropboxFolderPicker`'s closed-state "No file/folder selected" text
+  was styled as a pill matching the Browse button, reading as its own
+  (non-functional) button -- now plain text above the button row.
+
+## [1.6.8] - 2026-09-04
+
+### Changed
+- Dedup's "Import from Dropbox" picker now seeds its starting path from
+  the selected facility's real Dropbox folder instead of browsing from
+  scratch every time (a company can have several facilities, each with
+  its own folder); "Save to Dropbox" seeds from the backend's own
+  Duplicate Check subfolder suggestion next to wherever the source file
+  was actually imported from.
+
+## [1.6.7] - 2026-09-04
+
+### Added
+- A People section on the Add-to-OO confirmation screen's facility
+  cards.
+
+## [1.6.6] - 2026-09-03
+
+### Added
+- When a facility answered "yes" to Process Street's own "is your
+  Corporate Name/Address/Phone/Email the same as this Facility?"
+  question, PS skips the dedicated Corporate questions entirely,
+  leaving the confirmation screen's Company section with nothing to
+  show -- a new amber banner now offers to copy the facility's own
+  name/address/phone/website into it ("Use Facility Info"); email is
+  deliberately excluded from the offer.
+
+## [1.6.5] - 2026-09-03
+
+### Fixed
+- The Company page's Dropbox button crowded a long facility name
+  instead of letting it truncate -- the name span was missing
+  `min-w-0`, which flexbox needs for `truncate` to actually take effect
+  under a squeezed row.
+
+## [1.6.4] - 2026-09-03
+
+### Changed
+- Phone numbers are formatted (`xxx-xxx-xxxx`) everywhere they're
+  displayed -- the Company page, Facility General tab, the confirmation
+  screen's own Company/Facility sections, and the search page's
+  person-match table previously showed the raw digit string Process
+  Street stores.
+
+## [1.6.3] - 2026-09-03
+
+### Added
+- **Unlink** action on the Elavon tab -- deletes the linked owner/
+  financial data for a facility, behind an inline confirm step,
+  refetching Elavon status and the Company page's own data afterward so
+  a corrected link shows up immediately in both places.
+
+### Fixed
+- A 100+ character Dropbox URL overflowed the confirmation screen's
+  2-column facility grid and overlapped neighboring fields -- now
+  rendered as the same compact "Go to DropBox" button the real Facility
+  page already uses (`break-words` also added defensively to every
+  other read-only facility field).
+- The Field Reference table's horizontal scrollbar and cramped layout.
+
+## [1.6.2] - 2026-09-03
+
+### Fixed
+- `pickCompanySourceRun` (chooses which selected run seeds the Company
+  section on the confirmation screen) picked whichever run had *any*
+  resolved legal name, first match wins -- a stray answer on an
+  unrelated run could win over the real "first time" facility with the
+  actual full Corporate Info section. Now prefers a run Process Street
+  itself marked authoritative (`is_first_time === true`), falling back
+  to whichever run has the most complete company data among ties.
+
+## [1.6.1] - 2026-09-03
+
+### Added
+- Elavon tab financials section.
+
+### Changed
+- Bank account/routing numbers are masked, and SSN is now fully masked
+  (previously shown in plaintext) behind a Show/Hide toggle -- via a new
+  shared `PartyCard` component used by both the Company page's Owner(s)
+  Information and the Facility page's Elavon tab, so phone
+  (`xxx-xxx-xxxx`) and date-of-birth (`mm-dd-yyyy`, read directly off
+  the ISO date prefix rather than through a timezone-sensitive `Date`
+  parse) formatting apply consistently in both places too.
+
+## [1.6.0] - 2026-09-03
+
+Phases 3-5 of the Process Street integration: the client goes from a
+search result to a real, editable OO record with re-sync and an
+Activity Logs trail.
+
+### Added
+- **Add-to-OO confirmation screen** (`/clients/new`) -- selecting
+  facility matches lands on a review screen before anything is written
+  to Postgres: a Company section plus one section per selected facility
+  (every selected run becomes its own facility, even the one that seeds
+  Company), every field starting as read-only text with a pencil icon
+  that reveals an editable input on click, before a Create button posts
+  to `POST /clients`.
+- **Re-sync** -- a manual "Re-sync" button on the Company page, plus a
+  configurable background sync interval, both feeding a two-phase
+  preview/apply flow that flags any field a re-sync would overwrite if
+  it's already been manually edited in OO, letting the caller choose
+  per field whether to keep the OO edit or take the fresh PS value.
+- **Activity Logs** (`/admin/activity-logs`) -- a new trail for user
+  actions and sync runs (including sync failures), distinct from the
+  existing audit trail, which is renamed **Security Logs**
+  (`/admin/security-logs`) to disambiguate. Exportable to PDF and
+  searchable, matching Security Logs' existing UX.
+- **Client record UI (read-only pass)**: a Company page (Company
+  Information, Financial Information, Owner(s) Information with
+  gracefully-degrading per-party PII decryption, a facility-selector
+  rail) and a Facility page with General / Users / DropBox / Elavon /
+  Facility Policies tabs -- only General and Facility Policies are
+  actually built this pass, the other three render as placeholders so
+  the tab structure exists rather than arriving piecemeal.
+- **Elavon tab** -- shows a linked Merchant Account run's summary and
+  owner/signer parties, or, when unlinked, an auto-suggested candidate
+  via the same title-correlation search already used (shown as a real,
+  clickable link the caller must open before a "Confirm this link"
+  action becomes available -- deliberate friction, never silently
+  auto-accepted), with every candidate listed when correlation is
+  genuinely ambiguous, and a manual run-id paste field as the last
+  resort.
+- A searchable **Field Reference** help modal on the Company/Facility
+  pages (same UX as the QMS Tag Catalog admin page), naming which
+  Process Street run/step/field every OO field on those pages actually
+  comes from, compiled from a real 163-field live audit of an actual
+  Merchant Account run.
+- `PartyCard` shared formatting: phone as `xxx-xxx-xxxx`, DOB as
+  `mm-dd-yyyy`.
+- A "Go to DropBox" button (replacing a plain-text link that didn't wrap
+  well) opening a facility's Dropbox folder in a new tab.
+
+### Fixed
+- Client creation from the confirmation screen took up to 18 seconds,
+  traced to sequential Process Street API calls during Create --
+  including one genuinely duplicate fetch of the same run. Every run id
+  needed for a batch (Intake plus any correlated Merchant Account run)
+  is now deduped into one set and fetched concurrently.
+- Switching between facilities on a client's page re-fetched the whole
+  company/rail data on every click and blanked the entire page to
+  "Loading...", even though company/rail data doesn't change between
+  facilities in the same company -- a new `CompanyDetailContext` fetches
+  company detail once per company id, and the facility page's own
+  loading state now only covers the tab content area.
+
+## [1.5.10] - 2026-08-31
+
+### Changed
+- The quick-create client form no longer asks for a Zoho placeholder or
+  a Dropbox folder at creation time -- Dropbox is instead connected once
+  on the Company page, with each facility picking its own subfolder
+  afterward, ahead of the Client record UI's Dropbox redesign.
+
+## [1.5.9] - 2026-08-31
+
+### Added
+- **Process Street search page** -- search PS facilities by name (or a
+  company's own name), with a live sync-progress bar.
+- **Process Street settings page**, under a new Integrations left-nav
+  group -- configures the background sync interval.
+
+## [1.5.8] - 2026-08-28
+
+Real onboarding-file support for a new vendor (Easy Storage Solutions),
+a colleague cross-check's wording fix, and the first Dropbox integration
+pass -- folder browsing, search, and read/write wiring into Dedup.
+
+### Added
+- **Dropbox folder picker** (`DropboxFolderPicker`) for client creation
+  and the client info page -- browses from the QMS Onboarding root
+  (landing there specifically on creation, to reduce selection ambiguity
+  given real, inconsistently-named folder trees), click to descend,
+  "Select this folder" to commit; wired with debounced search
+  ("Client ▸ Facility" breadcrumbs) once Dropbox's own `search_v2` API
+  was confirmed to solve cross-client facility-name search natively.
+- Dropbox import/export wired into Dedup -- a session's source file can
+  be pulled from a client's Dropbox folder instead of a local upload,
+  and results can be saved back to Dropbox.
+- A Dropbox icon on the client Source Files section.
+- Manual unit-file upload, for a file format the shared vendor-format
+  registry doesn't recognize at all.
+- QMS Tag Catalog shows each tag's `{{tag_key}}` with a copy button.
+- The signed-in user's name in the left nav footer (previously roles
+  only, since `WhoAmI` never surfaced the name/email columns that
+  already existed).
+- Dedup's upload page detects and shows the recognized vendor format
+  before Run Check is enabled, requiring an explicit confirmation --
+  mirrors Group Prep's own recognize-then-confirm flow, part of
+  generalizing vendor recognition (previously QSX-only in dedup) into
+  the shared, DB-backed `client_ops.vendor_format` registry that also
+  onboarded a real Easy Storage Solutions tenant export this same
+  effort.
+
+### Changed
+- The typo-variant table now names which categories actually differ
+  ("Contact info differs: Phone, Address") instead of a bare "Contact
+  info differs" -- found by an independent colleague cross-check against
+  a real Westpark facility file.
+- A Dropbox folder row can now be selected without entering it first.
+- Any API call reporting a real 401 now redirects to `/login`
+  immediately, instead of only the tool routes that already checked for
+  it individually.
+- Frontend logging/observability: a silently-swallowed audit-log-filter
+  fetch failure now surfaces to the user; added global error boundaries
+  (`app/error.tsx`, `global-error.tsx`) and a `window.onerror`/
+  `unhandledrejection` safety net; the backend's new `x-request-id`
+  header is now appended to every error message via the shared
+  `errorMessageFrom` choke point.
+
+### Fixed
+- `GroupFileSummary`'s format-valid guard tightened to an explicit
+  `=== true` check.
+
+## [1.5.7] - 2026-08-17
+
+### Changed
+- **Preserve underscores** is now a confirmation dialog shown only when
+  the tags actually being applied contain underscores, replacing an
+  always-visible checkbox.
+
+## [1.5.6] - 2026-08-14
+
+Milestone 8 of the third CTO-grade audit's fix plan: remaining
+low-severity polish.
+
+### Fixed
+- A literally duplicated "Confirm {vendor}" button in
+  `FormatResolutionActiveView` (identical onClick/disabled/label logic,
+  rendered once above the manual-mapping table and once beside it)
+  collapsed into a shared `ConfirmVendorButton`.
+- `useDiscoveryFlow`'s upload/discover failures showed a bare
+  "Upload failed (500)"-style message instead of the backend's actual
+  error body, unlike every sibling upload page -- now routed through
+  `errorMessageFrom` like the rest.
+
+### Changed
+- Renamed the internal `preserveBlanks` state/prop to
+  `preserveUnderscores` to match the "Preserve underscores" checkbox
+  copy the user actually sees (the wire field sent to `/tagger/apply`
+  stays `preserve_blanks`, the backend's own contract, translated at the
+  call site).
+- A code comment (not a fix) flags that the signed-in shell shows roles
+  instead of a name, since `WhoAmI` didn't yet surface `first_name`/
+  `last_name`/`email` -- addressed in 1.5.8.
+
+## [1.5.5] - 2026-08-14
+
+Milestone 6 of the third CTO-grade audit's fix plan: file splits along
+genuine seams, matching an existing sibling precedent already in this
+codebase (`admin/client-ops/qms-tags/`).
+
+### Changed
+- `lib/auth.ts` (694 lines) deleted and replaced by five focused
+  modules -- `auth-shared.ts` (the shared fetch/parse plumbing),
+  `auth-session.ts`, `auth-users.ts`, `auth-audit.ts`, `auth-config.ts`
+  -- with all 13 importing files updated to the correct new module(s).
+- `app/(app)/admin/users/page.tsx` (805 lines) split into `page.tsx`
+  (composition only), `InviteUserForm.tsx`, `UserRow.tsx` (now owns its
+  own confirm/role-picker state per row), `useUsersAdmin.ts` (all
+  data-fetching/mutations), and a shared `styles.ts`.
+- `MasterGroupFileSection.tsx`'s manual-upload flow extracted into
+  `useManualGroupFileUpload.ts` (355 -> 208 lines).
+- `WarningsSection.tsx`'s per-reason-card JSX extracted into
+  `WarningReasonCard.tsx` (378 -> 75 lines).
+
+## [1.5.4] - 2026-08-14
+
+Milestone 5 of the third CTO-grade audit's fix plan: DRY consolidation.
+
+### Added
+- `useFileUploadAction`, a shared multipart-upload hook (mirrors
+  `useSessionAction`'s result shape) adopted by the Template Tagger,
+  Dedup, and Group Prep upload pages -- the latter two previously had no
+  session-expiry handling at all on manual upload, now fixed as a side
+  effect of sharing the hook.
+- `useAuditLogFilterData`, a shared event-type/user-list fetch and
+  selection hook, adopted by both the audit-log listing page and its
+  PDF-export page.
+
+### Fixed
+- A QMS tag catalog fetch failure on `TaggerResultsPage` was silently
+  swallowed by an `if(ok)`-only branch -- now surfaced as an inline
+  banner.
+
+## [1.5.3] - 2026-08-14
+
+### Security
+- `npm audit fix` resolved all 6 previously-High-severity advisories --
+  `next` itself resolved to a genuinely new 16.3.1 patch release past
+  the vulnerable range, taking its bundled `postcss`/`sharp` with it.
+  Verified with a real dev-server boot, not just the test suite.
+
+## [1.5.2] - 2026-08-14
+
+### Added
+- Test coverage for the Template Tagger UI (`useTaggerReport`,
+  `useTaggerApply`, `TagPicker`) -- previously untested, flagged as a
+  real gap by the third CTO-grade audit.
+
+## [1.5.1] - 2026-08-13
+
+Milestone 2 of the third CTO-grade audit's fix plan.
+
+### Added
+- Passkey step-up (`passkeyReverify`) now gates self-service TOTP
+  re-enrollment on the account page -- a WebAuthn ceremony must succeed
+  before the "replace my authenticator app" form appears, closing a real
+  gap the audit found: self-service TOTP re-registration previously
+  required no re-authentication of any kind. Admin-driven onboarding
+  TOTP setup was never the gap and is unaffected.
+
+### Fixed
+- Manual group-file upload's hand-rolled fetch now treats a 401 the same
+  as a 404 (session expired) -- previously showed a raw error message
+  instead of the sign-in prompt every other upload path already gave.
+
+## [1.5.0] - 2026-08-13
+
+Catches up several weeks of already-pushed-but-unversioned feature work
+(the QMS Tag Catalog admin UI, the Template Tagger UI, related-tenant
+household rendering) alongside Milestone 1 of the third CTO-grade
+audit's fix plan.
+
+### Added
+- **QMS Tag Catalog admin UI** (`/admin/client-ops/qms-tags`) --
+  create/filter/list tags, split into `CreateTagForm`/`TagFilters`/
+  `TagRow`.
+- **Template Tagger upload/review UI**, its own tab next to Unit Groups,
+  with a "Preserve underscores" toggle on the apply flow.
+- The orchestrator logo asset and a favicon -- the logo had been
+  referenced by `LeftNav` since the Orchestrator rename but was never
+  actually committed, a real broken-image bug caught while triaging
+  uncommitted files.
+
+### Changed
+- Related-tenant candidates render as households (a grouped Evidence
+  column naming which specific members each piece of evidence connects)
+  instead of one row per signal -- matches the backend's household
+  restructuring from a colleague cross-check against real Rowley Self
+  Storage data.
+
+### Fixed
+- **`AppLayout`'s loading guard was missing a `!checked` branch**, so
+  `RequirePermission` could mount with `user=null` on every fresh page
+  load and silently bounce a legitimate admin hitting an admin URL
+  directly back to `/clients` -- found by the third CTO-grade audit; a
+  new regression test suite (`layout.test.tsx`) covers the
+  loading/ready/signed-out states.
+- Stale "Preserve underscores" checkbox copy.
+- The E2E suite now seeds a real auth session and matches the actual API
+  origin -- broke once the backend started requiring a session on every
+  tool route.
+
 ## [1.4.0] - 2026-08-07
 
 Frontend half of `unitprep-api`'s multi-role authorization work
