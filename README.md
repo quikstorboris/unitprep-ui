@@ -57,7 +57,12 @@ comparison), duplicate tenant check (dedup), and Template Tagger. Every
 page that depends on an existing session treats an HTTP 404 from the
 API as an expired/invalid session and renders an explicit
 "session expired" screen rather than a confusing empty result —
-sessions are in-memory on the API side with a 10-minute idle timeout.
+sessions carry a 10-minute idle timeout and, as of `unitprep-api`
+`v1.9.39`, survive a server restart (durable, write-through to
+Postgres — see `unitprep-api`'s `RUNBOOK.md` for the full session-
+lifetime table and what "durable" does and doesn't cover). Still
+single-instance only; not intended to survive a session moving between
+multiple server processes.
 (A separate, unrelated meaning of "session" — the signed-in auth
 session, DB-backed with its own 30-minute idle / 12-hour absolute
 timeout, see `unitprep-api`'s AUTHENTICATION.md above — has no bearing
