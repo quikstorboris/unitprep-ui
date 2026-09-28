@@ -23,25 +23,38 @@ step() {
     echo "==> $1"
 }
 
-step "1/6 tsc --noEmit"
+step "1/7 tsc --noEmit"
 if ! npx tsc --noEmit; then
     echo "FAILED: fix the type errors above."
     fail=1
 fi
 
-step "2/6 eslint ."
+step "2/7 eslint ."
 if ! npx eslint .; then
     echo "FAILED: fix the lint errors above (eslint also covers formatting in this repo)."
     fail=1
 fi
 
-step "3/6 vitest run"
+step "3/7 vitest run"
 if ! npx vitest run; then
     echo "FAILED: fix the failing tests above."
     fail=1
 fi
 
-step "4/6 gitleaks (real secret scan, diff-scoped)"
+step "4/7 npm audit (dependency vulnerability scan, high+critical only)"
+# --audit-level=high mirrors cargo-audit's block-on-real-problems /
+# don't-block-on-already-triaged-ones split in unitprep-api: as of
+# 2026-09-28 there are 3 known moderate @vitest/mocker findings that
+# need a vitest 4->5 major bump (deferred, dev-only, see the vault's
+# CI-CD Framework doc). They still print below, just don't fail the
+# script. Drop --audit-level once that bump lands so this goes back to
+# blocking on everything.
+if ! npm audit --audit-level=high; then
+    echo "FAILED: a high or critical severity vulnerability was found above -- run 'npm audit fix' before pushing."
+    fail=1
+fi
+
+step "5/7 gitleaks (real secret scan, diff-scoped)"
 # Only scans commits about to be pushed, not the whole history --
 # matches the grep backstop below's scope. Known false positives go in
 # .gitleaks.toml's allowlist, never a blanket disable.
@@ -55,7 +68,7 @@ else
     echo "SKIPPED: gitleaks not installed -- see the vault's CI-CD Framework doc for the install step."
 fi
 
-step "5/6 version/tag consistency (advisory, does not block a push)"
+step "6/7 version/tag consistency (advisory, does not block a push)"
 current_version=$(node -p "require('./package.json').version")
 latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 if [ -n "$latest_tag" ]; then
@@ -72,7 +85,7 @@ else
     echo "No tags found yet -- skipping."
 fi
 
-step "6/6 secret-pattern scan (grep-based backstop, redundant with gitleaks above by design)"
+step "7/7 secret-pattern scan (grep-based backstop, redundant with gitleaks above by design)"
 diff_range="$(git merge-base HEAD origin/main 2>/dev/null || echo HEAD)..HEAD"
 secret_hits=$(git diff "$diff_range" -- . ':!*.lock' ':!package-lock.json' 2>/dev/null | grep -E '^\+' | grep -iE \
     -e '-----BEGIN [A-Z ]*PRIVATE KEY-----' \
