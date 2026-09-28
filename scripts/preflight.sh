@@ -23,25 +23,39 @@ step() {
     echo "==> $1"
 }
 
-step "1/5 tsc --noEmit"
+step "1/6 tsc --noEmit"
 if ! npx tsc --noEmit; then
     echo "FAILED: fix the type errors above."
     fail=1
 fi
 
-step "2/5 eslint ."
+step "2/6 eslint ."
 if ! npx eslint .; then
     echo "FAILED: fix the lint errors above (eslint also covers formatting in this repo)."
     fail=1
 fi
 
-step "3/5 vitest run"
+step "3/6 vitest run"
 if ! npx vitest run; then
     echo "FAILED: fix the failing tests above."
     fail=1
 fi
 
-step "4/5 version/tag consistency (advisory, does not block a push)"
+step "4/6 gitleaks (real secret scan, diff-scoped)"
+# Only scans commits about to be pushed, not the whole history --
+# matches the grep backstop below's scope. Known false positives go in
+# .gitleaks.toml's allowlist, never a blanket disable.
+gitleaks_range="$(git merge-base HEAD origin/main 2>/dev/null || echo HEAD)"
+if command -v gitleaks >/dev/null 2>&1; then
+    if ! gitleaks git --log-opts="${gitleaks_range}..HEAD"; then
+        echo "FAILED: gitleaks found a likely secret above -- review before pushing."
+        fail=1
+    fi
+else
+    echo "SKIPPED: gitleaks not installed -- see the vault's CI-CD Framework doc for the install step."
+fi
+
+step "5/6 version/tag consistency (advisory, does not block a push)"
 current_version=$(node -p "require('./package.json').version")
 latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 if [ -n "$latest_tag" ]; then
@@ -58,7 +72,7 @@ else
     echo "No tags found yet -- skipping."
 fi
 
-step "5/5 secret-pattern scan (grep-based backstop, not a substitute for a real secrets scanner)"
+step "6/6 secret-pattern scan (grep-based backstop, redundant with gitleaks above by design)"
 diff_range="$(git merge-base HEAD origin/main 2>/dev/null || echo HEAD)..HEAD"
 secret_hits=$(git diff "$diff_range" -- . ':!*.lock' ':!package-lock.json' 2>/dev/null | grep -E '^\+' | grep -iE \
     -e '-----BEGIN [A-Z ]*PRIVATE KEY-----' \
