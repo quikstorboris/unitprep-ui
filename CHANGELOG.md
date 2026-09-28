@@ -8,6 +8,14 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.44] - 2026-09-28
+
+`npm audit` now reports 0 vulnerabilities.
+
+### Changed
+- **`vitest` 4 → 5, `@vitest/coverage-v8` matched, `@types/node` 20 → 24** (vitest 5's own peer requirement) — closes the 3 moderate `@vitest/mocker` findings left open when `npm audit` was first wired into preflight. `vite` (transitive) was already at 8.1.5, no bump needed. Verified via `tsc`/`eslint`/full test run (86 files, 669 tests) and `vitest run --coverage` before committing.
+- **preflight's `npm audit` step dropped its `--audit-level=high` workaround** — back to blocking on any real finding, now that there isn't one.
+
 ## [1.6.43] - 2026-09-28
 
 ### Added
