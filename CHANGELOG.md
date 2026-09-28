@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.40] - 2026-09-24
+
+Cancel/elapsed-time/partial-failure UI across all three tools, plus two more oversized-file splits — the frontend half of the follow-through on an external code review (unitprep-api v1.9.39).
+
+### Added
+- **Cancel, elapsed-time, and partial-failure UI** for Dedup, Group Prep, and Template Tagger's upload/process/export flows. New shared `useAbortableOperation` (elapsed-time ticking + `AbortController` bookkeeping) and `useFileUploadAction` (switched real uploads from `fetch` to `XMLHttpRequest` for genuine upload-progress events, since `fetch` has no `upload.onprogress` equivalent), adopted by `useSessionAction`/`useSessionPost` and rippling into ~20 call sites app-wide. `UploadResponse`'s `files_uploaded`/`files_failed`/`multipart_errors` counters are now surfaced explicitly as a distinct partial-failure state instead of going unchecked.
+
+### Changed
+- **`clients/new/page.tsx` (656→169), `clients/search/page.tsx` (586→162), `facility/UsersTab.tsx` (579→137), `DiscoveryPage.tsx` (523→132), `ScanResultsPage.tsx` (535→257)** split into focused components/hooks per this project's own ~250-line file-size discipline. Pure reorganization, no behavior change.
+
 ## [1.6.39] - 2026-09-24
 
 Frontend coverage-audit follow-through, paired with the backend's ts-rs
