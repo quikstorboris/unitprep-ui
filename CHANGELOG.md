@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.42] - 2026-09-28
+
+`gitleaks` wired into Tier 0 preflight, plus the first `npm audit` run against this repo's dependency tree — including a critical Next.js RCE.
+
+### Added
+- **`gitleaks` as preflight step 4/6**, diff-scoped to `merge-base(origin/main, HEAD)..HEAD` — the real secrets scanner backing up the existing grep-based step (kept as step 6, a second layer, not replaced). A full-history scan found zero leaks in this repo, so no `.gitleaks.toml` allowlist was needed.
+
+### Fixed
+- **8 `npm audit` findings**, surfaced for the first time (`npm audit` was never run in this repo before): critical Next.js unauthenticated RCE (`next` 16.3.1 → 16.3.6, `GHSA-p293-qw3h-jr36`/`GHSA-2xp9-vwfh-vxw4`), high-severity `sharp`/`browserslist`/`js-yaml` issues, and a moderate `baseline-browser-mapping` DoS. All safe patch/minor bumps within each package's existing `package.json` range — no manifest edits needed. 3 moderate `@vitest/mocker` findings left open (need a `vitest` 4→5 major bump, dev-only, deferred to its own pass).
+
 ## [1.6.41] - 2026-09-28
 
 ### Added
