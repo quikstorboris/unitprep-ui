@@ -8,6 +8,11 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.41] - 2026-09-28
+
+### Added
+- **`scripts/preflight.sh`** — Tier 0 of a new tiered CI/CD framework (`tsc`/`eslint`/`vitest`/version-consistency/secret-pattern-scan, run before pushing). Full design in the vault's `reference/UnitPrep CI-CD Framework.md`.
+
 ## [1.6.40] - 2026-09-24
 
 Cancel/elapsed-time/partial-failure UI across all three tools, plus two more oversized-file splits — the frontend half of the follow-through on an external code review (unitprep-api v1.9.39).
