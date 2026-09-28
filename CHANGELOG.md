@@ -8,6 +8,11 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.43] - 2026-09-28
+
+### Added
+- **`npm audit` as preflight step 4/7**, `--audit-level=high` — mirrors `cargo-audit`'s role in `unitprep-api`: blocks on a real, unaddressed high/critical finding, but not on the 3 known moderate `@vitest/mocker` findings (they print, don't fail). Those need a `vitest` 4 → 5 major bump, deferred to its own pass; drop `--audit-level` once that lands.
+
 ## [1.6.42] - 2026-09-28
 
 `gitleaks` wired into Tier 0 preflight, plus the first `npm audit` run against this repo's dependency tree — including a critical Next.js RCE.
