@@ -41,16 +41,13 @@ if ! npx vitest run; then
     fail=1
 fi
 
-step "4/7 npm audit (dependency vulnerability scan, high+critical only)"
-# --audit-level=high mirrors cargo-audit's block-on-real-problems /
-# don't-block-on-already-triaged-ones split in unitprep-api: as of
-# 2026-09-28 there are 3 known moderate @vitest/mocker findings that
-# need a vitest 4->5 major bump (deferred, dev-only, see the vault's
-# CI-CD Framework doc). They still print below, just don't fail the
-# script. Drop --audit-level once that bump lands so this goes back to
-# blocking on everything.
-if ! npm audit --audit-level=high; then
-    echo "FAILED: a high or critical severity vulnerability was found above -- run 'npm audit fix' before pushing."
+step "4/7 npm audit (dependency vulnerability scan)"
+# Blocks on any real finding -- matches cargo-audit's role in
+# unitprep-api. Previously ran at --audit-level=high because 3 known
+# moderate @vitest/mocker findings needed a vitest 4->5 major bump;
+# that bump landed 2026-09-28, so this goes back to the full default.
+if ! npm audit; then
+    echo "FAILED: a vulnerability was found above -- run 'npm audit fix' before pushing."
     fail=1
 fi
 
