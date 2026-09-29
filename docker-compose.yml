@@ -1,0 +1,66 @@
+# Docker Phase 3 of the UnitPrep CI/CD framework -- see the vault's
+# reference/UnitPrep CI-CD Framework.md and UnitPrep Docker Standards.md
+# for the full design and why every choice below is made this way.
+# Mirrors unitprep-api's Docker Phase 2 (Dockerfile.dev there has the
+# fuller "why" writeup for the shared parts of this pattern).
+#
+# ui-dev: a long-lived unitprep-ui dev container, source bind-mounted,
+# never rebuilt per code change. Unlike api-dev (whose main process is
+# a test-watch loop), `next dev` here IS the live app server -- so a
+# HEALTHCHECK against the app's own /api/health route genuinely
+# applies, rather than being skipped like it was there.
+#
+# No dependency on unitprep-api's containers: browser-side code reads
+# NEXT_PUBLIC_API_URL (already http://localhost:8080 in .env.local),
+# which resolves against the HOST's own forwarded port, not any
+# Docker-internal network -- so this works whether api-dev happens to
+# be running or not, with zero cross-repo Docker networking needed.
+#
+# Gated behind the "dev" profile, same as api-dev, so a bare
+# `docker compose up` does nothing by accident.
+#
+# Run:   docker compose --profile dev up -d
+# Watch: docker compose logs -f ui-dev
+# Shell: docker compose exec ui-dev bash
+# Stop:  docker compose --profile dev down
+
+services:
+  ui-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    profiles: ["dev"]
+    working_dir: /app
+    volumes:
+      # Bind mount: live, no-copy window into the same files you edit
+      # on the host. Named volumes: node_modules and the Next.js build
+      # cache (.next) persist across container restarts/rebuilds --
+      # that's what actually makes this fast, not anything baked into
+      # the image (see Dockerfile.dev's own note on why `npm ci` runs
+      # at container start instead of build time).
+      - .:/app
+      - ui-node-modules:/app/node_modules
+      - ui-next-cache:/app/.next
+    ports:
+      # Host 3001 -> container 3000 -- this machine already has a
+      # native `next dev` process listening on 3000 (found empirically
+      # bringing this up), same reasoning as test-db's 5433 mapping in
+      # unitprep-api: a distinct host port means no ambiguity about
+      # which one a browser tab is actually reaching. The container's
+      # own internal port stays the Next.js default (3000), unaffected
+      # by this host-side remap.
+      - "127.0.0.1:3001:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      # Generous retry count/interval -- npm ci + Next.js's first dev
+      # compile can take a while longer than api-dev's equivalent, and
+      # this container has no dependency waiting on this healthcheck
+      # the way api-dev depends on test-db, so there's no cost to
+      # giving it room.
+
+volumes:
+  ui-node-modules:
+  ui-next-cache:

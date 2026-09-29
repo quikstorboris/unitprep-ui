@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1
+# Docker Phase 3 of the UnitPrep CI/CD framework -- the unitprep-ui
+# dev container. Mirrors unitprep-api's Docker Phase 2 (see the
+# vault's UnitPrep Docker Standards.md for the full LAW-level detail).
+#
+# NOT rebuilt per code change -- source is bind-mounted at runtime
+# (see docker-compose.yml), never COPY'd in here. This image only
+# needs Node installed; built once, rebuilt rarely (only when this
+# file or .nvmrc changes).
+#
+# Deliberately skips baking `npm ci` into the image at build time --
+# the same "would just get shadowed" reasoning already recorded as a
+# Docker Standards Amendment for the Rust side's cargo-chef: since
+# docker-compose.yml mounts a named volume at node_modules/'s exact
+# path, anything installed there during image build would be hidden
+# the moment the container starts. Instead, `npm ci` runs once at
+# container START (see CMD below), reading whatever package-lock.json
+# is currently bind-mounted -- so it also self-updates whenever
+# package.json changes, without ever needing an image rebuild.
+FROM node:24.19.0-slim
+
+WORKDIR /app
+
+# `npm ci` needs a real package-lock.json AND package.json present to
+# run at all -- both arrive via the bind mount at container start, not
+# baked in here. See CMD.
+
+# Auto-runs `next dev` on every save via Next.js's own built-in file
+# watcher (no separate cargo-watch-equivalent tool needed for Node).
+# `npm ci` runs first, every container start, so a fresh/empty
+# node_modules volume (first run) or a changed package-lock.json
+# (any run) both self-heal without a manual step or an image rebuild.
+CMD ["sh", "-c", "npm ci && npm run dev"]
