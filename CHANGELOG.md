@@ -8,6 +8,17 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.45] - 2026-09-29
+
+Docker Phase 3 of the CI/CD framework's containerization plan.
+
+### Added
+- **`Dockerfile.dev` + `docker-compose.yml`'s `ui-dev` service** — a long-lived `unitprep-ui` dev container, source bind-mounted (never rebuilt per code change). Unlike `unitprep-api`'s dev container (a test-watch loop), `next dev` here is the live app server, so a real `HEALTHCHECK` against `/api/health` applies. `npm ci` runs at container start (not build time) since `node_modules` is a named volume at the same path an image-build-time install would use — same "would just get shadowed" reasoning as the Rust side's `cargo-chef` skip. Port `3001` forwarded (host-side only — this machine already has a native `next dev` on `3000`).
+- **`.nvmrc`** (`24.19.0`) and **`.dockerignore`** — the two prerequisites `UnitPrep Docker Standards.md` flagged as missing.
+
+### Fixed
+- **`undici` DoS via WebSocket decompression** (`GHSA-3wwx-pv8p-q78v`, moderate) — a new advisory published since the last `npm audit` run in this repo. Safe patch bump within the existing range.
+
 ## [1.6.44] - 2026-09-28
 
 `npm audit` now reports 0 vulnerabilities.
