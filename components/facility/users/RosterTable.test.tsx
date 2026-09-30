@@ -64,7 +64,10 @@ describe("RosterTable", () => {
   it("makes the Legal Owner checkbox read-only", () => {
     renderTable([person({ legal_owner: true })]);
 
-    expect(screen.getByRole("checkbox", { name: "Pat Sample is a legal owner" })).toBeDisabled();
+    const box = screen.getByRole("checkbox", { name: "Pat Sample is a legal owner" });
+    expect(box).toHaveAttribute("aria-readonly", "true");
+    // Not `disabled`: that would grey it out into an inactive-looking square.
+    expect(box).toBeEnabled();
   });
 
   it("still shows the access level label for each person", () => {

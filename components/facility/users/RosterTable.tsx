@@ -48,12 +48,12 @@ export function RosterTable({
       <table className="w-full text-left text-sm">
         <thead className="text-slate-400">
           <tr>
-            <th className="pr-4 pb-2 font-medium">Name</th>
-            <th className="w-56 pr-4 pb-2 font-medium">Email</th>
-            <th className="w-40 pr-4 pb-2 font-medium">Phone</th>
-            <th className="pr-4 pb-2 font-medium">Access Level</th>
-            <th className="pr-4 pb-2 font-medium">Legal Owner</th>
-            <th className="pr-4 pb-2 font-medium">Source</th>
+            <th className="pr-4 pb-2 font-medium whitespace-nowrap">Name</th>
+            <th className="pr-4 pb-2 font-medium whitespace-nowrap">Email</th>
+            <th className="pr-4 pb-2 font-medium whitespace-nowrap">Phone</th>
+            <th className="pr-4 pb-2 font-medium whitespace-nowrap">Access Level</th>
+            <th className="pr-4 pb-2 font-medium whitespace-nowrap">Legal Owner</th>
+            <th className="pr-4 pb-2 font-medium whitespace-nowrap">Source</th>
             <th className="pb-2 font-medium"></th>
           </tr>
         </thead>
@@ -145,8 +145,13 @@ export function RosterTable({
             return (
               <tr key={key} className="border-t border-slate-800">
                 <td className="py-2 pr-4">{person.full_name}</td>
-                <td className="py-2 pr-4 text-slate-400">{person.email ?? "—"}</td>
-                <td className="py-2 pr-4 text-slate-400">{person.phone ? formatPhone(person.phone) : "—"}</td>
+                {/* No fixed column widths and no wrapping on email/phone:
+                    the table sizes itself to the longest value (the
+                    wrapper scrolls sideways if it ever outgrows the page). */}
+                <td className="py-2 pr-4 whitespace-nowrap text-slate-400">{person.email ?? "—"}</td>
+                <td className="py-2 pr-4 whitespace-nowrap text-slate-400">
+                  {person.phone ? formatPhone(person.phone) : "—"}
+                </td>
                 <td className="py-2 pr-4">
                   <span className="rounded bg-slate-800 px-2 py-1 text-xs uppercase tracking-wide text-slate-400">
                     {ROLE_LABELS[person.role] ?? person.role}
@@ -154,12 +159,17 @@ export function RosterTable({
                 </td>
                 <td className="py-2 pr-4">
                   {/* Derived from the Merchant Pre-App's owners, so
-                      read-only: nothing on this tab can change it. */}
+                      read-only: nothing on this tab can change it. Not
+                      `disabled` -- that greys the box out so it reads as
+                      an empty, inactive square even when checked; this
+                      keeps full colour and just ignores clicks. */}
                   <input
                     type="checkbox"
                     checked={person.legal_owner}
-                    disabled
                     readOnly
+                    tabIndex={-1}
+                    aria-readonly="true"
+                    className="pointer-events-none h-4 w-4 accent-blue-500"
                     aria-label={`${person.full_name} is ${person.legal_owner ? "" : "not "}a legal owner`}
                   />
                 </td>

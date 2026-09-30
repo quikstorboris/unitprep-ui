@@ -60,9 +60,15 @@ export function CandidateChipsSection({
               >
                 {linkedPerson ? "✕ " : "+ "}
                 {candidate.full_name}
-                <span className="ml-1.5 text-xs text-slate-400">
-                  ({ROLE_LABELS[candidate.role] ?? candidate.role})
-                </span>
+                {/* "Owner" here only means owner-LEVEL QMS access (the
+                    Intake form's user-level field), which reads like legal
+                    ownership on a chip -- so it's left off. The added
+                    person's Access Level shows on the roster instead. */}
+                {candidate.role !== "owner" && (
+                  <span className="ml-1.5 text-xs text-slate-400">
+                    ({ROLE_LABELS[candidate.role] ?? candidate.role})
+                  </span>
+                )}
               </button>
             );
           })}
