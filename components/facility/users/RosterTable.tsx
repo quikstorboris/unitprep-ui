@@ -51,7 +51,8 @@ export function RosterTable({
             <th className="pr-4 pb-2 font-medium">Name</th>
             <th className="w-56 pr-4 pb-2 font-medium">Email</th>
             <th className="w-40 pr-4 pb-2 font-medium">Phone</th>
-            <th className="pr-4 pb-2 font-medium">Role</th>
+            <th className="pr-4 pb-2 font-medium">Access Level</th>
+            <th className="pr-4 pb-2 font-medium">Legal Owner</th>
             <th className="pr-4 pb-2 font-medium">Source</th>
             <th className="pb-2 font-medium"></th>
           </tr>
@@ -64,7 +65,7 @@ export function RosterTable({
             if (isEditing) {
               return (
                 <tr key={key} className="border-t border-slate-800">
-                  <td colSpan={6} className="py-3">
+                  <td colSpan={7} className="py-3">
                     <div className="flex flex-col gap-2 rounded border border-slate-800 p-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <input
@@ -89,6 +90,7 @@ export function RosterTable({
                           className="w-40 rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
                         />
                         <select
+                          aria-label="Access level"
                           value={editForm.role}
                           onChange={(e) => onEditFormChange({ ...editForm, role: e.target.value })}
                           className="rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
@@ -149,6 +151,17 @@ export function RosterTable({
                   <span className="rounded bg-slate-800 px-2 py-1 text-xs uppercase tracking-wide text-slate-400">
                     {ROLE_LABELS[person.role] ?? person.role}
                   </span>
+                </td>
+                <td className="py-2 pr-4">
+                  {/* Derived from the Merchant Pre-App's owners, so
+                      read-only: nothing on this tab can change it. */}
+                  <input
+                    type="checkbox"
+                    checked={person.legal_owner}
+                    disabled
+                    readOnly
+                    aria-label={`${person.full_name} is ${person.legal_owner ? "" : "not "}a legal owner`}
+                  />
                 </td>
                 <td className="py-2 pr-4 text-slate-400">{SOURCE_LABELS[person.source] ?? person.source}</td>
                 <td className="py-2">

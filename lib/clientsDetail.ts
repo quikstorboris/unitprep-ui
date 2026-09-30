@@ -420,11 +420,18 @@ export interface FacilityPerson {
   full_name: string;
   email: string | null;
   phone: string | null;
+  /** Access level (`owner` | `district_manager` | `manager`) -- what
+   * this person can do inside QMS, from the Intake form's user-level
+   * fields. NOT legal ownership; see `legal_owner`. */
   role: string;
   /** "process_street" (an "Add User" chip, or every already-ingested
    * row) or "manual" -- permanently exempt from the Users tab's own
    * self-heal pass. Never shown on "Copy All". */
   source: string;
+  /** True when this person is also an owner on the Merchant Account
+   * Pre-App (derived on read by the API; a viewer without access to
+   * that data sees false for everyone). */
+  legal_owner: boolean;
 }
 
 /**
