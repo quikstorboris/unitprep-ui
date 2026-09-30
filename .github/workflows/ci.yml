@@ -13,6 +13,11 @@ on:
     paths-ignore:
       - '**.md'
 
+# Least privilege for GITHUB_TOKEN: these jobs only read the repo.
+# Enforced by scripts/check_workflow_secrets.sh.
+permissions:
+  contents: read
+
 jobs:
   fast-checks:
     name: Fast checks (type-check, lint)

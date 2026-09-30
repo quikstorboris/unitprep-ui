@@ -23,25 +23,25 @@ step() {
     echo "==> $1"
 }
 
-step "1/7 tsc --noEmit"
+step "1/8 tsc --noEmit"
 if ! npx tsc --noEmit; then
     echo "FAILED: fix the type errors above."
     fail=1
 fi
 
-step "2/7 eslint ."
+step "2/8 eslint ."
 if ! npx eslint .; then
     echo "FAILED: fix the lint errors above (eslint also covers formatting in this repo)."
     fail=1
 fi
 
-step "3/7 vitest run"
+step "3/8 vitest run"
 if ! npx vitest run; then
     echo "FAILED: fix the failing tests above."
     fail=1
 fi
 
-step "4/7 npm audit (dependency vulnerability scan)"
+step "4/8 npm audit (dependency vulnerability scan)"
 # Blocks on any real finding -- matches cargo-audit's role in
 # unitprep-api. Previously ran at --audit-level=high because 3 known
 # moderate @vitest/mocker findings needed a vitest 4->5 major bump;
@@ -51,7 +51,7 @@ if ! npm audit; then
     fail=1
 fi
 
-step "5/7 gitleaks (real secret scan, diff-scoped)"
+step "5/8 gitleaks (real secret scan, diff-scoped)"
 # Only scans commits about to be pushed, not the whole history --
 # matches the grep backstop below's scope. Known false positives go in
 # .gitleaks.toml's allowlist, never a blanket disable.
@@ -65,7 +65,7 @@ else
     echo "SKIPPED: gitleaks not installed -- see the vault's CI-CD Framework doc for the install step."
 fi
 
-step "6/7 version/tag consistency (advisory, does not block a push)"
+step "6/8 version/tag consistency (advisory, does not block a push)"
 current_version=$(node -p "require('./package.json').version")
 latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 if [ -n "$latest_tag" ]; then
@@ -82,7 +82,7 @@ else
     echo "No tags found yet -- skipping."
 fi
 
-step "7/7 secret-pattern scan (grep-based backstop, redundant with gitleaks above by design)"
+step "7/8 secret-pattern scan (grep-based backstop, redundant with gitleaks above by design)"
 diff_range="$(git merge-base HEAD origin/main 2>/dev/null || echo HEAD)..HEAD"
 secret_hits=$(git diff "$diff_range" -- . ':!*.lock' ':!package-lock.json' 2>/dev/null | grep -E '^\+' | grep -iE \
     -e '-----BEGIN [A-Z ]*PRIVATE KEY-----' \
@@ -96,6 +96,13 @@ if [ -n "$secret_hits" ]; then
     fail=1
 else
     echo "OK: no obvious secret patterns found."
+fi
+
+step "8/8 workflow secret/permissions guard (CI isolation control #1)"
+# No GitHub workflow may reference a secret, a NEON_* name or a bare
+# DATABASE_URL, and each must declare least-privilege permissions.
+if ! ./scripts/check_workflow_secrets.sh; then
+    fail=1
 fi
 
 echo
