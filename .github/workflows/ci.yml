@@ -1,0 +1,53 @@
+name: CI
+
+# Tier 1 of the UnitPrep CI/CD framework -- see the vault's
+# reference/UnitPrep CI-CD Framework.md for the full design. Mirrors
+# unitprep-api's own ci.yml: cheap checks on every push (a backstop
+# for Tier 0's local preflight.sh, not a replacement for it), the full
+# suite only on a version-tag push. No database service needed here --
+# this repo's tests are all mocked/unit-level.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  fast-checks:
+    name: Fast checks (type-check, lint)
+    # Not on a tag push -- full-tests below already re-covers this.
+    if: github.ref_type != 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: tsc --noEmit
+        run: npx tsc --noEmit
+
+      - name: eslint
+        run: npx eslint .
+
+  full-tests:
+    name: Full test suite (tag push only)
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: vitest run
+        run: npx vitest run
