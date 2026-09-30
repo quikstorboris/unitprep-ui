@@ -8,6 +8,11 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.46] - 2026-09-29
+
+### Added
+- **`.github/workflows/ci.yml`** — Tier 1 of the CI/CD framework. `fast-checks` (`tsc`, `eslint`) on every push to `main`; `full-tests` (`vitest run`) only on a version-tag push, mirroring `unitprep-api`'s own CI. Passes `actionlint` cleanly.
+
 ## [1.6.45] - 2026-09-29
 
 Docker Phase 3 of the CI/CD framework's containerization plan.
