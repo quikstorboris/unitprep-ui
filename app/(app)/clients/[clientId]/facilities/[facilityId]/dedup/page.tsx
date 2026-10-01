@@ -12,7 +12,7 @@ export default function DedupHome() {
 
   return (
     <main className="p-8">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-6xl">
         <DedupUploadPage
           clientId={clientId}
           facilityId={facilityId}

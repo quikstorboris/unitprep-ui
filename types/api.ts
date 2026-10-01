@@ -174,6 +174,55 @@ export type DedupDetectVendorResponse = {
   vendor_name: string | null;
 };
 
+/** One file's verdict from `/dedup/classify-files` or
+ * `/dedup/classify-dropbox-folder` (unitprep-api/src/api/dedup.rs).
+ * `path` is the Dropbox full path, `null` for a locally-picked file.
+ * `"supporting"` = recognized but not checkable on its own yet. */
+export type DedupFileClassification = {
+  file_name: string;
+  path: string | null;
+  status: "recognized" | "unrecognized" | "unreadable";
+  format_name: string | null;
+  pms: string | null;
+  report_name: string | null;
+  role: "primary" | "supporting" | null;
+  selection_priority: number;
+};
+
+export type DedupClassifyResponse = {
+  files: DedupFileClassification[];
+  suggested: {
+    pms: string | null;
+    /** `file_name` values to pre-check. */
+    selected: string[];
+    /** `file_name` -> the `file_name` of the preferred alternative it
+     * loses to. */
+    alternatives: Record<string, string>;
+  };
+};
+
+/** Request item of `/dedup/classify-files` -- `headers` is `null` when the
+ * browser can't read them (legacy `.xls`). */
+export type DedupClassifyFileInput = {
+  file_name: string;
+  headers: string[] | null;
+};
+
+/** `GET /dedup/file-requirements` -- the informational "files required
+ * for deduplication" panel's data. */
+export type DedupFileRequirementsResponse = {
+  vendors: {
+    pms: string;
+    formats: {
+      name: string;
+      report_name: string;
+      role: "primary" | "supporting";
+      selection_priority: number;
+      guidance: string;
+    }[];
+  }[];
+};
+
 /** `"both"` returns a ZIP containing both files in one download. */
 export type DedupExportFormat = "csv" | "xlsx" | "both";
 

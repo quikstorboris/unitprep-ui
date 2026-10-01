@@ -1,44 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
-import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
-import { DropboxLogo } from "@/components/icons/DropboxLogo";
-import { useClients } from "@/lib/clients";
-import { stashDedupReport } from "@/lib/dedupReportCache";
-import { getFacilityDropboxFolder } from "@/lib/dropbox";
+import { checkedFilesOf, checkedFormatNames, runGate } from "@/components/dedup/dedupChecklist";
+import { DedupFileChecklist } from "@/components/dedup/DedupFileChecklist";
+import { DedupRequirementsPanel } from "@/components/dedup/DedupRequirementsPanel";
+import { DedupSourcePicker } from "@/components/dedup/DedupSourcePicker";
+import { useDedupFileRequirements } from "@/components/dedup/useDedupFileRequirements";
+import { useDedupFolderScan } from "@/components/dedup/useDedupFolderScan";
+import { useDedupRun } from "@/components/dedup/useDedupRun";
 import { formatElapsed } from "@/lib/useAbortableOperation";
-import { useFileUploadAction } from "@/lib/useFileUploadAction";
-import { useJsonPostAction } from "@/lib/useSessionAction";
-import type { DedupCheckResponse, DedupDetectVendorResponse } from "@/types/api";
-
-// Extensions the backend can actually parse — `DedupSessionService::
-// create_session` (unitprep-api/src/application/dedup_session_service.rs)
-// calls the same multi-format `parse_document` dispatch Group Prep's
-// upload uses, not a CSV-only parser, so this mirrors
-// unit-groups/page.tsx's own SUPPORTED_EXTENSIONS rather than trusting
-// the file picker's `accept` attribute alone (a browser hint the user
-// can bypass, e.g. via "All Files"). Only applies to a local upload --
-// a Dropbox-sourced pick has no equivalent client-side check and relies
-// on the backend's own `invalid_file` error instead, same as it always
-// has for vendor mismatches.
-const SUPPORTED_EXTENSIONS = [
-  ".csv",
-  ".xlsx",
-  ".xls",
-];
-
-function isSupportedFile(
-  file: File
-): boolean {
-  const name =
-    file.name.toLowerCase();
-
-  return SUPPORTED_EXTENSIONS.some(
-    (ext) => name.endsWith(ext)
-  );
-}
 
 interface DedupUploadPageProps {
   clientId: string;
@@ -46,465 +17,164 @@ interface DedupUploadPageProps {
   onChecked: (sessionId: string) => void;
 }
 
+/**
+ * Duplicate Tenant Check entry: pick a folder (or files), review the
+ * classified checklist, confirm, run. Thin orchestrator -- picking and
+ * classifying lives in useDedupFolderScan, running in useDedupRun.
+ */
 export default function DedupUploadPage({
   clientId,
   facilityId,
   onChecked,
 }: DedupUploadPageProps) {
-  const { getClient } = useClients();
-  const client = getClient(clientId);
-  const { company } = useCompanyDetail();
+  const scan = useDedupFolderScan();
+  const requirements = useDedupFileRequirements();
+  const { classification, checked } = scan;
 
-  // Mutually exclusive with `dropboxPath` below -- selecting one source
-  // clears the other, since a single check runs against exactly one
-  // file regardless of where it came from.
-  const [selectedFile, setSelectedFile] =
-    useState<File | null>(null);
+  const runner = useDedupRun({
+    facilityId,
+    source: scan.source,
+    localFiles: scan.localFiles,
+    classification,
+    checked,
+    onChecked,
+  });
 
-  const [dropboxPath, setDropboxPath] =
-    useState<string | null>(null);
+  const files = classification?.files ?? [];
+  const gate = runGate(files, checked);
+  const formatNames = checkedFormatNames(files, checked);
+  const confirmKey = checkedFilesOf(files, checked)
+    .map((f) => `${f.file_name}:${f.format_name}`)
+    .join("|");
 
-  // Which of this client's own facilities to browse from -- a company
-  // can have several, each with its own real Dropbox folder, and there's
-  // no single "client Dropbox root" to default to (Boris, 2026-09-04:
-  // require an explicit pick rather than guessing). `undefined` = not
-  // picked yet; `null` = picked but this facility has no folder findable
-  // by name in Dropbox.
-  const [selectedFacility, setSelectedFacility] =
-    useState<string | null>(null);
+  // Confirmation is tied to the exact ticked set it was given for: any
+  // change to which files are ticked (or a new scan) withdraws it. This
+  // gate is a UX checkpoint -- the backend re-classifies when it runs.
+  const [confirmedKey, setConfirmedKey] = useState<string | null>(null);
+  const confirmed = confirmedKey !== null && confirmedKey === confirmKey;
 
-  const [facilityDropboxPath, setFacilityDropboxPath] =
-    useState<string | null | undefined>(undefined);
-
-  const [apiError, setApiError] =
-    useState<string | null>(null);
-
-  // `undefined` = not checked yet for the current file, `null` =
-  // checked and no registered vendor matched. Distinct from `apiError`
-  // (a real request failure) -- an unrecognized file is a normal,
-  // expected outcome of detection succeeding, not an error. Shared
-  // between both sources -- the confirm-checkbox UX below is identical
-  // regardless of whether the file came from a local upload or Dropbox.
-  const [vendorName, setVendorName] =
-    useState<string | null | undefined>(undefined);
-
-  const [vendorConfirmed, setVendorConfirmed] =
-    useState(false);
-
-  const {
-    pending: loading,
-    run,
-    cancelled: uploadCancelled,
-    elapsedMs: uploadElapsedMs,
-    uploadProgress,
-    cancel: cancelUpload,
-  } = useFileUploadAction(`/dedup/check?facility_id=${facilityId}`);
-
-  const { pending: detecting, run: runDetectVendor } =
-    useFileUploadAction("/dedup/detect-vendor");
-
-  const {
-    pending: importing,
-    run: runImportDropbox,
-    cancelled: importCancelled,
-    elapsedMs: importElapsedMs,
-    cancel: cancelImport,
-  } = useJsonPostAction("/dedup/import-dropbox");
-
-  const { pending: detectingDropbox, run: runDetectVendorDropbox } =
-    useJsonPostAction("/dedup/detect-vendor-dropbox");
-
-  const detectVendor = async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file, file.name);
-
-    const result = await runDetectVendor(formData);
-
-    if (result.kind === "sessionExpired") {
-      // Vendor detection doesn't touch a session, so this can only mean
-      // the caller themselves is no longer authenticated -- surfaced the
-      // same way the check itself would.
-      setApiError("Your session has expired — please try again.");
-      return;
-    }
-
-    if (result.kind === "error") {
-      setApiError(result.message);
-      return;
-    }
-
-    // Nothing calls detectVendor's cancel() today, but the shared hook's
-    // result type now always includes this branch -- handled the same
-    // as "nothing to show" for consistency with every other call site.
-    if (result.kind === "cancelled") return;
-
-    const data: DedupDetectVendorResponse = await result.response.json();
-    setVendorName(data.vendor_name);
-  };
-
-  const detectVendorFromDropbox = async (path: string) => {
-    const result = await runDetectVendorDropbox({ path });
-
-    if (result.kind === "sessionExpired") {
-      setApiError("Your session has expired — please try again.");
-      return;
-    }
-
-    if (result.kind === "error") {
-      setApiError(result.message);
-      return;
-    }
-
-    // Nothing calls this detect's cancel() today, but the shared hook's
-    // result type now always includes this branch -- handled the same
-    // as "nothing to show" for consistency with every other call site.
-    if (result.kind === "cancelled") return;
-
-    const data: DedupDetectVendorResponse = await result.response.json();
-    setVendorName(data.vendor_name);
-  };
-
-  const handleFileSelection = (
-    files: FileList | null
-  ) => {
-    const file =
-      files && files.length > 0
-        ? files[0]
-        : null;
-
-    setDropboxPath(null);
-    setVendorName(undefined);
-    setVendorConfirmed(false);
-
-    if (file && !isSupportedFile(file)) {
-      setSelectedFile(null);
-      setApiError(
-        `"${file.name}" isn't a supported file type — select a .csv, .xlsx, or .xls file.`
-      );
-      return;
-    }
-
-    setSelectedFile(file);
-    setApiError(null);
-
-    if (file) {
-      // Fire-and-forget: `detectVendor` owns its own error/state
-      // handling, and the user can't do anything else with this file
-      // (Run Check stays disabled) until it settles anyway.
-      void detectVendor(file);
-    }
-  };
-
-  const handleFacilitySelected = async (facilityName: string) => {
-    setSelectedFacility(facilityName || null);
-    setFacilityDropboxPath(undefined);
-
-    if (!facilityName || !clientId) return;
-
-    const result = await getFacilityDropboxFolder(clientId, facilityName);
-    setFacilityDropboxPath(result.kind === "ok" ? result.data.path : null);
-  };
-
-  // Pre-selects the facility this tab is already scoped to -- the
-  // dropdown above still lets the user override it, but defaulting to
-  // "nothing picked yet" made it too easy to import against the wrong
-  // facility (2026-09-23: a real Dedup check run against the wrong
-  // facility's data, needing Onboarding Work's own delete action to
-  // undo). Only fires once per facility -- `autoSelectedFacilityIdRef`
-  // stops it from re-firing and fighting a deliberate manual re-pick.
-  const autoSelectedFacilityIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    const facilityName = company?.facilities.find((f) => f.id === facilityId)?.name;
-    if (!facilityName) return;
-    if (autoSelectedFacilityIdRef.current === facilityId) return;
-
-    autoSelectedFacilityIdRef.current = facilityId;
-    void handleFacilitySelected(facilityName);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleFacilitySelected is stable in shape; only re-run when the resolvable facility changes
-  }, [company, facilityId]);
-
-  const handleDropboxPathSelected = (path: string) => {
-    setSelectedFile(null);
-    setVendorName(undefined);
-    setVendorConfirmed(false);
-    setApiError(null);
-
-    setDropboxPath(path);
-
-    void detectVendorFromDropbox(path);
-  };
-
-  const finishChecked = (data: DedupCheckResponse) => {
-    // The results page (a moment away, via onChecked's navigation)
-    // would otherwise re-fetch this exact report over POST
-    // /dedup/report -- stash it so useDedupReport can use it directly
-    // instead of a second round trip for data already in hand.
-    stashDedupReport(data.session_id, data.report);
-
-    onChecked(data.session_id);
-  };
-
-  const handleCheck = async () => {
-    if (dropboxPath) {
-      setApiError(null);
-
-      const result = await runImportDropbox({ path: dropboxPath, facility_id: facilityId });
-
-      if (result.kind === "sessionExpired") {
-        setApiError("Your session has expired — please try again.");
-        return;
-      }
-
-      if (result.kind === "error") {
-        setApiError(result.message);
-        return;
-      }
-
-      // The user clicked Cancel while the import was in flight -- not an
-      // error, nothing more to do (canRunCheck already reflects the
-      // hook's own `pending` going back to false).
-      if (result.kind === "cancelled") return;
-
-      finishChecked(await result.response.json());
-      return;
-    }
-
-    if (!selectedFile) {
-      setApiError(
-        "Please select a CSV file before continuing."
-      );
-
-      return;
-    }
-
-    setApiError(null);
-
-    const formData = new FormData();
-
-    formData.append(
-      "file",
-      selectedFile,
-      selectedFile.name
-    );
-
-    const result = await run(formData);
-
-    if (result.kind === "sessionExpired") {
-      setApiError(
-        "Your session has expired — please try again."
-      );
-
-      return;
-    }
-
-    if (result.kind === "error") {
-      setApiError(result.message);
-      return;
-    }
-
-    // The user clicked Cancel while the upload was in flight -- not an
-    // error, nothing more to do (canRunCheck already reflects the
-    // hook's own `pending` going back to false).
-    if (result.kind === "cancelled") return;
-
-    finishChecked(await result.response.json());
-  };
-
-  const hasSource = !!selectedFile || !!dropboxPath;
-  const isDetecting = detecting || detectingDropbox;
-  const isChecking = loading || importing;
-
-  // Run Check stays disabled until the user has explicitly confirmed a
-  // recognized vendor -- mirrors Group Prep's own recognize-then-confirm
-  // flow, applied consistently here rather than treating dedup's common
-  // case (QSX) as needing no confirmation. `/dedup/check` (and its
-  // Dropbox-sourced counterpart) re-detects the vendor itself when it
-  // runs regardless -- this gate is a UX checkpoint, not something the
-  // backend trusts.
-  const canRunCheck =
-    !isChecking && hasSource && vendorConfirmed;
-
-  // Whichever of the two request shapes (local upload vs. Dropbox
-  // import) is actually the one running -- there's only ever one at a
-  // time, gated by `dropboxPath` the same way handleCheck itself
-  // branches, so a single Cancel button and elapsed-time label can
-  // cover both without the user having to know which path they took.
-  const checkElapsedMs = dropboxPath ? importElapsedMs : uploadElapsedMs;
-  const checkCancelled = dropboxPath ? importCancelled : uploadCancelled;
-  const cancelCheck = () => (dropboxPath ? cancelImport() : cancelUpload());
+  const canRunCheck = !runner.isChecking && !scan.scanning && gate.canRun && confirmed;
+  const apiError = scan.error ?? runner.error;
 
   return (
     <div>
-      <h1 className="mb-8 text-4xl font-bold">
-        Duplicate Tenant Check
-      </h1>
+      <h1 className="mb-8 text-4xl font-bold">Duplicate Tenant Check</h1>
 
-      <h2 className="mb-4 text-xl font-semibold">
-        Select QMS End Users Export
-      </h2>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div>
+          <h2 className="mb-4 text-xl font-semibold">Select Export Files</h2>
 
-      <div className="rounded border border-slate-700 p-6">
-        <input
-          id="dedup-file-picker"
-          type="file"
-          accept=".csv,.xlsx,.xls"
-          className="hidden"
-          onChange={(e) =>
-            handleFileSelection(
-              e.target.files
-            )
-          }
-        />
-
-        <label
-          htmlFor="dedup-file-picker"
-          className="inline-block cursor-pointer rounded bg-slate-700 px-4 py-2 transition-colors hover:bg-slate-600"
-        >
-          Select File
-        </label>
-
-        <div className="mt-4 text-sm text-slate-300">
-          File Selected:{" "}
-          <strong>
-            {selectedFile
-              ? selectedFile.name
-              : "None"}
-          </strong>
-        </div>
-
-        <div className="mt-6 border-t border-slate-800 pt-4">
-          <div className="mb-2 flex items-center gap-2 text-sm text-slate-400">
-            <DropboxLogo className="h-4 w-4 text-blue-400" />
-            Or import from Dropbox
-          </div>
-
-          {client && client.facilityNames.length > 0 && (
-            <div className="mb-3">
-              <label className="mb-1 block text-xs text-slate-400">
-                Which facility?
-              </label>
-              <select
-                value={selectedFacility ?? ""}
-                onChange={(e) => void handleFacilitySelected(e.target.value)}
-                className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-              >
-                <option value="">Select a facility…</option>
-                {client.facilityNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {selectedFacility && facilityDropboxPath === undefined ? (
-            // Waiting on the facility's own Dropbox folder to resolve --
-            // rendering the picker already would open it at the root
-            // for a moment before the real default arrives and corrects
-            // it. Not rendering the picker at all until the answer is in
-            // hand avoids that instead of just shortening it.
-            <div className="text-sm text-slate-400">
-              Locating this facility&apos;s Dropbox folder…
-            </div>
-          ) : (
-            <DropboxFolderPicker
-              value={dropboxPath ?? ""}
-              mode="select-file"
-              initialPath={facilityDropboxPath ?? client?.dropboxPath}
-              onChange={handleDropboxPathSelected}
+          <div className="rounded border border-slate-700 p-6">
+            <DedupSourcePicker
+              clientId={clientId}
+              facilityId={facilityId}
+              source={scan.source}
+              localFileCount={scan.localFiles.length}
+              dropboxFolder={scan.dropboxFolder}
+              disabled={runner.isChecking}
+              onLocalPick={(list) => {
+                runner.resetError();
+                scan.scanLocal(list);
+              }}
+              onDropboxFolderPick={(path) => {
+                runner.resetError();
+                scan.scanDropboxFolder(path);
+              }}
             />
-          )}
-        </div>
 
-        {hasSource && isDetecting && (
-          <div className="mt-4 text-sm text-slate-400">
-            Checking vendor format...
-          </div>
-        )}
+            {scan.scanning && (
+              <div className="mt-4 text-sm text-slate-400">Checking file formats...</div>
+            )}
 
-        {hasSource && !isDetecting && vendorName !== undefined && (
-          <div className="mt-4 text-sm">
-            {vendorName ? (
+            {classification && !scan.scanning && (
               <>
-                <div className="text-slate-300">
-                  Vendor: <strong>{vendorName}</strong>
-                </div>
-                <label className="mt-2 flex items-center gap-2 text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={vendorConfirmed}
-                    onChange={(e) =>
-                      setVendorConfirmed(e.target.checked)
-                    }
-                  />
-                  This is the correct vendor
-                </label>
+                <DedupFileChecklist
+                  classification={classification}
+                  checked={checked}
+                  disabled={runner.isChecking}
+                  onToggle={scan.toggle}
+                  onSelectAll={scan.selectAll}
+                  onSelectNone={scan.selectNone}
+                />
+
+                {gate.blocked.length > 0 ? (
+                  <div className="mt-4 text-sm text-amber-400">
+                    Run Check is disabled:{" "}
+                    {gate.blocked.map((b) => `"${b.file.file_name}" ${b.reason}`).join("; ")}.
+                    Untick {gate.blocked.length === 1 ? "it" : "them"} to continue.
+                  </div>
+                ) : checked.size === 0 ? (
+                  <div className="mt-4 text-sm text-amber-400">
+                    Tick at least one file to run the check.
+                  </div>
+                ) : (
+                  <label className="mt-4 flex items-start gap-2 text-sm text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={confirmed}
+                      onChange={(e) => setConfirmedKey(e.target.checked ? confirmKey : null)}
+                      className="mt-1"
+                    />
+                    These files are correct: {formatNames.join(", ")}
+                  </label>
+                )}
               </>
-            ) : (
-              <div className="text-amber-400">
-                Unrecognized file — this file&apos;s columns don&apos;t
-                match a known vendor format (QSX, Easy Storage
-                Solutions). Run Check is disabled.
-              </div>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => void runner.run()}
+                disabled={!canRunCheck}
+                className="rounded bg-blue-600 px-4 py-2 disabled:opacity-50"
+              >
+                {runner.isChecking
+                  ? scan.source === "dropbox"
+                    ? "Importing & Checking..."
+                    : "Uploading & Checking..."
+                  : "Run Check"}
+              </button>
+
+              {runner.isChecking && (
+                <>
+                  {/* An honest elapsed-time counter, not a fake progress bar --
+                      neither endpoint streams a real percentage back. The one
+                      exception is the local upload's own outgoing bytes, which
+                      the browser *can* report truthfully (see
+                      useFileUploadAction) -- shown alongside elapsed time, not
+                      in place of it, since it only covers the upload leg. */}
+                  <span className="text-sm text-slate-400">
+                    {runner.uploadProgress !== null &&
+                      runner.uploadProgress < 1 &&
+                      `${Math.round(runner.uploadProgress * 100)}% uploaded — `}
+                    {formatElapsed(runner.elapsedMs)} elapsed
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={runner.cancel}
+                    className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
+            </div>
+
+            {runner.cancelled && !runner.isChecking && (
+              <div className="mt-3 text-sm text-amber-400">Check cancelled.</div>
             )}
           </div>
-        )}
 
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleCheck}
-            disabled={!canRunCheck}
-            className="rounded bg-blue-600 px-4 py-2 disabled:opacity-50"
-          >
-            {isChecking
-              ? dropboxPath
-                ? "Importing & Checking..."
-                : "Uploading & Checking..."
-              : "Run Check"}
-          </button>
-
-          {isChecking && (
-            <>
-              {/* An honest elapsed-time counter, not a fake progress bar --
-                  neither /dedup/check nor /dedup/import-dropbox streams a
-                  real percentage back. The one exception is the local
-                  upload's own outgoing bytes, which the browser *can*
-                  report truthfully (see useFileUploadAction) -- shown
-                  alongside elapsed time when available, not in place of it,
-                  since it only covers the upload leg, not the server's own
-                  parse/check time after that. */}
-              <span className="text-sm text-slate-400">
-                {!dropboxPath &&
-                  uploadProgress !== null &&
-                  uploadProgress < 1 &&
-                  `${Math.round(uploadProgress * 100)}% uploaded — `}
-                {formatElapsed(checkElapsedMs)} elapsed
-              </span>
-
-              <button
-                type="button"
-                onClick={cancelCheck}
-                className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-            </>
-          )}
+          {apiError && <div className="mt-4 rounded bg-red-900 p-3 text-red-200">{apiError}</div>}
         </div>
 
-        {checkCancelled && !isChecking && (
-          <div className="mt-3 text-sm text-amber-400">
-            Check cancelled.
-          </div>
-        )}
+        <DedupRequirementsPanel
+          requirements={requirements.requirements}
+          loading={requirements.loading}
+          error={requirements.error}
+          detectedPms={classification?.suggested.pms ?? null}
+        />
       </div>
-
-      {apiError && (
-        <div className="mt-4 rounded bg-red-900 p-3 text-red-200">
-          {apiError}
-        </div>
-      )}
     </div>
   );
 }
