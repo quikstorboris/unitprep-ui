@@ -9,6 +9,7 @@ import {
   unlinkFacilityPerson,
   type FacilityPeople,
   type FacilityPerson,
+  type MissingLegalOwner,
   type PersonAssignment,
 } from "@/lib/clientsDetail";
 import {
@@ -120,6 +121,37 @@ export function useFacilityUsers(companyId: string, facilityId: string) {
     await load();
   }
 
+  /**
+   * Adds a Merchant Account owner the roster/candidates have no entry
+   * for at all -- see `MissingLegalOwnersSection`'s own doc comment.
+   * Always a fresh "process_street" add (never an unlink: by
+   * definition this owner has no existing roster row to unlink), with
+   * Access Level defaulted to Owner -- editable afterward like anyone
+   * else on the roster.
+   */
+  async function handleAddMissingLegalOwner(owner: MissingLegalOwner) {
+    const assignment: PersonAssignment = {
+      full_name: owner.full_name,
+      email: owner.email,
+      phone: owner.phone,
+      role: "owner",
+    };
+    const key = candidateKey(assignment);
+    setPendingKey(key);
+    setActionError(null);
+
+    const result = await addFacilityPerson(companyId, facilityId, assignment, "process_street");
+
+    setPendingKey(null);
+
+    if (result.kind !== "ok") {
+      setActionError(result.message);
+      return;
+    }
+
+    await load();
+  }
+
   async function handleCopyAll() {
     if (!people || people.roster.length === 0) return;
 
@@ -201,6 +233,7 @@ export function useFacilityUsers(companyId: string, facilityId: string) {
     handleCopyAll,
     handleChipClick,
     handleRemoveFromRoster,
+    handleAddMissingLegalOwner,
 
     editingKey,
     editForm,

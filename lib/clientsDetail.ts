@@ -447,10 +447,25 @@ export interface PersonAssignment {
   role: string;
 }
 
+/**
+ * Mirrors `MissingLegalOwner` -- a Merchant Account Pre-App owner with
+ * no roster row and no Intake candidate chip either, so they'd
+ * otherwise be invisible on the Users tab (Freeland's Serene Armstrong,
+ * 2026-09-30). No `role`: a Merchant Account owner has no QMS access
+ * level of their own, so adding one defaults to `"owner"` only at add
+ * time, same as any other roster entry.
+ */
+export interface MissingLegalOwner {
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+}
+
 /** Mirrors `FacilityPeopleResponse`. */
 export interface FacilityPeople {
   roster: FacilityPerson[];
   candidates: PersonAssignment[];
+  missing_legal_owners: MissingLegalOwner[];
 }
 
 export async function getFacilityPeople(

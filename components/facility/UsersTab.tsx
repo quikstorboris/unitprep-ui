@@ -2,6 +2,7 @@
 
 import { AddPersonManuallyForm } from "@/components/facility/users/AddPersonManuallyForm";
 import { CandidateChipsSection } from "@/components/facility/users/CandidateChipsSection";
+import { MissingLegalOwnersSection } from "@/components/facility/users/MissingLegalOwnersSection";
 import { RosterTable } from "@/components/facility/users/RosterTable";
 import { candidateKey } from "@/components/facility/users/personRoster";
 import { useFacilityUsers } from "@/components/facility/users/useFacilityUsers";
@@ -131,6 +132,13 @@ export function UsersTab({ companyId, facilityId }: { companyId: string; facilit
         pendingKey={users.pendingKey}
         actionError={users.actionError}
         onChipClick={users.handleChipClick}
+      />
+
+      <MissingLegalOwnersSection
+        owners={users.people.missing_legal_owners}
+        pendingKey={users.pendingKey}
+        actionError={users.actionError}
+        onAdd={users.handleAddMissingLegalOwner}
       />
     </div>
   );
