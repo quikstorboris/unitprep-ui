@@ -8,6 +8,7 @@ import DedupSummaryStats from "./dedup/DedupSummaryStats";
 import FlaggedGroupsSection from "./dedup/FlaggedGroupsSection";
 import RelatedTenantsSection from "./dedup/RelatedTenantsSection";
 import TypoVariantsSection from "./dedup/TypoVariantsSection";
+import DuplicateCustomerRecordsSection from "./dedup/DuplicateCustomerRecordsSection";
 import { useDedupExport } from "./dedup/useDedupExport";
 import { useDedupReport } from "./dedup/useDedupReport";
 import { useDedupSaveLocation } from "./dedup/useDedupSaveLocation";
@@ -242,6 +243,8 @@ export default function DedupResultsPage({
     report !== null &&
     report.flagged_groups.length ===
       0 &&
+    (report.duplicate_customer_records
+      ?.length ?? 0) === 0 &&
     report.typo_variant_candidates
       .length === 0 &&
     report
@@ -274,6 +277,12 @@ export default function DedupResultsPage({
               <FlaggedGroupsSection
                 groups={
                   report.flagged_groups
+                }
+              />
+
+              <DuplicateCustomerRecordsSection
+                records={
+                  report.duplicate_customer_records
                 }
               />
 

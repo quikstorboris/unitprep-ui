@@ -27,6 +27,12 @@ const STATS: Array<{
     value: (r) => r.flagged_groups.length,
   },
   {
+    label: "Duplicate Customer Records",
+    value: (r) =>
+      r.duplicate_customer_records
+        ?.length ?? 0,
+  },
+  {
     label: "Typo Variants",
     value: (r) =>
       r.typo_variant_candidates.length,
@@ -43,7 +49,7 @@ export default function DedupSummaryStats({
   report,
 }: DedupSummaryStatsProps) {
   return (
-    <div className="grid grid-cols-6 gap-4">
+    <div className="grid grid-cols-7 gap-4">
       {STATS.map(
         ({ label, value }) => (
           <div

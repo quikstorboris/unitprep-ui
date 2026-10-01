@@ -79,9 +79,37 @@ describe("DedupSummaryStats", () => {
     );
   });
 
+  it("counts duplicate customer records, treating undefined as zero", () => {
+    const { rerender } = render(
+      <DedupSummaryStats
+        report={baseReport({
+          duplicate_customer_records: [
+            {
+              display_name: "A",
+              tenants: [
+                { tenant_id: "1", units: [] },
+                { tenant_id: "2", units: [] },
+              ],
+              differing_categories: [],
+              note: "note",
+            },
+          ],
+        })}
+      />
+    );
+    expect(
+      screen.getByText("Duplicate Customer Records").nextSibling
+    ).toHaveTextContent("1");
+
+    rerender(<DedupSummaryStats report={baseReport()} />);
+    expect(
+      screen.getByText("Duplicate Customer Records").nextSibling
+    ).toHaveTextContent("0");
+  });
+
   it("shows zero for every stat on an empty report", () => {
     render(<DedupSummaryStats report={baseReport()} />);
 
-    expect(screen.getAllByText("0")).toHaveLength(6);
+    expect(screen.getAllByText("0")).toHaveLength(7);
   });
 });

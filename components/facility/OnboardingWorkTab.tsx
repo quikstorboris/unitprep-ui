@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import DedupSummaryStats from "@/components/dedup/DedupSummaryStats";
 import FlaggedGroupsSection from "@/components/dedup/FlaggedGroupsSection";
 import RelatedTenantsSection from "@/components/dedup/RelatedTenantsSection";
+import DuplicateCustomerRecordsSection from "@/components/dedup/DuplicateCustomerRecordsSection";
 import TypoVariantsSection from "@/components/dedup/TypoVariantsSection";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import { downloadToolRunOutput, downloadToolRunSource } from "@/components/facility/useToolRunOutputDownload";
@@ -47,6 +48,7 @@ function actorLabel(run: ToolRunSummary): string {
 
 const noIssuesFound = (report: ToolRunSummary["report_summary"]) =>
   report.flagged_groups.length === 0 &&
+  (report.duplicate_customer_records?.length ?? 0) === 0 &&
   report.typo_variant_candidates.length === 0 &&
   report.related_tenant_candidates.length === 0;
 
@@ -291,6 +293,7 @@ function RunCard({
           ) : (
             <div className="space-y-6">
               <FlaggedGroupsSection groups={report.flagged_groups} />
+              <DuplicateCustomerRecordsSection records={report.duplicate_customer_records} />
               <TypoVariantsSection candidates={report.typo_variant_candidates} />
               <RelatedTenantsSection candidates={report.related_tenant_candidates} />
             </div>

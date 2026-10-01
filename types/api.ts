@@ -153,11 +153,32 @@ export type RelatedTenantView = {
   note: string;
 };
 
+/**
+ * One person recorded under more than one vendor customer ID. Mirrors
+ * `DuplicateCustomerRecordView` (unitprep-api/src/api/dedup_view.rs).
+ * `units` may be empty (some systems have no real unit numbers);
+ * `differing_categories` is empty when the records' contact details match.
+ */
+export type DuplicateCustomerRecordTenantView = {
+  tenant_id: string;
+  units: string[];
+};
+
+export type DuplicateCustomerRecordView = {
+  display_name: string;
+  tenants: DuplicateCustomerRecordTenantView[];
+  differing_categories: FieldCategory[];
+  note: string;
+};
+
 export type DedupReportView = {
   total_rows: number;
   unique_tenants: number;
   multi_unit_tenants: number;
   flagged_groups: FlaggedGroupView[];
+  /** Optional: reports cached before this field existed lack it --
+   * treat undefined as an empty list. */
+  duplicate_customer_records?: DuplicateCustomerRecordView[];
   typo_variant_candidates: TypoVariantView[];
   related_tenant_candidates: RelatedTenantView[];
 };
