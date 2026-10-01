@@ -7,6 +7,40 @@ export const ROLE_LABELS: Record<string, string> = {
   manager: "Manager",
 };
 
+const NAME_SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
+
+/** "Laura Cathryn Grace" -> { last: "grace", first: "laura cathryn" }.
+ * The last word is the surname, ignoring a trailing generational suffix
+ * ("Jr.", "III"); a single word is treated as a surname with no first
+ * name. Lowercased for comparison only. */
+function nameParts(fullName: string): { last: string; first: string } {
+  const words = fullName.trim().split(/\s+/).filter(Boolean);
+  while (words.length > 1 && NAME_SUFFIXES.has(words[words.length - 1].toLowerCase().replace(/\./g, ""))) {
+    words.pop();
+  }
+  const last = (words.pop() ?? "").toLowerCase();
+  return { last, first: words.join(" ").toLowerCase() };
+}
+
+/**
+ * The roster's display order: legal owners first, then everyone else;
+ * within each group alphabetical by last name, then first name. The
+ * server's own order is just by full name (i.e. first name), so this
+ * runs once on load and also drives "Copy All".
+ */
+export function sortRoster(roster: FacilityPerson[]): FacilityPerson[] {
+  return [...roster].sort((a, b) => {
+    if (a.legal_owner !== b.legal_owner) return a.legal_owner ? -1 : 1;
+    const nameA = nameParts(a.full_name);
+    const nameB = nameParts(b.full_name);
+    return (
+      nameA.last.localeCompare(nameB.last) ||
+      nameA.first.localeCompare(nameB.first) ||
+      a.full_name.localeCompare(b.full_name)
+    );
+  });
+}
+
 export const SOURCE_LABELS: Record<string, string> = {
   process_street: "Process Street",
   manual: "Manual",

@@ -16,6 +16,7 @@ import {
   emptyPersonForm,
   formatRosterForClipboard,
   personFormToAssignment,
+  sortRoster,
   type PersonFormState,
 } from "./personRoster";
 
@@ -53,7 +54,7 @@ export function useFacilityUsers(companyId: string, facilityId: string) {
       return;
     }
     setLoadError(null);
-    setPeople(result.data);
+    setPeople({ ...result.data, roster: sortRoster(result.data.roster) });
   }
 
   useEffect(() => {
