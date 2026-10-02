@@ -204,7 +204,7 @@ export default function FacilityDetailPage() {
               ))}
             </div>
 
-            {tab === "general" && <GeneralTab facility={facility} />}
+            {tab === "general" && <GeneralTab facility={facility} onChanged={loadFacility} />}
             {tab === "fees" && (
               <FeesTab companyId={clientId} facilityId={facilityId} policies={policies} onSaved={loadPolicies} />
             )}

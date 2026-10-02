@@ -4,6 +4,9 @@ import { useState } from "react";
 
 interface TooltipProps {
   text: string;
+  /** Accessible name of the ? button; defaults to the original wording
+   * (the company-name-mismatch tooltip it was written for). */
+  label?: string;
 }
 
 /**
@@ -14,7 +17,7 @@ interface TooltipProps {
  * native fallback for anyone whose input method doesn't trigger the
  * custom popover.
  */
-export default function Tooltip({ text }: TooltipProps) {
+export default function Tooltip({ text, label = "Why does this matter?" }: TooltipProps) {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -22,7 +25,7 @@ export default function Tooltip({ text }: TooltipProps) {
       <button
         type="button"
         title={text}
-        aria-label="Why does this matter?"
+        aria-label={label}
         onMouseEnter={() => setVisible(true)}
         onMouseLeave={() => setVisible(false)}
         onFocus={() => setVisible(true)}

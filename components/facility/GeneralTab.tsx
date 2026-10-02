@@ -1,11 +1,20 @@
 "use client";
 
+import ClickUpFacilitySection from "@/components/clickup/ClickUpFacilitySection";
 import DetailSection from "@/components/clients/DetailSection";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import type { FacilityDetail } from "@/lib/clientsDetail";
 import { formatPhone } from "@/lib/format";
 
-export function GeneralTab({ facility }: { facility: FacilityDetail }) {
+export function GeneralTab({
+  facility,
+  onChanged,
+}: {
+  facility: FacilityDetail;
+  /** Reloads the facility after something on this tab (the ClickUp link)
+   * changed it. */
+  onChanged: () => void;
+}) {
   return (
     <div className="flex flex-col gap-6">
       <DetailSection
@@ -29,6 +38,8 @@ export function GeneralTab({ facility }: { facility: FacilityDetail }) {
           { label: "Website", value: facility.website_url },
         ]}
       />
+
+      <ClickUpFacilitySection facility={facility} onChanged={onChanged} />
 
       <section className="rounded border border-slate-800 p-5">
         <h2 className="mb-4 text-lg font-semibold">Dropbox</h2>

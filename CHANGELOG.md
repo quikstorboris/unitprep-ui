@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.56] - 2026-10-02
+
+Link ClickUp from the Company and Facility pages.
+
+### Added
+- **Company page -> ClickUp card**: each facility's list (opens in ClickUp) with a linked/not-linked dot, **Link ClickUp**, and **Unlink All Facilities** (with confirmation).
+- **Link ClickUp dialog**: one row per facility with the best match preselected and badged (Strong / Likely / Weak / No match). Strong and likely matches are pre-ticked; weak ones are not, so nothing shaky saves by accident. Per-row dropdown of every onboarding list grouped by ClickUp folder; **Link manually** takes a pasted ClickUp URL, resolves it, and shows the list's real name first (a **?** tooltip explains where to copy it). Duplicate picks warn; a save that reuses another facility's list shows who shares it.
+- **Facility -> General -> ClickUp block**: a ClickUp button that opens the list in a new tab, **Change link** (the same dialog scoped to that facility) and **Unlink**. A dot beside the ClickUp heading is green when the facility is linked and red when it is not (never linked, or unlinked); hovering it shows "Facility linked to ClickUp" / "Facility not linked to ClickUp".
+- Shared `ModalShell`; `Tooltip` accepts an accessible label.
+
 ## [1.6.55] - 2026-10-02
 
 Per-user permissions dialog, My Integrations with ClickUp, and Users page refinements.

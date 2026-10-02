@@ -14,6 +14,12 @@ export interface FacilitySummary {
   id: string;
   name: string;
   dropbox_folder_url: string | null;
+  /** The facility's ClickUp onboarding list, if linked. Name/folder/URL
+   * are a snapshot taken at link time; only the id is authoritative. */
+  clickup_list_id: string | null;
+  clickup_list_name: string | null;
+  clickup_folder_name: string | null;
+  clickup_list_url: string | null;
 }
 
 export interface OwnerInfo {
@@ -102,6 +108,10 @@ export interface FacilityDetail {
   subdomain_exists_in_qms_raw: string | null;
   system_email: string | null;
   website_url: string | null;
+  clickup_list_id: string | null;
+  clickup_list_name: string | null;
+  clickup_folder_name: string | null;
+  clickup_list_url: string | null;
 }
 
 export async function getFacilityDetail(

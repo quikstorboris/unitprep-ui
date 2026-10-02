@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 
+import ClickUpCompanySection from "@/components/clickup/ClickUpCompanySection";
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
 import DetailSection from "@/components/clients/DetailSection";
 import FacilityRail from "@/components/clients/FacilityRail";
@@ -132,6 +133,8 @@ export default function ClientInfoPage() {
               </div>
             )}
           </section>
+
+          <ClickUpCompanySection companyId={clientId} companyName={company.legal_name} />
 
           <section className="rounded border border-slate-800 p-5">
             <h2 className="mb-4 text-lg font-semibold">Owner(s) Information</h2>
