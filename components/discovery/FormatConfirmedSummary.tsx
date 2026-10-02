@@ -1,5 +1,6 @@
 "use client";
 
+import { UnitFileUsedNote } from "@/components/discovery/UnitFileUsedNote";
 import type { DiscoverResponse } from "@/types/api";
 
 interface FormatConfirmedSummaryProps {
@@ -77,6 +78,10 @@ export function FormatConfirmedSummary({
             Files Selection
           </button>
         </div>
+      </div>
+
+      <div className="mt-3">
+        <UnitFileUsedNote discovery={discovery} />
       </div>
 
       {resolveError && (

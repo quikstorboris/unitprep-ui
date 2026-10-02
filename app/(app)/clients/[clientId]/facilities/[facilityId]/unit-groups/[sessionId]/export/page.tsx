@@ -23,6 +23,7 @@ export default function ExportPage() {
         key={sessionId}
         sessionId={sessionId}
         clientId={clientId}
+        facilityId={facilityId}
         onBack={() =>
           router.push(
             `/clients/${clientId}/facilities/${facilityId}/unit-groups/${sessionId}`

@@ -8,6 +8,8 @@
 // runtime mismatch this project already went through once (the
 // `output_path` removal). The remaining types below this point are still
 // hand-mirrored the old way and don't yet have that guarantee.
+import type { AnalyzeResponse } from "./generated";
+
 export type {
   UploadResponse,
   DiscoverResponse,
@@ -288,10 +290,9 @@ export type DedupExportFormat = "csv" | "xlsx" | "both";
  */
 export type ToolRunOutputKind = "none" | "download" | "dropbox" | "both";
 
-export type ToolRunSummary = {
+type ToolRunBase = {
   id: string;
   sequence_number: number;
-  tool: string;
   actor_user_id: string | null;
   actor_first_name: string | null;
   actor_last_name: string | null;
@@ -305,12 +306,38 @@ export type ToolRunSummary = {
   /** Whether this run kept what it needs to be re-checked (see
    * `rematchToolRun`). */
   can_rematch: boolean;
-  report_summary: DedupReportView;
   output_kind: ToolRunOutputKind;
   output_dropbox_path: string | null;
   created_at: string;
   completed_at: string | null;
 };
+
+/** A Unit Groups run's stored summary: the analysis response plus the
+ * files it read (unitprep-api/src/api/analyze.rs). */
+export type UnitGroupRunSummary = AnalyzeResponse & {
+  unit_files: string[];
+  group_file: string | null;
+};
+
+/** A Template Tagger run's stored summary (unitprep-api/src/api/tagger.rs
+ * `check_summary`); `applied_count` is null until the reviewer applies. */
+export type TaggerRunSummary = {
+  template_file: string;
+  candidate_count: number;
+  needs_review_count: number;
+  tags: Record<string, number>;
+  applied_count: number | null;
+  preserve_blanks?: boolean;
+};
+
+/** One recorded tool run. `tool` says which summary shape `report_summary`
+ * has. */
+export type ToolRunSummary = ToolRunBase &
+  (
+    | { tool: "dedup"; report_summary: DedupReportView }
+    | { tool: "unit_group"; report_summary: UnitGroupRunSummary }
+    | { tool: "tagger"; report_summary: TaggerRunSummary }
+  );
 
 // QMS Template Tagging Assistant contracts — mirror unitprep-api's
 // enriched view types 1:1:

@@ -1,6 +1,7 @@
 "use client";
 
 import { basename } from "@/lib/api";
+import { UnitFileUsedNote } from "@/components/discovery/UnitFileUsedNote";
 import type { DiscoverResponse } from "@/types/api";
 
 interface FormatResolutionActiveViewProps {
@@ -83,6 +84,8 @@ export function FormatResolutionActiveView({
           Selection
         </button>
       </div>
+
+      <UnitFileUsedNote discovery={discovery} />
 
       {discovery
         .mismatched_header_files

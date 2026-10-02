@@ -19,6 +19,9 @@ interface ExportCompletePageProps {
    * Groups tab -- forwarded to `useExportDownload` for the Activity Log
    * entry `/export` writes on success. */
   clientId?: string;
+  /** The facility this run is for -- lets the analysis be recorded on the
+   * facility's Onboarding Work page. */
+  facilityId?: string;
   onBack: () => void;
   onHome: () => void;
 }
@@ -101,6 +104,7 @@ function ExportProgress({ exporting, elapsedMs, onCancel }: ExportProgressProps)
 export default function ExportCompletePage({
   sessionId,
   clientId,
+  facilityId,
   onBack,
   onHome,
 }: ExportCompletePageProps) {
@@ -112,7 +116,7 @@ export default function ExportCompletePage({
     cancelled: analysisCancelled,
     elapsedMs: analysisElapsedMs,
     cancel: cancelAnalysis,
-  } = useAnalysis(sessionId);
+  } = useAnalysis(sessionId, facilityId);
 
   const {
     exporting,

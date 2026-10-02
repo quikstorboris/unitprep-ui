@@ -24,11 +24,15 @@ function isSupportedFile(file: File): boolean {
 
 interface TaggerUploadPageProps {
   clientId: string;
+  /** The facility this run is for -- lets the check be recorded on the
+   * facility's Onboarding Work page. */
+  facilityId?: string;
   onChecked: (sessionId: string) => void;
 }
 
 export default function TaggerUploadPage({
   clientId,
+  facilityId,
   onChecked,
 }: TaggerUploadPageProps) {
   const { getClient } = useClients();
@@ -56,7 +60,9 @@ export default function TaggerUploadPage({
     elapsedMs: uploadElapsedMs,
     uploadProgress,
     cancel: cancelUpload,
-  } = useFileUploadAction("/tagger/check");
+  } = useFileUploadAction(
+    facilityId ? `/tagger/check?facility_id=${facilityId}` : "/tagger/check"
+  );
   const {
     pending: importing,
     run: runImportDropbox,
@@ -113,7 +119,10 @@ export default function TaggerUploadPage({
     if (dropboxPath) {
       setApiError(null);
 
-      const result = await runImportDropbox({ path: dropboxPath });
+      const result = await runImportDropbox({
+        path: dropboxPath,
+        ...(facilityId ? { facility_id: facilityId } : {}),
+      });
 
       if (result.kind === "sessionExpired") {
         setApiError("Your session has expired — please try again.");

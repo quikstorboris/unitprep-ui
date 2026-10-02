@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   API_URL,
@@ -56,8 +56,18 @@ export function useSessionPost<TResponse>(
   // lib/dedupReportCache.ts). Omitted entirely by every other caller
   // (useAnalysis), which keeps their behavior exactly as it was: the
   // fetch always runs when this parameter is never passed.
-  initialData?: TResponse
+  initialData?: TResponse,
+  // Extra JSON fields sent beside `session_id` (e.g. the facility a run
+  // belongs to). Read when the request is made; changing it does not
+  // trigger a new request.
+  extraBody?: Record<string, unknown>
 ): UseSessionPostResult<TResponse> {
+  const extraBodyRef = useRef(extraBody);
+  // Declared before the fetch effect below so it is current when that runs.
+  useEffect(() => {
+    extraBodyRef.current = extraBody;
+  });
+
   const [data, setData] =
     useState<TResponse | null>(initialData ?? null);
 
@@ -120,6 +130,7 @@ export function useSessionPost<TResponse>(
                 "application/json",
             },
             body: JSON.stringify({
+              ...extraBodyRef.current,
               session_id: sessionId,
             }),
             signal: controller.signal,

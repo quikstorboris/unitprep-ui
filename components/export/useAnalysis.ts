@@ -19,12 +19,17 @@ interface UseAnalysisResult {
 
 /** Runs POST /analyze per sessionId. See useSessionPost for the shared fetch/loading/error/sessionExpired behavior. */
 export function useAnalysis(
-  sessionId: string
+  sessionId: string,
+  /** The facility this run is for -- when given, the analysis is recorded
+   * on the facility's Onboarding Work page. */
+  facilityId?: string
 ): UseAnalysisResult {
   const { data, loading, error, sessionExpired, cancelled, elapsedMs, cancel } =
     useSessionPost<AnalyzeResponse>(
       sessionId,
-      "/analyze"
+      "/analyze",
+      undefined,
+      facilityId ? { facility_id: facilityId } : undefined
     );
 
   return {

@@ -14,6 +14,7 @@ export default function TemplateTaggerHome() {
       <div className="mx-auto max-w-4xl">
         <TaggerUploadPage
           clientId={clientId}
+          facilityId={facilityId}
           onChecked={(sessionId) =>
             router.push(`/clients/${clientId}/facilities/${facilityId}/template-tagger/${sessionId}`)
           }
