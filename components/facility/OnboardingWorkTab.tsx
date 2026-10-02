@@ -9,7 +9,9 @@ import DuplicateCustomerRecordsSection from "@/components/dedup/DuplicateCustome
 import TypoVariantsSection from "@/components/dedup/TypoVariantsSection";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import { downloadToolRunOutput, downloadToolRunSource } from "@/components/facility/useToolRunOutputDownload";
+import { hasPermission } from "@/lib/auth-session";
 import { deleteToolRun, listFacilityToolRuns } from "@/lib/clientsDetail";
+import { useCurrentUser } from "@/lib/currentUser";
 import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
 import { useInfiniteLogFeed, type LogFeedResult } from "@/lib/useInfiniteLogFeed";
 import type { ToolRunSummary } from "@/types/api";
@@ -122,10 +124,14 @@ function RunSourceAction({
   facilityId: string;
   run: ToolRunSummary;
 }) {
+  const { user } = useCurrentUser();
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!run.has_source_file) return null;
+  // The stored source is the raw upload (it can carry card data and SSNs),
+  // so the API limits it to client_ops.perform; hide the button rather
+  // than offer one that can only fail. The API is the real gate.
+  if (!run.has_source_file || !hasPermission(user, "client_ops.perform")) return null;
 
   const handleDownload = async () => {
     setDownloading(true);
