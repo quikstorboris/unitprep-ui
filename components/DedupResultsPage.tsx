@@ -29,8 +29,8 @@ const FORMAT_OPTIONS: Array<{
   value: DedupExportFormat;
   label: string;
 }> = [
-  { value: "csv", label: "CSV" },
   { value: "xlsx", label: "Excel (.xlsx)" },
+  { value: "csv", label: "CSV" },
   {
     value: "both",
     label: "Both (as a .zip)",
@@ -166,7 +166,7 @@ export default function DedupResultsPage({
     exportFormat,
     setExportFormat,
   ] = useState<DedupExportFormat>(
-    "csv"
+    "xlsx"
   );
 
   if (reportExpired || exportExpired || saveExpired) {

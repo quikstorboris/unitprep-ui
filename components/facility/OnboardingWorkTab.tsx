@@ -69,26 +69,15 @@ function RunOutputAction({
 
   if (run.output_kind === "none") return null;
 
-  if (run.output_kind === "dropbox") {
-    const path = run.output_dropbox_path;
-    if (!path) return null;
+  // "dropbox" and "both" mean the file was saved to Dropbox; "download" and
+  // "both" mean OO also keeps a copy. The Dropbox link is governed by
+  // Dropbox's own access; the stored copy needs client_ops.perform at the
+  // API, so that button is hidden without it.
+  const dropboxPath = run.output_kind === "dropbox" || run.output_kind === "both" ? run.output_dropbox_path : null;
+  const hasStoredCopy = run.output_kind === "download" || run.output_kind === "both";
+  const canDownload = hasStoredCopy && hasPermission(user, "client_ops.perform");
 
-    return (
-      <a
-        href={dropboxFolderWebUrl(dropboxParentFolder(path))}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 rounded bg-[#0061FF] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#0050d1]"
-      >
-        <DropboxLogo className="h-3.5 w-3.5" />
-        Open in Dropbox
-      </a>
-    );
-  }
-
-  // Stored-in-DB report downloads need client_ops.perform at the API (the
-  // Dropbox link above is governed by Dropbox's own access, not ours).
-  if (!hasPermission(user, "client_ops.perform")) return null;
+  if (!dropboxPath && !canDownload) return null;
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -107,14 +96,29 @@ function RunOutputAction({
 
   return (
     <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        onClick={handleDownload}
-        disabled={downloading}
-        className="w-fit rounded bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {downloading ? "Downloading…" : "Download Output"}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        {dropboxPath && (
+          <a
+            href={dropboxFolderWebUrl(dropboxParentFolder(dropboxPath))}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded bg-[#0061FF] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#0050d1]"
+          >
+            <DropboxLogo className="h-3.5 w-3.5" />
+            Open in Dropbox
+          </a>
+        )}
+        {canDownload && (
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="w-fit rounded bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {downloading ? "Downloading…" : "Download Output"}
+          </button>
+        )}
+      </div>
       {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   );

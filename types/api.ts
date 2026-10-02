@@ -255,7 +255,7 @@ export type DedupExportFormat = "csv" | "xlsx" | "both";
  * report would still fit this same field, so this isn't narrowed to
  * `DedupReportView` even though every value currently is one.
  */
-export type ToolRunOutputKind = "none" | "download" | "dropbox";
+export type ToolRunOutputKind = "none" | "download" | "dropbox" | "both";
 
 export type ToolRunSummary = {
   id: string;
