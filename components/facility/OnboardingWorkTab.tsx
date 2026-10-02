@@ -63,6 +63,7 @@ function RunOutputAction({
   facilityId: string;
   run: ToolRunSummary;
 }) {
+  const { user } = useCurrentUser();
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,6 +85,10 @@ function RunOutputAction({
       </a>
     );
   }
+
+  // Stored-in-DB report downloads need client_ops.perform at the API (the
+  // Dropbox link above is governed by Dropbox's own access, not ours).
+  if (!hasPermission(user, "client_ops.perform")) return null;
 
   const handleDownload = async () => {
     setDownloading(true);
