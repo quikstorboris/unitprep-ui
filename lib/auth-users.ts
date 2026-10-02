@@ -150,3 +150,58 @@ export async function revokeRole(
     "DELETE"
   );
 }
+
+/** One individually-grantable permission (`auth.permissions` rows flagged
+ * `directly_grantable`) and whether the target user holds it directly.
+ * `category` is data from the API, not a frontend constant -- it is what
+ * the Add-permissions dialog groups by ("Integrations", ...). */
+export interface GrantablePermission {
+  key: string;
+  label: string;
+  description: string | null;
+  category: string | null;
+  granted: boolean;
+}
+
+export interface UserPermissions {
+  user_id: string;
+  permissions: GrantablePermission[];
+}
+
+/** Every permission that can be granted to `userId` directly, with its
+ * current state. Role-derived permissions are deliberately not part of
+ * this -- they are changed by granting/revoking a role. */
+export async function listUserPermissions(
+  userId: string
+): Promise<AuthResult<UserPermissions>> {
+  return tryAuthFetch(
+    `/auth/users/${encodeURIComponent(userId)}/permissions`,
+    undefined,
+    "GET"
+  );
+}
+
+/** Idempotent: granting an already-held permission succeeds and returns
+ * the unchanged state. Never valid against the caller's own account. */
+export async function grantUserPermission(
+  userId: string,
+  permissionKey: string
+): Promise<AuthResult<UserPermissions>> {
+  return tryAuthFetch(
+    `/auth/users/${encodeURIComponent(userId)}/permissions/${encodeURIComponent(permissionKey)}`,
+    undefined,
+    "PUT"
+  );
+}
+
+/** `grantUserPermission`'s counterpart; equally idempotent. */
+export async function revokeUserPermission(
+  userId: string,
+  permissionKey: string
+): Promise<AuthResult<UserPermissions>> {
+  return tryAuthFetch(
+    `/auth/users/${encodeURIComponent(userId)}/permissions/${encodeURIComponent(permissionKey)}`,
+    undefined,
+    "DELETE"
+  );
+}

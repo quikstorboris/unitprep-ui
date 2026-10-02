@@ -21,6 +21,7 @@ vi.mock("@/lib/currentUser", () => ({
 
 const ADMIN_PERMISSIONS = [
   "users.manage",
+  "users.view",
   "users.manage_roles",
   "audit_logs.read",
   "activity_logs.read",

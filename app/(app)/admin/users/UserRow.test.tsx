@@ -46,6 +46,9 @@ function renderRow(overrides: Partial<React.ComponentProps<typeof UserRow>> = {}
           isSelf={false}
           isPending={false}
           availableRoles={roles}
+          canManageUsers
+          canManageRoles
+          canManagePermissions={false}
           {...handlers}
           {...overrides}
         />
@@ -130,40 +133,89 @@ describe("UserRow", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("removing a role calls onRevokeRole with that exact role key", async () => {
-    const user = userEvent.setup();
-    const handlers = renderRow({
-      user: summary({ roles: ["onboarding_manager", "admin"] }),
-    });
+  it("shows roles read-only in the row -- editing lives in the permissions dialog", () => {
+    renderRow({ user: summary({ roles: ["onboarding_manager", "admin"] }) });
 
-    await user.click(screen.getByRole("button", { name: "Remove admin role" }));
-
-    expect(handlers.onRevokeRole).toHaveBeenCalledWith(
-      summary({ roles: ["onboarding_manager", "admin"] }),
-      "admin"
-    );
+    expect(screen.getByText("Onboarding Manager")).toBeInTheDocument();
+    expect(screen.getByText("Admin")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Remove .* role/ })).not.toBeInTheDocument();
   });
 
-  it("does not show a remove-role control on the caller's own row", () => {
+  it("opens the permissions dialog from the Permissions button", async () => {
+    const user = userEvent.setup();
+    renderRow();
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Permissions" }));
+
+    expect(screen.getByRole("dialog", { name: "Permissions" })).toBeInTheDocument();
+  });
+
+  it("closes the permissions dialog again", async () => {
+    const user = userEvent.setup();
+    renderRow();
+
+    await user.click(screen.getByRole("button", { name: "Permissions" }));
+    await user.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("does not offer Permissions on the caller's own row", () => {
     renderRow({ isSelf: true });
 
-    expect(
-      screen.queryByRole("button", { name: /Remove .* role/ })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Permissions" })).not.toBeInTheDocument();
   });
 
-  it("adding a role opens a picker excluding roles already held, then calls onGrantRole", async () => {
-    const user = userEvent.setup();
-    const handlers = renderRow();
+  it("does not offer Permissions to a viewer who can edit neither roles nor permissions", () => {
+    renderRow({ canManageRoles: false, canManagePermissions: false });
 
-    await user.click(screen.getByRole("button", { name: "+ Add role" }));
+    expect(screen.queryByRole("button", { name: "Permissions" })).not.toBeInTheDocument();
+  });
 
-    const select = screen.getByRole("combobox");
-    expect(select).toHaveValue("admin");
+  it("labels statuses by what they mean rather than the internal value", () => {
+    const { unmount } = render(
+      <table>
+        <tbody>
+          <UserRow
+            user={summary({ status: "active" })}
+            isSelf={false}
+            isPending={false}
+            availableRoles={roles}
+            canManageUsers
+            canManageRoles
+            canManagePermissions={false}
+            onReissue={vi.fn()}
+            onRecover={vi.fn()}
+            onDisable={vi.fn()}
+            onReactivate={vi.fn()}
+            onGrantRole={vi.fn()}
+            onRevokeRole={vi.fn()}
+          />
+        </tbody>
+      </table>
+    );
+    expect(screen.getByText("Enrolled")).toBeInTheDocument();
+    unmount();
 
-    await user.click(screen.getByRole("button", { name: "Add" }));
+    renderRow({ user: summary({ status: "invited", credential_count: 0 }) });
+    expect(screen.getByText("Invite sent")).toBeInTheDocument();
+  });
 
-    expect(handlers.onGrantRole).toHaveBeenCalledWith(summary(), "admin");
+  it("labels a deactivated account Disabled", () => {
+    renderRow({ user: summary({ status: "deactivated" }) });
+
+    expect(screen.getByText("Disabled")).toBeInTheDocument();
+  });
+
+  it("gives a viewer without users.manage the permissions button but none of the admin actions", () => {
+    renderRow({ canManageUsers: false, canManageRoles: false, canManagePermissions: true });
+
+    expect(screen.getByRole("button", { name: "Permissions" })).toBeInTheDocument();
+    for (const name of ["Disable", "Recover account", "Reissue invite", "Reactivate"]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
   });
 
   it("disables every action button while a request for this row is pending", () => {

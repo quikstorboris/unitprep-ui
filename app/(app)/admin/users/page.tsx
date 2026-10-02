@@ -3,9 +3,10 @@
 import { useState } from "react";
 
 import RequirePermission from "@/components/auth/RequirePermission";
+import { hasPermission } from "@/lib/auth-session";
 import { useCurrentUser } from "@/lib/currentUser";
 import InviteUserForm from "./InviteUserForm";
-import UserRow from "./UserRow";
+import UsersTable from "./UsersTable";
 import { useUsersAdmin } from "./useUsersAdmin";
 import { inputClass, linkButtonClass, primaryButtonClass, smallButtonClass } from "./styles";
 
@@ -16,6 +17,7 @@ function inviteLinkFor(token: string): string {
 export default function AdminUsersPage() {
   const { user: currentUser } = useCurrentUser();
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showDisabled, setShowDisabled] = useState(false);
 
   const {
     users,
@@ -37,18 +39,43 @@ export default function AdminUsersPage() {
     handleRevokeRole,
   } = useUsersAdmin();
 
+  // Department managers get the page (users.view) but not these: inviting,
+  // exporting, and every per-row administrative action stay behind
+  // users.manage, which only admins hold.
+  const canManageUsers = hasPermission(currentUser, "users.manage");
+
+  const activeUsers = (users ?? []).filter((user) => user.status !== "deactivated");
+  const disabledUsers = (users ?? []).filter((user) => user.status === "deactivated");
+
+  const tableProps = {
+    currentUserId: currentUser?.user_id,
+    pendingUserId,
+    availableRoles,
+    canManageUsers,
+    canManageRoles: hasPermission(currentUser, "users.manage_roles"),
+    canManagePermissions: hasPermission(currentUser, "user_permissions.manage"),
+    onReissue: handleReissue,
+    onRecover: handleRecover,
+    onDisable: handleDisable,
+    onReactivate: handleReactivate,
+    onGrantRole: handleGrantRole,
+    onRevokeRole: handleRevokeRole,
+  };
+
   return (
-    <RequirePermission permission="users.manage">
+    <RequirePermission permission="users.view">
     <div className="flex-1 p-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-100">Users</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Invite new users, and recover an account that has lost its
-            only passkey.
+            {canManageUsers
+              ? "Invite new users, and recover an account that has lost its only passkey."
+              : "See who has access, and grant personal integrations such as ClickUp."}
           </p>
         </div>
 
+        {canManageUsers && (
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -66,6 +93,7 @@ export default function AdminUsersPage() {
             {showCreateForm ? "Cancel" : "Invite a user"}
           </button>
         </div>
+        )}
       </div>
 
       {exportError && (
@@ -108,7 +136,7 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {showCreateForm && (
+      {canManageUsers && showCreateForm && (
         <InviteUserForm
           availableRoles={availableRoles}
           onSubmit={handleCreateUser}
@@ -131,40 +159,34 @@ export default function AdminUsersPage() {
       {!users ? (
         <p className="text-sm text-slate-400">Loading…</p>
       ) : (
-        <div className="overflow-x-auto rounded border border-slate-800">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-900 text-slate-400">
-              <tr>
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Email</th>
-                <th className="px-4 py-2 font-medium">Company</th>
-                <th className="px-4 py-2 font-medium">Role</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Last active</th>
-                <th className="px-4 py-2 font-medium">Passkeys</th>
-                <th className="px-4 py-2 font-medium">TOTP</th>
-                <th className="px-4 py-2 font-medium">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <UserRow
-                  key={user.id}
-                  user={user}
-                  isSelf={user.id === currentUser?.user_id}
-                  isPending={pendingUserId === user.id}
-                  availableRoles={availableRoles}
-                  onReissue={handleReissue}
-                  onRecover={handleRecover}
-                  onDisable={handleDisable}
-                  onReactivate={handleReactivate}
-                  onGrantRole={handleGrantRole}
-                  onRevokeRole={handleRevokeRole}
-                />
+        <>
+          <UsersTable users={activeUsers} {...tableProps} />
+
+          {/* Disabled accounts are out of the way by default: they are
+              not part of day-to-day administration, and a long tail of
+              them would push the live users off screen. Still one click
+              away -- reactivating one is a real action. */}
+          <section className="mt-8" aria-label="Disabled users">
+            <button
+              type="button"
+              aria-expanded={showDisabled}
+              onClick={() => setShowDisabled((value) => !value)}
+              className="flex items-center gap-2 text-sm font-medium text-slate-300 hover:text-slate-100"
+            >
+              <span aria-hidden="true">{showDisabled ? "▾" : "▸"}</span>
+              Disabled users ({disabledUsers.length})
+            </button>
+
+            {showDisabled &&
+              (disabledUsers.length === 0 ? (
+                <p className="mt-3 text-sm text-slate-500">No disabled users.</p>
+              ) : (
+                <div className="mt-3">
+                  <UsersTable users={disabledUsers} {...tableProps} />
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+          </section>
+        </>
       )}
     </div>
     </RequirePermission>

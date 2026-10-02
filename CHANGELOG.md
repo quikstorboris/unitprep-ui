@@ -8,6 +8,25 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.55] - 2026-10-02
+
+Per-user permissions dialog, My Integrations with ClickUp, and Users page refinements.
+
+### Added
+- **Permissions dialog** on each Users row (the **Permissions** button): Roles (moved here from the inline row controls) plus one section per permission category the API offers (today "Integrations"), checkboxes that save immediately.
+- **My Integrations** nav group, hidden unless the user holds at least one personal-integration permission, with a **ClickUp** entry and a red/green/grey connection dot driven by a shared per-user status store.
+- **`/my-integrations/clickup`**: connect, test, replace, and remove your own ClickUp personal API token. A healthy connection shows no input, only Replace token; the token is never shown again after saving.
+- **Disabled users** section on the Users page, collapsed by default.
+- Department managers (`users.view`) see the Users page and the Permissions dialog's Integrations section; invite, export, and per-row admin actions require `users.manage`, roles require `users.manage_roles`.
+
+### Changed
+- User statuses display as **Invite sent / Enrolled / Disabled** (display only; stored values unchanged). `active` read as "currently using the app", which it never meant.
+- `SecretField`'s input now carries an accessible label.
+- Audit-log category tabs include the new permission/integration events.
+
+### Documentation
+- `CLAUDE.md` records the tech-stack-list standing rule.
+
 ## [1.6.46] - 2026-09-29
 
 ### Added

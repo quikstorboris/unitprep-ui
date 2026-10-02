@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useCurrentUser } from "@/lib/currentUser";
+import ClickUpStatusDot from "./ClickUpStatusDot";
 
 interface NavLink {
   label: string;
@@ -16,6 +17,8 @@ interface NavLink {
    * drift from the real capability matrix the way a hardcoded role name
    * could. */
   permission?: string;
+  /** Optional live-status dot rendered after the label. */
+  indicator?: "clickup";
 }
 
 // Config-driven on purpose -- the platform vision expects more top-level
@@ -65,8 +68,28 @@ const INTEGRATIONS_LINKS: NavLink[] = [
   { label: "DropBox", href: "/integrations/dropbox", permission: "integrations.manage" },
 ];
 
+// Personal integrations (2026-10-02): unlike the admin Integrations group
+// above (system-wide credentials, `integrations.manage`), these are each
+// user's own connections -- a ClickUp personal API token, and later
+// Intercom/HubSpot -- so ClickUp work is recorded against the person who
+// did it. Each entry is gated on its own per-user permission (granted
+// from the Users page's "Permissions" dialog), and the whole group
+// disappears for anyone holding none of them -- same
+// "visible links > 0" trick the admin Integrations group uses.
+const MY_INTEGRATIONS_LINKS: NavLink[] = [
+  {
+    label: "ClickUp",
+    href: "/my-integrations/clickup",
+    permission: "integrations.clickup",
+    indicator: "clickup",
+  },
+];
+
 const ADMINISTRATION_LINKS: NavLink[] = [
-  { label: "Users", href: "/admin/users", permission: "users.manage" },
+  // users.view, not users.manage: department managers see the page
+  // (to grant personal-integration permissions) without the admin
+  // powers on it -- those buttons are gated individually on the page.
+  { label: "Users", href: "/admin/users", permission: "users.view" },
   {
     label: "Roles",
     href: "/admin/roles",
@@ -116,13 +139,14 @@ function NavItem({
       <Link
         href={link.href}
         aria-current={active ? "page" : undefined}
-        className={`block rounded px-3 py-2 text-sm font-medium transition-colors ${
+        className={`flex items-center rounded px-3 py-2 text-sm font-medium transition-colors ${
           active
             ? "bg-slate-800 text-slate-100"
             : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
         }`}
       >
         {link.label}
+        {link.indicator === "clickup" && <ClickUpStatusDot />}
       </Link>
     </li>
   );
@@ -131,8 +155,8 @@ function NavItem({
 /** One nav group: an uppercase header plus its list of links, matching
  * Administration's original nested-`<ul>` shape (a `<li>` cannot host
  * another `<li>` directly, only via a nested `<ul>`/`<ol>`). Reused
- * across all four groups now that there's more than one, rather than
- * writing the same header/list markup four times. */
+ * across every group rather than writing the same header/list markup
+ * once per group. */
 function NavGroup({
   title,
   links,
@@ -175,6 +199,7 @@ export default function LeftNav() {
   const permissions = user?.permissions ?? [];
   const visibleToolsLinks = visibleLinks(TOOLS_LINKS, permissions);
   const visibleIntegrationsLinks = visibleLinks(INTEGRATIONS_LINKS, permissions);
+  const visibleMyIntegrationsLinks = visibleLinks(MY_INTEGRATIONS_LINKS, permissions);
   const visibleAdminLinks = visibleLinks(ADMINISTRATION_LINKS, permissions);
 
   return (
@@ -195,6 +220,12 @@ export default function LeftNav() {
         <NavGroup
           title="Integrations"
           links={visibleIntegrationsLinks}
+          pathname={pathname}
+          className="mt-3"
+        />
+        <NavGroup
+          title="My Integrations"
+          links={visibleMyIntegrationsLinks}
           pathname={pathname}
           className="mt-3"
         />

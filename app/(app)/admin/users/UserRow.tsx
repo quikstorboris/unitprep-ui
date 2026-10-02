@@ -3,12 +3,8 @@
 import { useState } from "react";
 
 import type { Role, RoleInfo, UserSummary } from "@/lib/auth-users";
-import {
-  dangerButtonClass,
-  inputClass,
-  linkButtonClass,
-  smallButtonClass,
-} from "./styles";
+import PermissionsDialog from "./PermissionsDialog";
+import { dangerButtonClass, linkButtonClass, smallButtonClass } from "./styles";
 
 // No ESP is wired up anywhere in this system (see AUTHENTICATION.md) --
 // there is nothing to push a real alert through yet. This in-app
@@ -33,6 +29,21 @@ function isDormant(user: UserSummary): boolean {
   );
 }
 
+// The API's status values are internal (`invited`/`active`/`deactivated`)
+// and `active` in particular reads as "currently using the app", which it
+// is not -- it means the person finished setting up their sign-in and has
+// not been disabled. How recently they were seen is the "Last active"
+// column. Display-only; the stored values are unchanged.
+const STATUS_LABELS: Record<string, string> = {
+  invited: "Invite sent",
+  active: "Enrolled",
+  deactivated: "Disabled",
+};
+
+export function statusLabel(status: string): string {
+  return STATUS_LABELS[status] ?? status;
+}
+
 function formatLastActive(lastSeenAt: string | null): string {
   if (!lastSeenAt) return "Never";
   const days = Math.floor(daysSince(lastSeenAt));
@@ -46,6 +57,15 @@ interface UserRowProps {
   isSelf: boolean;
   isPending: boolean;
   availableRoles: RoleInfo[] | null;
+  /** Viewer may invite/recover/disable/reactivate (`users.manage`).
+   * Department managers can see the row and edit its personal-integration
+   * permissions, but none of these. */
+  canManageUsers: boolean;
+  /** Viewer may grant/revoke roles (`users.manage_roles`). */
+  canManageRoles: boolean;
+  /** Viewer may grant/revoke direct permissions
+   * (`user_permissions.manage`). */
+  canManagePermissions: boolean;
   onReissue: (user: UserSummary) => void;
   onRecover: (user: UserSummary) => Promise<void>;
   onDisable: (user: UserSummary) => Promise<void>;
@@ -56,19 +76,26 @@ interface UserRowProps {
 
 /**
  * One row of the admin Users table. All of the "click to arm, click
- * again to confirm" and role-picker UI state that used to live in the
- * parent page as maps keyed by user id (`confirmingRecoveryFor === user.id`
- * and friends) lives here instead, as plain local booleans -- only one
- * row can ever be the one whose picker/confirmation is open for itself,
- * so there's no reason the parent needs to track it. The confirm flags
- * reset themselves once their own request settles (success or failure),
+ * again to confirm" UI state that used to live in the parent page as
+ * maps keyed by user id (`confirmingRecoveryFor === user.id` and
+ * friends) lives here instead, as plain local booleans -- only one row
+ * can ever be the one whose confirmation is open for itself, so there's
+ * no reason the parent needs to track it. The confirm flags reset
+ * themselves once their own request settles (success or failure),
  * mirroring exactly when the old page-level handlers used to reset them.
+ *
+ * Roles are shown read-only here; editing them (and a user's direct
+ * permissions) happens in `PermissionsDialog`, opened from this row's
+ * "Permissions" button, so there is one access-control surface.
  */
 export default function UserRow({
   user,
   isSelf,
   isPending,
   availableRoles,
+  canManageUsers,
+  canManageRoles,
+  canManagePermissions,
   onReissue,
   onRecover,
   onDisable,
@@ -79,29 +106,28 @@ export default function UserRow({
   const [confirmingRecovery, setConfirmingRecovery] = useState(false);
   const [confirmingDisable, setConfirmingDisable] = useState(false);
   const [confirmingReactivate, setConfirmingReactivate] = useState(false);
-  const [addingRole, setAddingRole] = useState(false);
-  const [roleToAdd, setRoleToAdd] = useState("");
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
 
   const canReissue =
-    user.status === "invited" && user.credential_count === 0;
+    canManageUsers && user.status === "invited" && user.credential_count === 0;
   // Never on your own row: recovery revokes every live session on the
   // target account, including -- if you could trigger it on yourself --
   // the one you're using right now to click the button. Recovering your
   // own account also makes no sense on its own terms: reaching this page
   // at all means you aren't locked out.
-  const canRecover = user.status === "active" && !isSelf;
+  const canRecover = canManageUsers && user.status === "active" && !isSelf;
   // Never on your own row, for the same reason as recovery -- and never
   // on an already-deactivated user, which the backend refuses anyway
   // (set_user_status is still called on a no-op transition otherwise,
   // and the resulting "conflict" error would be a confusing UI dead end
   // when the row already shows deactivated).
-  const canDisable = user.status !== "deactivated" && !isSelf;
+  const canDisable = canManageUsers && user.status !== "deactivated" && !isSelf;
   // The counterpart to canDisable -- never true at the same time as it,
   // since they're opposite ends of the same status check. No isSelf
   // guard needed: a deactivated account can't be the caller's own
   // (deactivating your own account is already refused server-side), so
   // this can never be reached for isSelf in practice.
-  const canReactivate = user.status === "deactivated";
+  const canReactivate = canManageUsers && user.status === "deactivated";
 
   async function handleRecoverClick() {
     await onRecover(user);
@@ -118,11 +144,6 @@ export default function UserRow({
     setConfirmingReactivate(false);
   }
 
-  async function handleGrantRoleClick() {
-    await onGrantRole(user, roleToAdd);
-    setAddingRole(false);
-  }
-
   return (
     <tr className="border-t border-slate-800">
       <td className="px-4 py-2 text-slate-200">
@@ -135,76 +156,12 @@ export default function UserRow({
           {user.roles.map((roleKey) => (
             <span
               key={roleKey}
-              className="flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-200"
+              className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-200"
             >
               {availableRoles?.find((r) => r.key === roleKey)?.label ??
                 roleKey}
-              {/* Self-role-edit is refused server-side (RLS and the
-                  handler both), so this is hidden rather than
-                  shown-disabled on your own row -- there's nothing it
-                  could ever do. */}
-              {!isSelf && (
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => onRevokeRole(user, roleKey)}
-                  aria-label={`Remove ${roleKey} role`}
-                  className="text-slate-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  ×
-                </button>
-              )}
             </span>
           ))}
-
-          {!isSelf &&
-            (addingRole ? (
-              <span className="flex items-center gap-1">
-                <select
-                  value={roleToAdd}
-                  onChange={(event) => setRoleToAdd(event.target.value)}
-                  className={`${inputClass} py-0.5 text-xs`}
-                >
-                  {(availableRoles ?? [])
-                    .filter((r) => !user.roles.includes(r.key))
-                    .map(({ key, label }) => (
-                      <option key={key} value={key}>
-                        {label}
-                      </option>
-                    ))}
-                </select>
-                <button
-                  type="button"
-                  disabled={isPending || !roleToAdd}
-                  onClick={handleGrantRoleClick}
-                  className={smallButtonClass}
-                >
-                  Add
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAddingRole(false)}
-                  className={linkButtonClass}
-                >
-                  Cancel
-                </button>
-              </span>
-            ) : (
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={() => {
-                  const next = (availableRoles ?? []).find(
-                    (r) => !user.roles.includes(r.key)
-                  );
-                  setRoleToAdd(next?.key ?? "");
-                  setAddingRole(true);
-                }}
-                className="text-xs text-slate-500 hover:text-slate-300"
-              >
-                + Add role
-              </button>
-            ))}
         </div>
       </td>
       <td
@@ -214,7 +171,7 @@ export default function UserRow({
             : "px-4 py-2 text-slate-400"
         }
       >
-        {user.status}
+        {statusLabel(user.status)}
       </td>
       <td
         className={
@@ -236,6 +193,20 @@ export default function UserRow({
         {user.totp_enrolled ? "Enrolled" : "—"}
       </td>
       <td className="px-4 py-2">
+        {/* Self-edit is refused server-side (RLS and the handlers both),
+            so the button is hidden rather than shown-disabled on your own
+            row -- there is nothing it could ever do. */}
+        {!isSelf && (canManageRoles || canManagePermissions) && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => setPermissionsOpen(true)}
+            className={`${smallButtonClass} mr-2`}
+          >
+            Permissions
+          </button>
+        )}
+
         {canReissue && (
           <button
             type="button"
@@ -351,6 +322,19 @@ export default function UserRow({
 
         {isSelf && !canReissue && (
           <span className="text-xs text-slate-500">You</span>
+        )}
+
+        {permissionsOpen && (
+          <PermissionsDialog
+            user={user}
+            availableRoles={availableRoles}
+            isPending={isPending}
+            canManageRoles={canManageRoles}
+            canManagePermissions={canManagePermissions}
+            onGrantRole={onGrantRole}
+            onRevokeRole={onRevokeRole}
+            onClose={() => setPermissionsOpen(false)}
+          />
         )}
       </td>
     </tr>

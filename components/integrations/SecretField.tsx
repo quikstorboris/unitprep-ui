@@ -81,6 +81,7 @@ export function SecretField({
           type={revealed ? "text" : "password"}
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          aria-label={label}
           autoComplete="off"
           spellCheck={false}
           className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-slate-100"
