@@ -6,15 +6,17 @@ import DedupSummaryStats from "@/components/dedup/DedupSummaryStats";
 import FlaggedGroupsSection from "@/components/dedup/FlaggedGroupsSection";
 import RelatedTenantsSection from "@/components/dedup/RelatedTenantsSection";
 import DuplicateCustomerRecordsSection from "@/components/dedup/DuplicateCustomerRecordsSection";
+import UnidentifiedTenantsSection from "@/components/dedup/UnidentifiedTenantsSection";
 import TypoVariantsSection from "@/components/dedup/TypoVariantsSection";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
 import { downloadToolRunOutput, downloadToolRunSource } from "@/components/facility/useToolRunOutputDownload";
 import { hasPermission } from "@/lib/auth-session";
 import { deleteToolRun, listFacilityToolRuns } from "@/lib/clientsDetail";
+import { rematchToolRun } from "@/lib/dedupUnidentified";
 import { useCurrentUser } from "@/lib/currentUser";
 import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
 import { useInfiniteLogFeed, type LogFeedResult } from "@/lib/useInfiniteLogFeed";
-import type { ToolRunSummary } from "@/types/api";
+import type { DedupReportView, ToolRunSummary, UnidentifiedMode } from "@/types/api";
 
 const PAGE_SIZE = 20;
 
@@ -253,8 +255,30 @@ function RunCard({
   run: ToolRunSummary;
   onDeleted: (runId: string) => void;
 }) {
+  const { user } = useCurrentUser();
   const [expanded, setExpanded] = useState(false);
-  const report = run.report_summary;
+  // Starts as the stored report; a re-check replaces it in place.
+  const [report, setReport] = useState<DedupReportView>(run.report_summary);
+  const [rematching, setRematching] = useState(false);
+  const [rematchError, setRematchError] = useState<string | null>(null);
+
+  // Re-checking rewrites the run's stored report and output file, so it
+  // takes client_ops.perform, and the run must have kept what it needs.
+  const canRematch = run.can_rematch && hasPermission(user, "client_ops.perform");
+
+  const handleRematch = async (mode: UnidentifiedMode) => {
+    setRematching(true);
+    setRematchError(null);
+
+    const result = await rematchToolRun(companyId, facilityId, run.id, mode);
+
+    setRematching(false);
+    if (result.kind === "ok") {
+      setReport(result.data.report);
+    } else {
+      setRematchError(result.message);
+    }
+  };
 
   return (
     <div className="rounded border border-slate-800">
@@ -301,7 +325,7 @@ function RunCard({
 
           <DedupSummaryStats report={report} />
 
-          {noIssuesFound(report) ? (
+          {noIssuesFound(report) && !report.unidentified ? (
             <div className="rounded bg-green-900 p-4 text-green-200">
               ✅ No duplicate tenants or name variants found across {report.unique_tenants} unique tenants.
             </div>
@@ -313,6 +337,13 @@ function RunCard({
               <RelatedTenantsSection candidates={report.related_tenant_candidates} />
             </div>
           )}
+
+          <UnidentifiedTenantsSection
+            section={report.unidentified}
+            onChoose={canRematch ? handleRematch : undefined}
+            busy={rematching}
+            error={rematchError}
+          />
         </div>
       )}
     </div>

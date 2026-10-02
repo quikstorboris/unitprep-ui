@@ -74,7 +74,7 @@ export function DedupRequirementsPanel({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-slate-200">{format.report_name}</span>
                   <span className="rounded bg-slate-700 px-2 py-0.5 text-xs text-slate-300">
-                    {format.role === "primary" ? "Primary" : "Supporting"}
+                    {format.role === "primary" ? "Primary" : format.role === "join" ? "Adds details" : "Supporting"}
                   </span>
                 </div>
                 <p className="mt-1 whitespace-pre-line text-sm text-slate-400">{format.guidance}</p>

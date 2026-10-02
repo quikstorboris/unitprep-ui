@@ -171,6 +171,33 @@ export type DuplicateCustomerRecordView = {
   note: string;
 };
 
+/** What the user chose to do with tenants that have no customer id. */
+export type UnidentifiedMode = "pending" | "ignored" | "matched_by_name";
+
+/** `IdentifiedMatchView` / `UnidentifiedTenantView` / `UnidentifiedView`
+ * (unitprep-api/src/api/dedup_view.rs). */
+export type IdentifiedMatchView = {
+  tenant_id: string;
+  display_name: string;
+  units: string[];
+};
+
+export type UnidentifiedTenantView = {
+  display_name: string;
+  units: string[];
+  /** Customer ids already holding this exact name; filled in only after
+   * the user chose to match by name. */
+  same_name_as: IdentifiedMatchView[];
+};
+
+export type UnidentifiedView = {
+  mode: UnidentifiedMode;
+  tenants: UnidentifiedTenantView[];
+  flagged_groups: FlaggedGroupView[];
+  typo_variant_candidates: TypoVariantView[];
+  related_tenant_candidates: RelatedTenantView[];
+};
+
 export type DedupReportView = {
   total_rows: number;
   unique_tenants: number;
@@ -181,6 +208,9 @@ export type DedupReportView = {
   duplicate_customer_records?: DuplicateCustomerRecordView[];
   typo_variant_candidates: TypoVariantView[];
   related_tenant_candidates: RelatedTenantView[];
+  /** Tenants the source gave no customer id, reported separately. Absent
+   * (or null) when nothing was held out. */
+  unidentified?: UnidentifiedView | null;
 };
 
 export type DedupCheckResponse = {
@@ -198,7 +228,8 @@ export type DedupDetectVendorResponse = {
 /** One file's verdict from `/dedup/classify-files` or
  * `/dedup/classify-dropbox-folder` (unitprep-api/src/api/dedup.rs).
  * `path` is the Dropbox full path, `null` for a locally-picked file.
- * `"supporting"` = recognized but not checkable on its own yet. */
+ * `"supporting"` = recognized but not checkable on its own yet;
+ * `"join"` = adds details (email, customer id) to the system's primary file. */
 export type DedupFileClassification = {
   file_name: string;
   path: string | null;
@@ -206,7 +237,7 @@ export type DedupFileClassification = {
   format_name: string | null;
   pms: string | null;
   report_name: string | null;
-  role: "primary" | "supporting" | null;
+  role: "primary" | "supporting" | "join" | null;
   selection_priority: number;
 };
 
@@ -237,7 +268,7 @@ export type DedupFileRequirementsResponse = {
     formats: {
       name: string;
       report_name: string;
-      role: "primary" | "supporting";
+      role: "primary" | "supporting" | "join";
       selection_priority: number;
       guidance: string;
     }[];
@@ -271,6 +302,9 @@ export type ToolRunSummary = {
    * -- a Dropbox-sourced path can be moved/renamed/deleted later, so
    * this is the one reference that always still works. */
   has_source_file: boolean;
+  /** Whether this run kept what it needs to be re-checked (see
+   * `rematchToolRun`). */
+  can_rematch: boolean;
   report_summary: DedupReportView;
   output_kind: ToolRunOutputKind;
   output_dropbox_path: string | null;

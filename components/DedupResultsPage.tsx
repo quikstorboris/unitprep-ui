@@ -9,6 +9,8 @@ import FlaggedGroupsSection from "./dedup/FlaggedGroupsSection";
 import RelatedTenantsSection from "./dedup/RelatedTenantsSection";
 import TypoVariantsSection from "./dedup/TypoVariantsSection";
 import DuplicateCustomerRecordsSection from "./dedup/DuplicateCustomerRecordsSection";
+import UnidentifiedTenantsSection from "./dedup/UnidentifiedTenantsSection";
+import { useDedupUnidentifiedChoice } from "./dedup/useDedupUnidentifiedChoice";
 import { useDedupExport } from "./dedup/useDedupExport";
 import { useDedupReport } from "./dedup/useDedupReport";
 import { useDedupSaveLocation } from "./dedup/useDedupSaveLocation";
@@ -132,7 +134,7 @@ export default function DedupResultsPage({
   onHome,
 }: DedupResultsPageProps) {
   const {
-    report,
+    report: loadedReport,
     loading,
     error: reportError,
     sessionExpired: reportExpired,
@@ -162,6 +164,18 @@ export default function DedupResultsPage({
 
   const { defaultFolderPath } = useDedupSaveLocation(sessionId);
 
+  const {
+    updatedReport,
+    busy: choosing,
+    error: chooseError,
+    sessionExpired: chooseExpired,
+    choose: chooseUnidentified,
+  } = useDedupUnidentifiedChoice(sessionId);
+
+  // The user's latest choice for tenants without a customer id replaces
+  // the report the page first loaded.
+  const report = updatedReport ?? loadedReport;
+
   const [
     exportFormat,
     setExportFormat,
@@ -169,7 +183,7 @@ export default function DedupResultsPage({
     "xlsx"
   );
 
-  if (reportExpired || exportExpired || saveExpired) {
+  if (reportExpired || exportExpired || saveExpired || chooseExpired) {
     return (
       <SessionExpiredPage
         onHome={onHome}
@@ -253,6 +267,13 @@ export default function DedupResultsPage({
 
   return (
     <div className="mx-auto max-w-7xl text-slate-100">
+      <Link
+        href={`/clients/${clientId}/facilities/${facilityId}`}
+        className="mb-4 inline-block text-sm text-blue-400 hover:underline"
+      >
+        &larr; Back to facility
+      </Link>
+
       <h1 className="mb-8 text-4xl font-bold">
         Duplicate Tenant Check
         Results
@@ -264,7 +285,7 @@ export default function DedupResultsPage({
             report={report}
           />
 
-          {noIssuesFound ? (
+          {noIssuesFound && !report.unidentified ? (
             <div className="mt-8 rounded bg-green-900 p-4 text-green-200">
               ✅ No duplicate tenants
               or name variants found
@@ -296,6 +317,17 @@ export default function DedupResultsPage({
                 candidates={
                   report.related_tenant_candidates
                 }
+              />
+            </div>
+          )}
+
+          {report.unidentified && (
+            <div className="mt-6">
+              <UnidentifiedTenantsSection
+                section={report.unidentified}
+                onChoose={chooseUnidentified}
+                busy={choosing}
+                error={chooseError}
               />
             </div>
           )}
