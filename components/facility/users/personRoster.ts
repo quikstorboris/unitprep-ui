@@ -9,33 +9,58 @@ export const ROLE_LABELS: Record<string, string> = {
 
 const NAME_SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
 
-/** "Laura Cathryn Grace" -> { last: "grace", first: "laura cathryn" }.
+/** "Laura Cathryn Grace" -> { first: "laura cathryn", last: "grace" }.
  * The last word is the surname, ignoring a trailing generational suffix
- * ("Jr.", "III"); a single word is treated as a surname with no first
- * name. Lowercased for comparison only. */
-function nameParts(fullName: string): { last: string; first: string } {
+ * ("Jr.", "III"). A single word ("Cher") is a first name with no
+ * surname. Lowercased for comparison only. */
+function nameParts(fullName: string): { first: string; last: string } {
   const words = fullName.trim().split(/\s+/).filter(Boolean);
   while (words.length > 1 && NAME_SUFFIXES.has(words[words.length - 1].toLowerCase().replace(/\./g, ""))) {
     words.pop();
   }
+  if (words.length <= 1) {
+    return { first: (words[0] ?? "").toLowerCase(), last: "" };
+  }
   const last = (words.pop() ?? "").toLowerCase();
-  return { last, first: words.join(" ").toLowerCase() };
+  return { first: words.join(" ").toLowerCase(), last };
+}
+
+/** Access levels from most to least senior -- the order people appear in
+ * below the legal owners. An unrecognised level sorts last. */
+const ACCESS_LEVEL_ORDER = ["owner", "district_manager", "manager"];
+
+function accessRank(role: string): number {
+  const index = ACCESS_LEVEL_ORDER.indexOf(role);
+  return index === -1 ? ACCESS_LEVEL_ORDER.length : index;
 }
 
 /**
- * The roster's display order: legal owners first, then everyone else;
- * within each group alphabetical by last name, then first name. The
- * server's own order is just by full name (i.e. first name), so this
- * runs once on load and also drives "Copy All".
+ * The roster's display order (changed 2026-10-02 at Boris's request --
+ * it used to sort by last name):
+ *
+ *  1. **Legal owners first**, then everyone else.
+ *  2. Legal owners are ordered by first name, then last name.
+ *  3. Everyone else is ordered by **access level** -- owner, then
+ *     district manager, then manager -- and within a level by first
+ *     name, then last name.
+ *
+ * The server's own order is just by full name; this runs once on load
+ * and also drives "Copy All".
  */
 export function sortRoster(roster: FacilityPerson[]): FacilityPerson[] {
   return [...roster].sort((a, b) => {
     if (a.legal_owner !== b.legal_owner) return a.legal_owner ? -1 : 1;
+
+    if (!a.legal_owner) {
+      const byLevel = accessRank(a.role) - accessRank(b.role);
+      if (byLevel !== 0) return byLevel;
+    }
+
     const nameA = nameParts(a.full_name);
     const nameB = nameParts(b.full_name);
     return (
-      nameA.last.localeCompare(nameB.last) ||
       nameA.first.localeCompare(nameB.first) ||
+      nameA.last.localeCompare(nameB.last) ||
       a.full_name.localeCompare(b.full_name)
     );
   });

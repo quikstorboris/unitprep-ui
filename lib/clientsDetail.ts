@@ -471,11 +471,22 @@ export interface MissingLegalOwner {
   phone: string | null;
 }
 
+/** The sister facility whose Merchant Account form supplied the legal
+ * owners when this facility has none of its own. */
+export interface LegalOwnerSource {
+  facility_id: string;
+  facility_name: string;
+}
+
 /** Mirrors `FacilityPeopleResponse`. */
 export interface FacilityPeople {
   roster: FacilityPerson[];
   candidates: PersonAssignment[];
   missing_legal_owners: MissingLegalOwner[];
+  /** Set when the Legal Owner checkmarks were worked out from a sister
+   * facility's Merchant Account form; null when they came from this
+   * facility's own form (or there are none). */
+  legal_owner_source: LegalOwnerSource | null;
 }
 
 export async function getFacilityPeople(

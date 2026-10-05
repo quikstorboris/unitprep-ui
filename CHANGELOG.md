@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.57] - 2026-10-05
+
+Users tab ordering and a clearer Legal Owner source.
+
+### Changed
+- **Users tab sort order.** Legal owners first, sorted by first name then last name; everyone else below by access level (owner, district manager, manager), each by first name then last name. It used to sort by last name. "Copy All" follows the new order.
+
+### Added
+- A notice above the roster when the Legal Owner checkmarks come from a sister facility's Merchant Account form ("Legal Owner checkmarks come from <facility>'s Merchant Account form...").
+
 ## [1.6.56] - 2026-10-02
 
 Link ClickUp from the Company and Facility pages.

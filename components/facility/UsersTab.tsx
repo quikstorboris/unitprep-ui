@@ -3,6 +3,7 @@
 import { AddPersonManuallyForm } from "@/components/facility/users/AddPersonManuallyForm";
 import { CandidateChipsSection } from "@/components/facility/users/CandidateChipsSection";
 import { MissingLegalOwnersSection } from "@/components/facility/users/MissingLegalOwnersSection";
+import { LegalOwnerSourceNotice } from "@/components/facility/users/LegalOwnerSourceNotice";
 import { RosterTable } from "@/components/facility/users/RosterTable";
 import { candidateKey } from "@/components/facility/users/personRoster";
 import { useFacilityUsers } from "@/components/facility/users/useFacilityUsers";
@@ -104,6 +105,8 @@ export function UsersTab({ companyId, facilityId }: { companyId: string; facilit
             onCancel={() => users.setAddingManually(false)}
           />
         )}
+
+        <LegalOwnerSourceNotice source={users.people.legal_owner_source} />
 
         {users.people.roster.length === 0 ? (
           <p className="text-sm text-slate-500">No users linked to this facility yet.</p>
