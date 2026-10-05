@@ -53,7 +53,7 @@ interface UseJsonPostActionResult {
  * Fires one JSON POST to `path` on demand, folding 401/404 into the same
  * "sessionExpired" result and handling network/HTTP errors -- the fetch
  * plumbing `useSessionAction` below builds on. Split out so a caller with
- * no `sessionId` yet (Dedup's Dropbox-source detect-vendor/import calls,
+ * no `sessionId` yet (Dedup's Dropbox-source import call,
  * which create the session server-side rather than acting on one that
  * already exists) can reuse the exact same 401/404/error handling
  * without a hook that forces a `session_id` field into every body.

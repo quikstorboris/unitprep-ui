@@ -46,13 +46,6 @@ export function parentAndBasename(
 }
 
 /**
- * Extracts a human-readable message from a non-2xx API response. Most
- * failures return a structured `{ error, message }` body (see
- * ApiErrorBody in the Rust API) but a few endpoints still return a plain
- * string — fall back to the raw text, then to a bare status code, rather
- * than showing a blank error.
- */
-/**
  * `fetch` throws a plain `TypeError` (not an HTTP error — the request
  * never got an HTTP response at all) when the request can't reach the
  * server: connection refused, DNS failure, CORS rejection, offline, etc.
@@ -77,6 +70,13 @@ export function describeFetchError(
     : fallback;
 }
 
+/**
+ * Extracts a human-readable message from a non-2xx API response. Most
+ * failures return a structured `{ error, message }` body (see
+ * ApiErrorBody in the Rust API) but a few endpoints still return a plain
+ * string — fall back to the raw text, then to a bare status code, rather
+ * than showing a blank error.
+ */
 export async function errorMessageFrom(
   response: Response
 ): Promise<string> {

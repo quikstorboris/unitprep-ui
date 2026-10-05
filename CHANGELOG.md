@@ -8,6 +8,24 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.58] - 2026-10-05
+
+Efficiency refactor chunks E7 and E2 (UI half): dead code removed, and an unrecognized Dedup file now says what it resembles. Pairs with `unitprep-api` 1.9.75 (the new fields are optional, so this UI also works against an older API).
+
+### Added
+- **"Looks like X, but is missing: ..." on the Dedup file checklist.** An unrecognized file used to show only "Not a dedup file". When the API reports the registered format it most resembles (`closest_vendor`) and the required headers it lacks (`missing_headers`), the row now says so under the badge, e.g. "Looks like SiteLink Directory, but is missing: sFName, sLName" -- turning a dead end into an actionable hint. Two tests (hint shown; no hint when the API names no close format).
+
+### Removed
+- `components/icons/ProcessStreetLogo.tsx` (no importers) and the five `create-next-app` leftovers in `public/` (`file.svg`, `globe.svg`, `next.svg`, `vercel.svg`, `window.svg`; no references anywhere).
+- The `DedupDetectVendorResponse` type: its endpoint (`/dedup/detect-vendor`) was removed from the API, and the UI had stopped calling it on 2026-10-01.
+
+### Changed
+- `@types/qrcode` moved from `dependencies` to `devDependencies` (type declarations are build-time only); the lockfile change is exactly the `dev` flags that implies.
+- Three stale comments corrected: `ClientsProvider` is mounted in `app/(app)/layout.tsx`, not `app/layout.tsx`; `errorMessageFrom`'s doc comment was sitting above `describeFetchError`; and `useJsonPostAction`'s no longer mentions the removed detect-vendor call.
+
+### Not removed (deliberately)
+- `totpStepUp` in `lib/auth-session.ts` looks dead (only its own test calls it) but is not: it is the client for the backend's TOTP step-up flow, which the UI has not built a screen for. Deleting it would have hidden a real gap rather than cleaned one up; the gap is tracked separately.
+
 ## [1.6.57] - 2026-10-05
 
 Users tab ordering and a clearer Legal Owner source.

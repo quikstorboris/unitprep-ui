@@ -220,13 +220,6 @@ export type DedupCheckResponse = {
   report: DedupReportView;
 };
 
-/** Mirrors `DedupDetectVendorResponse` (unitprep-api/src/api/dedup.rs) --
- * `vendor_name` is `null` when the file doesn't match any registered
- * vendor's column signature. */
-export type DedupDetectVendorResponse = {
-  vendor_name: string | null;
-};
-
 /** One file's verdict from `/dedup/classify-files` or
  * `/dedup/classify-dropbox-folder` (unitprep-api/src/api/dedup.rs).
  * `path` is the Dropbox full path, `null` for a locally-picked file.
@@ -241,6 +234,12 @@ export type DedupFileClassification = {
   report_name: string | null;
   role: "primary" | "supporting" | "join" | null;
   selection_priority: number;
+  /** For an unrecognized file that resembles a registered format: the
+   * closest one ("looks like X"). Optional so this UI also works against
+   * an API that predates the field. */
+  closest_vendor?: string | null;
+  /** ...and which of that format's required headers the file lacks. */
+  missing_headers?: string[];
 };
 
 export type DedupClassifyResponse = {

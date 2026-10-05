@@ -95,6 +95,12 @@ export function DedupFileChecklist({
                     <span className="text-xs text-slate-400">Alternative to {alternativeTo}</span>
                   )}
                 </div>
+                {file.status === "unrecognized" && file.closest_vendor && (
+                  <p className="mt-1 text-xs text-slate-400">
+                    Looks like {file.closest_vendor}, but is missing:{" "}
+                    {(file.missing_headers ?? []).join(", ")}
+                  </p>
+                )}
               </div>
             </li>
           );

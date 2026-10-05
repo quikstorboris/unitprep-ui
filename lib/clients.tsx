@@ -122,9 +122,10 @@ interface ClientsContextValue {
 
 const ClientsContext = createContext<ClientsContextValue | null>(null);
 
-// Mounted exactly once, wrapping everything in app/layout.tsx (the App
-// Router's single root layout) -- by construction, every route in this app
-// renders underneath that one instance, so the module-level `cache`/
+// Mounted exactly once, in app/(app)/layout.tsx -- the layout every
+// signed-in route renders under (public routes like /login and /invites
+// deliberately skip it, see app/layout.tsx) -- by construction, every
+// route that uses it renders underneath that one instance, so the module-level `cache`/
 // `listeners`/`loaded` state above is only ever driven by one provider.
 // If that ever changes -- a second ClientsProvider mounted somewhere else
 // (a nested layout, a test rendering it twice, a future refactor) -- it

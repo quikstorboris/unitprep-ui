@@ -59,4 +59,35 @@ describe("DedupFileChecklist", () => {
     expect(onSelectAll).toHaveBeenCalledTimes(1);
     expect(onSelectNone).toHaveBeenCalledTimes(1);
   });
+
+  it("says which format an unrecognized file resembles and what it is missing", () => {
+    const classification = folderResponse();
+    const notes = classification.files.findIndex((f) => f.file_name === "notes.csv");
+    classification.files[notes] = {
+      ...classification.files[notes],
+      closest_vendor: "SiteLink Directory",
+      missing_headers: ["sFName", "sLName"],
+    };
+
+    render(
+      <DedupFileChecklist
+        classification={classification}
+        checked={new Set()}
+        disabled={false}
+        onToggle={vi.fn()}
+        onSelectAll={vi.fn()}
+        onSelectNone={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByText("Looks like SiteLink Directory, but is missing: sFName, sLName")
+    ).toBeInTheDocument();
+  });
+
+  it("shows no resemblance hint when the API names no close format", () => {
+    renderChecklist();
+
+    expect(screen.queryByText(/Looks like/)).not.toBeInTheDocument();
+  });
 });
