@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
-import { unlinkCompanyClickUp } from "@/lib/clickupLinks";
+import { prefetchClickUpHierarchy, unlinkCompanyClickUp } from "@/lib/clickupLinks";
 import ClickUpLinkDot from "./ClickUpLinkDot";
 import LinkClickUpDialog from "./LinkClickUpDialog";
 import { useClickUpAccess } from "./useClickUpAccess";
@@ -33,6 +33,13 @@ export default function ClickUpCompanySection({
 }) {
   const { company, refetch } = useCompanyDetail();
   const access = useClickUpAccess();
+
+  // Start loading ClickUp's folder/list hierarchy now, so the Link ClickUp
+  // dialog opens without waiting for it.
+  const clickUpAllowed = access.allowed;
+  useEffect(() => {
+    if (clickUpAllowed) void prefetchClickUpHierarchy();
+  }, [clickUpAllowed]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmingUnlink, setConfirmingUnlink] = useState(false);

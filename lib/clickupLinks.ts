@@ -96,3 +96,10 @@ export async function unlinkCompanyClickUp(
 ): Promise<ClientsResult<{ unlinked: number }>> {
   return clientsDelete(`/clients/${companyId}/clickup/links`);
 }
+
+/** Asks the server to start loading the onboarding hierarchy in the
+ * background (the Link ClickUp dialog needs it). Fire and forget: failures
+ * are harmless, the dialog then loads it itself. */
+export async function prefetchClickUpHierarchy(): Promise<void> {
+  await tryAuthFetch("/integrations/clickup/prefetch", undefined, "POST");
+}

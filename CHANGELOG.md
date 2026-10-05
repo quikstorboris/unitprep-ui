@@ -8,6 +8,14 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.59] - 2026-10-05
+
+First ClickUp automation, UI half: update the facility's ClickUp task from the duplicate check results. Needs `unitprep-api` 1.9.80.
+
+### Added
+- **Update ClickUp panel** on the duplicate check results page (users with ClickUp access): finds the facility's task for this check (1st or 2nd) and always asks first, with the candidates as radio buttons (parent task, status, assignees, open-in-ClickUp link). **Update ClickUp task** comments with the results-file link, adds you as assignee and completes the task, and shows each step's outcome. An **Update ClickUp task** button sits with the Download / Save to Facility Folder options, and the panel is offered once the file is saved or downloaded; a download-only check posts without a link and says to add the file by hand.
+- **Prefetch**: the results page starts reading the facility's ClickUp tasks, and the Company page the ClickUp hierarchy, in the background so both open instantly.
+
 ## [1.6.58] - 2026-10-05
 
 Efficiency refactor chunks E7 and E2 (UI half): dead code removed, and an unrecognized Dedup file now says what it resembles. Pairs with `unitprep-api` 1.9.75 (the new fields are optional, so this UI also works against an older API).

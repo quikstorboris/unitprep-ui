@@ -23,6 +23,7 @@ vi.mock("@/lib/clickupLinks", () => ({
   getClickUpSuggestions: vi.fn().mockReturnValue(new Promise(() => {})),
   listClickUpLists: vi.fn().mockReturnValue(new Promise(() => {})),
   resolveClickUpUrl: vi.fn(),
+  prefetchClickUpHierarchy: vi.fn().mockResolvedValue(undefined),
   saveClickUpLinks: vi.fn(),
 }));
 

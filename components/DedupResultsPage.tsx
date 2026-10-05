@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import ClickUpDuplicateCheckPanel from "./clickup/ClickUpDuplicateCheckPanel";
+import { useClickUpAccess } from "./clickup/useClickUpAccess";
 import { DropboxLogo } from "./icons/DropboxLogo";
 import DedupSummaryStats from "./dedup/DedupSummaryStats";
 import FlaggedGroupsSection from "./dedup/FlaggedGroupsSection";
@@ -17,6 +19,7 @@ import { useDedupSaveLocation } from "./dedup/useDedupSaveLocation";
 import { useDedupSaveToDropbox } from "./dedup/useDedupSaveToDropbox";
 import SessionExpiredPage from "./SessionExpiredPage";
 import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
+import { prefetchDuplicateCheckTasks } from "@/lib/clickupDuplicateCheck";
 import { formatElapsed } from "@/lib/useAbortableOperation";
 import type { DedupExportFormat } from "@/types/api";
 
@@ -171,6 +174,20 @@ export default function DedupResultsPage({
     sessionExpired: chooseExpired,
     choose: chooseUnidentified,
   } = useDedupUnidentifiedChoice(sessionId);
+
+  // The ClickUp action sits with the save/download options; the panel it
+  // opens is also offered automatically once the export is saved or
+  // downloaded. One panel instance serves both, so an update made early
+  // is not offered again.
+  const clickUpAccess = useClickUpAccess();
+  const [clickUpRequested, setClickUpRequested] = useState(false);
+
+  // Start reading the facility's ClickUp tasks while the person reviews
+  // the results, so the ClickUp panel opens instantly later.
+  const clickUpAllowed = clickUpAccess.allowed;
+  useEffect(() => {
+    if (clickUpAllowed) void prefetchDuplicateCheckTasks(clientId, facilityId);
+  }, [clickUpAllowed, clientId, facilityId]);
 
   // The user's latest choice for tenants without a customer id replaces
   // the report the page first loaded.
@@ -408,6 +425,16 @@ export default function DedupResultsPage({
               onSave={() => defaultFolderPath && handleSave(exportFormat, defaultFolderPath, facilityId)}
               sizeClassName="px-5 py-3"
             />
+
+            {clickUpAccess.allowed && !clickUpRequested && (
+              <button
+                type="button"
+                onClick={() => setClickUpRequested(true)}
+                className="rounded border border-slate-600 px-5 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800"
+              >
+                Update ClickUp task
+              </button>
+            )}
           </div>
 
           {saveError && (
@@ -484,6 +511,17 @@ export default function DedupResultsPage({
               {saveError}
             </div>
           )}
+        </div>
+      )}
+
+      {(clickUpRequested || completed) && (
+        <div className="mt-6">
+          <ClickUpDuplicateCheckPanel
+            companyId={clientId}
+            facilityId={facilityId}
+            sessionId={sessionId}
+            fileSavedToDropbox={savedPath !== null}
+          />
         </div>
       )}
 
