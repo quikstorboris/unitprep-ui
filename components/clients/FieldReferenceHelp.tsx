@@ -5,7 +5,7 @@ import { useState } from "react";
 import { FIELD_PROVENANCE, type MappingStatus, type PsWorkflow } from "@/lib/fieldProvenance";
 
 const buttonClass =
-  "rounded border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800";
+  "whitespace-nowrap rounded border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800";
 
 const statusBadgeClass = (status: MappingStatus) =>
   status === "mapped"

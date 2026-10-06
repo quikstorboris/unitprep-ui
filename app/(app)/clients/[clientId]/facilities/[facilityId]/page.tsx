@@ -187,8 +187,10 @@ export default function FacilityDetailPage() {
         ) : (
           <div className="flex flex-1 flex-col gap-6">
             <div className="flex items-start justify-between gap-4">
-              <h1 className="text-2xl font-bold">{facility.name}</h1>
-              <FieldReferenceHelp />
+              <h1 className="min-w-0 break-words text-2xl font-bold">{facility.name}</h1>
+              <div className="shrink-0">
+                <FieldReferenceHelp />
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">

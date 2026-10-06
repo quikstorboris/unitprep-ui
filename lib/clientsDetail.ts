@@ -73,6 +73,8 @@ export interface FacilityOnboardingSummary {
   elavon_linked: boolean;
   elavon_next_step: string | null;
   elavon_awaiting_credentials: boolean;
+  /** Credentials step done -- the sole definition of "Complete". */
+  elavon_complete: boolean;
   duplicate_checks_completed: number;
 }
 

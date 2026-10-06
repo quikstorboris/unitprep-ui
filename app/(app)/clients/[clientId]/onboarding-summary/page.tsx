@@ -4,49 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
+import { ElavonStatusCell } from "@/components/clients/ElavonStatusCell";
 import { getCompanyOnboardingSummary, type FacilityOnboardingSummary } from "@/lib/clientsDetail";
-
-/**
- * Elavon Status cell -- the next outstanding step in this facility's
- * Merchant Account Process Street workflow, per `elavon_next_step`
- * (already resolved server-side to the first incomplete task at or
- * before "Add Credentials to QMS" in PS checklist order -- see
- * `clients_onboarding_summary`'s own module doc for why the walk stops
- * there rather than at the run's actual last task). `elavon_linked`
- * disambiguates the two cases that both leave `elavon_next_step`
- * empty: never started vs. every step through QMS credentials done.
- * `elavon_awaiting_credentials` flags the one remaining step that's a
- * manual, out-of-PS action -- worth a nudge there, since nothing about
- * the PS application itself completes it. The same reminder repeats
- * under "Complete" (2026-09-24, Boris) -- "Complete" here only means
- * PS's own checklist says the credentials step is checked off, not
- * that OO has independently verified someone actually did it in QMS,
- * so the nudge belongs at both the "still pending" and "PS says done"
- * points, not just the first.
- */
-function ElavonStatusCell({ facility }: { facility: FacilityOnboardingSummary }) {
-  if (!facility.elavon_linked) {
-    return <span className="text-slate-500">Not Started</span>;
-  }
-
-  if (facility.elavon_next_step) {
-    return (
-      <div>
-        <span className="text-slate-200">{facility.elavon_next_step}</span>
-        {facility.elavon_awaiting_credentials && (
-          <p className="mt-0.5 text-xs text-amber-400">Be sure to add credentials to QMS.</p>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <span className="text-green-400">Complete</span>
-      <p className="mt-0.5 text-xs text-slate-500">Be sure to add credentials to QMS.</p>
-    </div>
-  );
-}
 
 /**
  * Onboarding Summary tab -- Company page's per-facility rollup, added

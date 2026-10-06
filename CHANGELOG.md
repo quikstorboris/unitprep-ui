@@ -8,6 +8,17 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.61] - 2026-10-06
+
+Process Street task mapping and a Complete status that follows the credentials step. Pairs with `unitprep-api` 1.9.84 (needs its migration `20261006120000` applied first).
+
+### Added
+- Process Street settings page: a "Task mapping" section to edit which Process Street task names count as the QMS-credentials step (`components/integrations/TaskMappingSection`, `lib/processStreetTaskRoles`).
+- `ElavonStatusCell`: one shared Elavon status display, using the API's new `elavon_complete`.
+
+### Changed
+- Onboarding Summary, facility and client pages read Elavon status through that cell instead of re-deriving it; "Add Credentials to QMS" wording in help text now says "credentials step".
+
 ## [1.6.60] - 2026-10-06
 
 Dependency audit housekeeping. No app code changed.

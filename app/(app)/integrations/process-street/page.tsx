@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import RequirePermission from "@/components/auth/RequirePermission";
 import { SecretField } from "@/components/integrations/SecretField";
+import { TaskMappingSection } from "@/components/integrations/TaskMappingSection";
 import {
   getProcessStreetSettings,
   TIMEZONE_OPTIONS,
@@ -290,6 +291,8 @@ export default function ProcessStreetIntegrationPage() {
             </div>
           </div>
         )}
+
+        <TaskMappingSection />
       </div>
     </RequirePermission>
   );
