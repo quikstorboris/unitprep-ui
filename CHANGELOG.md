@@ -8,6 +8,14 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.60] - 2026-10-06
+
+Dependency audit housekeeping. No app code changed.
+
+### Changed
+- **`source-map-js` 1.2.1 -> 1.2.2** (lockfile only, via `npm audit fix`) for GHSA-68fv-2mgg-jv7q, an event-loop denial of service in the Tailwind/PostCSS/jsdom build tooling.
+- **`scripts/preflight.sh` step 4 (`npm audit`) now has one deliberate, documented allowance** for GHSA-vfj7-8cjw-p6xm (`braces` stack-exhaustion DoS): no patched version exists, it is reachable only through the dev-only lint chain `eslint-config-next` -> `@next/eslint-plugin-next` -> `fast-glob` -> `micromatch`, and the only offered fix is a breaking downgrade of `eslint-config-next` 16 -> 14 (declined). Every other advisory still fails the step. The block carries permanent comments, warns after its review date (2026-11-06) and stops applying (the step fails again) on 2027-01-06. Delete it once a fix ships.
+
 ## [1.6.59] - 2026-10-05
 
 First ClickUp automation, UI half: update the facility's ClickUp task from the duplicate check results. Needs `unitprep-api` 1.9.80.

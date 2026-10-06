@@ -43,12 +43,92 @@ fi
 
 step "4/9 npm audit (dependency vulnerability scan)"
 # Blocks on any real finding -- matches cargo-audit's role in
-# unitprep-api. Previously ran at --audit-level=high because 3 known
-# moderate @vitest/mocker findings needed a vitest 4->5 major bump;
-# that bump landed 2026-09-28, so this goes back to the full default.
-if ! npm audit; then
-    echo "FAILED: a vulnerability was found above -- run 'npm audit fix' before pushing."
-    fail=1
+# unitprep-api -- EXCEPT the one advisory named below.
+#
+# ======================================================================
+# TEMPORARY, DELIBERATE ALLOWANCE -- READ BEFORE CHANGING OR REMOVING
+# ======================================================================
+# Advisory:  GHSA-vfj7-8cjw-p6xm  ("braces" stack-exhaustion DoS through
+#            deeply nested patterns, high, CVSS 7.5, published 2026-09-18).
+# Why allowed: it has NO patched version (affects every braces release,
+#            latest 3.0.3 from May 2024) and the maintainer has been
+#            quiet since January 2025. Our only path to it is the
+#            DEV-ONLY lint chain
+#                eslint-config-next -> @next/eslint-plugin-next
+#                  -> fast-glob 3.3.1 -> micromatch -> braces
+#            which never ships to users and only globs files we control,
+#            so there is no realistic way to exploit it here. The only
+#            offered "fix" is downgrading eslint-config-next 16 -> 14
+#            (breaking); Boris decided 2026-10-06 NOT to do that. Even
+#            the newest eslint-config-next (16.3.8) / canary still pin
+#            the same chain, so upgrading does not help either.
+# This is NOT "audit turned off": every OTHER advisory still fails this
+#            step, including new ones in the same chain.
+# Review:    check roughly MONTHLY whether a fix shipped (a patched
+#            braces, or a Next/fast-glob release that drops it). After
+#            AUDIT_ALLOW_REVIEW_BY this step prints a warning every run;
+#            after AUDIT_ALLOW_EXPIRES the allowance stops applying and
+#            this step FAILS again, so it cannot be forgotten.
+# Remove:    when the advisory stops being reported (this step says so)
+#            or a fix is available, delete this whole allowance block
+#            and restore a plain `npm audit`.
+AUDIT_ALLOW_ID="GHSA-vfj7-8cjw-p6xm"
+AUDIT_ALLOW_REVIEW_BY="2026-11-06"
+AUDIT_ALLOW_EXPIRES="2027-01-06"
+
+today="$(date +%F)"
+if [[ "$today" > "$AUDIT_ALLOW_EXPIRES" ]]; then
+    echo "NOTE: the $AUDIT_ALLOW_ID allowance EXPIRED on $AUDIT_ALLOW_EXPIRES -- running a plain npm audit."
+    if ! npm audit; then
+        echo "FAILED: a vulnerability was found above -- run 'npm audit fix' before pushing."
+        fail=1
+    fi
+else
+    if [[ "$today" > "$AUDIT_ALLOW_REVIEW_BY" ]]; then
+        echo "WARNING: the $AUDIT_ALLOW_ID allowance is past its review date ($AUDIT_ALLOW_REVIEW_BY)."
+        echo "         Check whether a fix shipped; it stops applying on $AUDIT_ALLOW_EXPIRES."
+    fi
+    audit_json="$(npm audit --json 2>/dev/null || true)"
+    audit_verdict="$(AUDIT_ALLOW_ID="$AUDIT_ALLOW_ID" node -e '
+        let raw = "";
+        process.stdin.on("data", (c) => (raw += c)).on("end", () => {
+            let report;
+            try { report = JSON.parse(raw); } catch { console.log("UNPARSEABLE"); return; }
+            const allowed = process.env.AUDIT_ALLOW_ID;
+            const blocking = new Set();
+            let sawAllowed = false;
+            for (const [name, v] of Object.entries(report.vulnerabilities || {})) {
+                for (const via of v.via || []) {
+                    if (typeof via === "string") continue; // derived from another package
+                    if ((via.url || "").includes(allowed)) { sawAllowed = true; continue; }
+                    blocking.add(name + ": " + (via.title || via.url || "unknown advisory"));
+                }
+            }
+            if (blocking.size) { console.log("BLOCKING\n" + [...blocking].join("\n")); return; }
+            console.log(sawAllowed ? "ALLOWED_ONLY" : "CLEAN");
+        });
+    ' <<<"$audit_json")"
+
+    case "${audit_verdict%%$'\n'*}" in
+        CLEAN)
+            echo "npm audit: no vulnerabilities reported."
+            echo "NOTE: $AUDIT_ALLOW_ID is no longer reported -- delete the allowance block in this step."
+            ;;
+        ALLOWED_ONLY)
+            echo "npm audit: only the allowed advisory $AUDIT_ALLOW_ID is reported (see the comment above; review by $AUDIT_ALLOW_REVIEW_BY)."
+            ;;
+        BLOCKING)
+            echo "$audit_verdict" | tail -n +2
+            npm audit || true
+            echo "FAILED: a vulnerability other than $AUDIT_ALLOW_ID was found above -- run 'npm audit fix' before pushing."
+            fail=1
+            ;;
+        *)
+            echo "FAILED: could not read the npm audit report."
+            npm audit || true
+            fail=1
+            ;;
+    esac
 fi
 
 step "5/9 gitleaks (real secret scan, diff-scoped)"
