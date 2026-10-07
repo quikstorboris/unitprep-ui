@@ -6,6 +6,7 @@ import {
   copyComments,
   getCopyComments,
   getCopyPairs,
+  type CopyOutcome,
   type CopyPairs,
   type CopyPointerOutcome,
   type CopyScope,
@@ -31,6 +32,8 @@ export interface RowState {
   message: string | null;
   /** What happened to the main-list note, after a copy. */
   pointer: CopyPointerOutcome | null;
+  /** Whether the task was set complete, after a copy that asked for it. */
+  completed: CopyOutcome | null;
 }
 
 /** Comment lookups in flight at once. Each is two ClickUp reads, and
@@ -47,6 +50,7 @@ const BLANK_ROW: RowState = {
   copyState: "idle",
   message: null,
   pointer: null,
+  completed: null,
 };
 
 async function runPool<T>(items: T[], limit: number, work: (item: T) => Promise<void>) {
@@ -67,6 +71,8 @@ async function runPool<T>(items: T[], limit: number, work: (item: T) => Promise<
 export function useCopyComments(companyId: string, facilityId: string, initialSourceId: string | null) {
   const [sourceId, setSourceId] = useState<string | null>(initialSourceId);
   const [scope, setScope] = useState<CopyScope>("all");
+  // Off unless the person asks: copying only comments is the normal case.
+  const [completeTasks, setCompleteTasks] = useState(false);
   const [pairs, setPairs] = useState<CopyPairs | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rows, setRows] = useState<Record<string, RowState>>({});
@@ -186,12 +192,13 @@ export function useCopyComments(companyId: string, facilityId: string, initialSo
     const row = rowsRef.current[key];
     if (!row?.targetTaskId || !row.comment.trim() || row.copyState === "copying") return;
 
-    patch(key, { copyState: "copying", message: null, pointer: null });
+    patch(key, { copyState: "copying", message: null, pointer: null, completed: null });
     const result = await copyComments(
       companyId,
       facilityId,
       [{ target_task_id: row.targetTaskId, comment: row.comment, source_task_id: key }],
-      sourceId
+      sourceId,
+      completeTasks
     );
 
     if (result.kind !== "ok") {
@@ -204,6 +211,7 @@ export function useCopyComments(companyId: string, facilityId: string, initialSo
       copyState: outcome.comment.ok ? "copied" : "failed",
       message: outcome.comment.message,
       pointer: outcome.pointer,
+      completed: outcome.completed ?? null,
       // What was just posted now reads as already there.
       alreadyCopied: outcome.comment.ok,
     });
@@ -221,5 +229,7 @@ export function useCopyComments(companyId: string, facilityId: string, initialSo
     chooseTarget,
     setComment,
     confirm,
+    completeTasks,
+    setCompleteTasks,
   };
 }

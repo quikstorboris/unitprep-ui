@@ -82,6 +82,9 @@ export interface CopyItemResult {
   target_task_id: string;
   comment: CopyOutcome;
   pointer: CopyPointerOutcome;
+  /** Whether the task was set to complete. Only present when that was asked
+   * for and the comment went through. */
+  completed?: CopyOutcome | null;
   /** Which facility's task this was -- set for a copy to several
    * facilities (the client's ClickUp Copy tab), absent in the facility
    * dialog, where the facility is the one on screen. */
@@ -131,10 +134,12 @@ export async function copyComments(
   companyId: string,
   facilityId: string,
   items: { target_task_id: string; comment: string; source_task_id: string }[],
-  sourceFacilityId?: string | null
+  sourceFacilityId?: string | null,
+  completeTasks = false
 ): Promise<ClientsResult<CopyResult>> {
   return clientsPost(`${base(companyId, facilityId)}/copy`, {
     source_facility_id: sourceFacilityId ?? null,
     items,
+    complete_tasks: completeTasks,
   });
 }

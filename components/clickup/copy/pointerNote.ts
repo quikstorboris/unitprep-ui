@@ -1,4 +1,4 @@
-import type { CopyPointerOutcome } from "@/lib/clickupCopy";
+import type { CopyOutcome, CopyPointerOutcome } from "@/lib/clickupCopy";
 
 /** What to tell the person about the once-per-task "main task list" note
  * after a comment was copied, or null when there is nothing to say (no
@@ -16,4 +16,14 @@ export function pointerNote(pointer: CopyPointerOutcome | null): { text: string;
     default:
       return null;
   }
+}
+
+/** What to tell the person about completing the task, or null when
+ * completing was not asked for (or the comment did not go through). */
+export function completedNote(completed: CopyOutcome | null | undefined): { text: string; failed: boolean } | null {
+  if (!completed) return null;
+
+  return completed.ok
+    ? { text: "Task marked complete.", failed: false }
+    : { text: `Not marked complete: ${completed.message ?? "unknown error"}`, failed: true };
 }

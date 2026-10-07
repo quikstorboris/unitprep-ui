@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.67] - 2026-10-07
+
+ClickUp Copy can also complete the destination tasks (opt-in). Needs `unitprep-api` 1.9.95.
+
+### Added
+- **"Also mark each task complete"** on the ClickUp Copy tab and in the facility's copy dialog, **off by default**: unticked, copying only adds comments and the tasks keep their status. Each result says whether the task was marked complete or why not (e.g. the list has no complete status). Needs the matching `unitprep-api` change.
+
 ## [1.6.66] - 2026-10-07
 
 ClickUp Copy, phase 3 and 4: the client's ClickUp Copy tab, with a dropdown for choosing the destination facilities. Needs `unitprep-api` 1.9.94 (migrations `20261007140000` and `20261007150000`).

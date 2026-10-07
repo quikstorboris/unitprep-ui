@@ -142,6 +142,21 @@ function Inner({
                 .
               </p>
 
+              <label className="flex items-start gap-2 text-sm text-slate-200">
+                <input
+                  type="checkbox"
+                  checked={copy.completeTasks}
+                  onChange={(event) => copy.setCompleteTasks(event.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  Also mark each task complete
+                  <span className="block text-xs text-slate-500">
+                    Leave this unticked to only add the comment: the tasks keep their current status.
+                  </span>
+                </span>
+              </label>
+
               {copy.missingTargets > 0 && (
                 <p role="status" className="text-xs text-amber-300">
                   {copy.missingTargets === 1

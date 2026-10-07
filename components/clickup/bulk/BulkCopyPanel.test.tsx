@@ -307,12 +307,51 @@ describe("BulkCopyPanel", () => {
         sourceTaskName: "CONFIGURE Fees",
         comment: "Done everywhere.",
         destinations: [{ facility_id: "second", target_task_id: "T2" }],
+        completeTasks: false,
       })
     );
     expect(await screen.findByText("Copied to 1 facility.")).toBeInTheDocument();
     const results = screen.getByRole("status");
     expect(within(results).getByText("Second St")).toBeInTheDocument();
     expect(within(results).getByText(/Main-list note added/)).toBeInTheDocument();
+  });
+
+  it("only comments by default, and completes the tasks when the box is ticked", async () => {
+    bulkCopy.mockResolvedValue(
+      ok({
+        mode: "inline",
+        job_id: null,
+        total: 1,
+        copied: 1,
+        failed: 0,
+        results: [
+          {
+            target_task_id: "T2",
+            facility_id: "second",
+            facility_name: "Second St",
+            comment: { ok: true, message: null },
+            pointer: { state: "not_applicable", message: null },
+            completed: { ok: false, message: "This list has no complete status." },
+          },
+        ],
+      })
+    );
+    const user = await chooseFees();
+    await waitFor(() => expect(screen.getByLabelText("Comment to post")).toHaveValue("Fees are configured."));
+    await pick(user, "Second St");
+
+    const box = screen.getByRole("checkbox", { name: /Also mark each task complete/ });
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/Leave this unticked to only add the comment/)).toBeInTheDocument();
+
+    await user.click(box);
+    await user.click(screen.getByRole("button", { name: /copy to 1 facility/ }));
+
+    await waitFor(() =>
+      expect(bulkCopy).toHaveBeenCalledWith("c1", expect.objectContaining({ completeTasks: true }))
+    );
+    // The per-facility result says the completion failed, though the comment landed.
+    expect(await screen.findByText(/Not marked complete: This list has no complete status\./)).toBeInTheDocument();
   });
 
   it("says that a link to the source task is added to the bottom of the comment", async () => {

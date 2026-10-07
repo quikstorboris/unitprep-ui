@@ -150,6 +150,8 @@ export async function bulkCopy(
     sourceTaskName: string;
     comment: string;
     destinations: { facility_id: string; target_task_id: string }[];
+    /** Also set each task to its list's complete status. Off by default. */
+    completeTasks?: boolean;
   }
 ): Promise<ClientsResult<BulkCopyResult>> {
   return clientsPost(`${base(companyId)}/bulk-copy`, {
@@ -158,6 +160,7 @@ export async function bulkCopy(
     source_task_name: request.sourceTaskName,
     comment: request.comment,
     destinations: request.destinations,
+    complete_tasks: request.completeTasks ?? false,
   });
 }
 

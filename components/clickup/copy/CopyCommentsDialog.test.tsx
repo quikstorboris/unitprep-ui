@@ -174,11 +174,50 @@ describe("CopyCommentsDialog", () => {
         "c1",
         "tgt",
         [{ target_task_id: "T1", comment: "Fees done, see list.", source_task_id: "S1" }],
-        "src"
+        "src",
+        false
       )
     );
     expect(await screen.findByText("Copied.")).toBeInTheDocument();
     expect(screen.getByText("Main-list note added.")).toBeInTheDocument();
+  });
+
+  it("only comments unless 'Also mark each task complete' is ticked, and then reports the completion", async () => {
+    copyComments.mockResolvedValue({
+      kind: "ok",
+      data: {
+        copied: 1,
+        failed: 0,
+        results: [
+          {
+            target_task_id: "T1",
+            comment: { ok: true, message: null },
+            pointer: { state: "not_applicable", message: null },
+            completed: { ok: true, message: null },
+          },
+        ],
+      },
+    });
+    const user = userEvent.setup();
+    renderDialog();
+    const box = await screen.findByLabelText("Comment for CONFIGURE Fees");
+    await waitFor(() => expect(box).toHaveValue("Note on S1"));
+
+    const complete = screen.getByRole("checkbox", { name: "Also mark each task complete" });
+    expect(complete).not.toBeChecked();
+    await user.click(complete);
+    await user.click(screen.getByRole("button", { name: "Confirm CONFIGURE Fees" }));
+
+    await waitFor(() =>
+      expect(copyComments).toHaveBeenCalledWith(
+        "c1",
+        "tgt",
+        [{ target_task_id: "T1", comment: "Note on S1", source_task_id: "S1" }],
+        "src",
+        true
+      )
+    );
+    expect(await screen.findByText("Task marked complete.")).toBeInTheDocument();
   });
 
   it("flags a task that looks as if the comment was already copied, but still allows it", async () => {

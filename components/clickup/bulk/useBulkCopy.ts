@@ -25,11 +25,13 @@ export interface DestinationState {
 }
 
 /** ClickUp calls a destination can cost (its comment, reading the task's
- * comments for the pointer, posting the pointer), and the most the server
- * will do inside one request. Mirrors `clickup_copy::exec` -- used only to
- * ask for notification permission while the click is still fresh; the
- * server decides whether the copy actually runs in the background. */
+ * comments for the pointer, posting the pointer -- and, when completing,
+ * reading the list's statuses and setting the status), and the most the
+ * server will do inside one request. Mirrors `clickup_copy::exec` -- used
+ * only to ask for notification permission while the click is still fresh;
+ * the server decides whether the copy actually runs in the background. */
 const CALLS_PER_DESTINATION = 3;
+const EXTRA_CALLS_WHEN_COMPLETING = 2;
 const INLINE_CALL_BUDGET = 50;
 
 /**
@@ -55,6 +57,8 @@ export function useBulkCopy(
   const [pairsError, setPairsError] = useState<string | null>(null);
   const [destinations, setDestinations] = useState<Record<string, DestinationState>>({});
   const [comment, setComment] = useState("");
+  // Off unless the person asks: copying only comments is the normal case.
+  const [completeTasks, setCompleteTasks] = useState(false);
   const [commentLoading, setCommentLoading] = useState(false);
   const [noSourceComment, setNoSourceComment] = useState(false);
 
@@ -202,7 +206,8 @@ export function useBulkCopy(
 
     // A copy this big runs in the background and ends with a notification,
     // which the browser only lets a click ask permission for.
-    if (chosen.length * CALLS_PER_DESTINATION > INLINE_CALL_BUDGET) {
+    const callsPerDestination = CALLS_PER_DESTINATION + (completeTasks ? EXTRA_CALLS_WHEN_COMPLETING : 0);
+    if (chosen.length * callsPerDestination > INLINE_CALL_BUDGET) {
       await askForNotifications();
     }
 
@@ -218,6 +223,7 @@ export function useBulkCopy(
         facility_id: facilityId,
         target_task_id: destination.targetTaskId as string,
       })),
+      completeTasks,
     });
     setCopying(false);
 
@@ -248,6 +254,8 @@ export function useBulkCopy(
     chooseTarget,
     comment,
     editComment,
+    completeTasks,
+    setCompleteTasks,
     commentLoading,
     noSourceComment,
     chosenCount: chosen.length,

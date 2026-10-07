@@ -2,7 +2,7 @@
 
 import type { CopyTaskInfo } from "@/lib/clickupCopy";
 import type { CopyNode } from "./copyTree";
-import { pointerNote } from "./pointerNote";
+import { completedNote, pointerNote } from "./pointerNote";
 import type { RowState } from "./useCopyComments";
 
 /** Source | target | comment | confirm. Shared by the row and its header. */
@@ -48,6 +48,7 @@ export default function CopyRow({
 
   const isOpen = expanded.has(key);
   const note = state.copyState === "copied" ? pointerNote(state.pointer) : null;
+  const done = state.copyState === "copied" ? completedNote(state.completed) : null;
 
   // The suggestion and near misses first, then everything else.
   const preferred = [node.row.target, ...node.row.alternatives].filter((task) => task !== null);
@@ -137,6 +138,7 @@ export default function CopyRow({
           )}
           {state.copyState === "copied" && <p className="mt-1 text-xs text-green-400">Copied.</p>}
           {note && <p className={`text-xs ${note.failed ? "text-red-400" : "text-slate-400"}`}>{note.text}</p>}
+          {done && <p className={`text-xs ${done.failed ? "text-red-400" : "text-slate-400"}`}>{done.text}</p>}
           {state.message && (
             <p role="alert" className="mt-1 text-xs text-red-400">
               {state.message}
