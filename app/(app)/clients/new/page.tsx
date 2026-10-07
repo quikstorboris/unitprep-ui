@@ -1,10 +1,10 @@
 "use client";
 
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { OrchestratorLoader } from "@/components/OrchestratorLoader";
 import { Spinner } from "@/components/Spinner";
 import { CompanyFallbackBanner } from "@/components/clients-new/CompanyFallbackBanner";
 import { CompanySection } from "@/components/clients-new/CompanySection";
@@ -12,6 +12,12 @@ import { FacilitySection } from "@/components/clients-new/FacilitySection";
 import { hasAnyContactInfo } from "@/components/clients-new/clientsNewHelpers";
 import { useClientsNewPreview } from "@/components/clients-new/useClientsNewPreview";
 import type { PreviewRunSelection } from "@/lib/clientsImport";
+
+// A 400-line canvas animation shown only while waiting; browser-only, so no SSR.
+const OrchestratorLoader = dynamic(
+  () => import("@/components/OrchestratorLoader").then((m) => m.OrchestratorLoader),
+  { ssr: false },
+);
 
 export default function ClientsNewPage() {
   return (

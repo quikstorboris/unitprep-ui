@@ -1,4 +1,3 @@
-import { strFromU8, unzipSync } from "fflate";
 
 // A minimal, tolerant .xlsx reader that returns ONLY row 1 of the FIRST
 // sheet (workbook order) -- what the server's own header read does too.
@@ -43,7 +42,10 @@ function textRuns(xml: string): string {
   return out;
 }
 
-function unzipParts(bytes: Uint8Array, names: string[]): Record<string, string> {
+// fflate is loaded on first use: only the file-header sniff needs it, and
+// most pages that import this module never read an .xlsx.
+async function unzipParts(bytes: Uint8Array, names: string[]): Promise<Record<string, string>> {
+  const { strFromU8, unzipSync } = await import("fflate");
   const wanted = new Set(names);
   const parts = unzipSync(bytes, { filter: (f) => wanted.has(f.name) });
   const out: Record<string, string> = {};
@@ -91,8 +93,8 @@ function sharedStringAt(sstXml: string, wanted: Set<number>): Map<number, string
 }
 
 /** Row 1 of the first sheet of an .xlsx, as trimmed header strings. */
-export function readXlsxHeadersFromBytes(bytes: Uint8Array): string[] {
-  const head = unzipParts(bytes, ["xl/workbook.xml", "xl/_rels/workbook.xml.rels"]);
+export async function readXlsxHeadersFromBytes(bytes: Uint8Array): Promise<string[]> {
+  const head = await unzipParts(bytes, ["xl/workbook.xml", "xl/_rels/workbook.xml.rels"]);
   const workbook = head["xl/workbook.xml"];
   const rels = head["xl/_rels/workbook.xml.rels"];
   if (!workbook || !rels) throw new Error("Not a valid .xlsx workbook");
@@ -109,7 +111,7 @@ export function readXlsxHeadersFromBytes(bytes: Uint8Array): string[] {
       .filter((r) => /\/sharedStrings$/.test(r.type))
       .map((r) => resolveTarget(r.target))[0] ?? "xl/sharedStrings.xml";
 
-  const sheetXml = unzipParts(bytes, [sheetPath])[sheetPath];
+  const sheetXml = (await unzipParts(bytes, [sheetPath]))[sheetPath];
   if (sheetXml === undefined) throw new Error("First sheet part is missing");
 
   const rowMatch = /<(?:\w+:)?row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?row>)/.exec(sheetXml);
@@ -141,7 +143,7 @@ export function readXlsxHeadersFromBytes(bytes: Uint8Array): string[] {
   for (const c of cells) if (c.type === "s" && /^\d+$/.test(c.value.trim())) sharedIdx.add(Number(c.value));
   const shared =
     sharedIdx.size > 0
-      ? sharedStringAt(unzipParts(bytes, [sstPath])[sstPath] ?? "", sharedIdx)
+      ? sharedStringAt((await unzipParts(bytes, [sstPath]))[sstPath] ?? "", sharedIdx)
       : new Map<number, string>();
 
   const headers: string[] = [];

@@ -1,13 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 
-import { OrchestratorLoader } from "@/components/OrchestratorLoader";
 import { FacilitiesSection } from "@/components/clients-search/FacilitiesSection";
 import { MerchantAccountSection } from "@/components/clients-search/MerchantAccountSection";
 import { PeopleSection } from "@/components/clients-search/PeopleSection";
 import { useClientsSearch } from "@/components/clients-search/useClientsSearch";
 import SyncButton from "./SyncButton";
+
+// A 400-line canvas animation shown only while waiting; browser-only, so no SSR.
+const OrchestratorLoader = dynamic(
+  () => import("@/components/OrchestratorLoader").then((m) => m.OrchestratorLoader),
+  { ssr: false },
+);
 
 /**
  * Search Process Street for a company/facility/person to import into OO

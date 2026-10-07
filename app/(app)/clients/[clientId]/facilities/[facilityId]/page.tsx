@@ -1,22 +1,49 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
-import { CoverageTab } from "@/components/facility/CoverageTab";
-import { DelinquencyTab } from "@/components/facility/DelinquencyTab";
-import { DropboxTab } from "@/components/facility/DropboxTab";
-import { ElavonTab } from "@/components/facility/ElavonTab";
-import { FeesTab } from "@/components/facility/FeesTab";
 import { GeneralTab } from "@/components/facility/GeneralTab";
-import { OnboardingWorkTab } from "@/components/facility/OnboardingWorkTab";
-import { SpecialsTab } from "@/components/facility/SpecialsTab";
-import { TaxesTab } from "@/components/facility/TaxesTab";
-import { UsersTab } from "@/components/facility/UsersTab";
 import FacilityRail from "@/components/clients/FacilityRail";
 import FieldReferenceHelp from "@/components/clients/FieldReferenceHelp";
 import { getFacilityDetail, getFacilityPolicies, type FacilityDetail, type FacilityPolicies } from "@/lib/clientsDetail";
+
+function TabLoading() {
+  return <p className="text-sm text-slate-400">Loading…</p>;
+}
+
+// Only one tab renders at a time, so each non-default tab is its own
+// chunk, fetched when first opened. `GeneralTab` is the landing tab and
+// stays in the main bundle.
+const CoverageTab = dynamic(() => import("@/components/facility/CoverageTab").then((m) => m.CoverageTab), {
+  loading: () => <TabLoading />,
+});
+const DelinquencyTab = dynamic(() => import("@/components/facility/DelinquencyTab").then((m) => m.DelinquencyTab), {
+  loading: () => <TabLoading />,
+});
+const DropboxTab = dynamic(() => import("@/components/facility/DropboxTab").then((m) => m.DropboxTab), {
+  loading: () => <TabLoading />,
+});
+const ElavonTab = dynamic(() => import("@/components/facility/ElavonTab").then((m) => m.ElavonTab), {
+  loading: () => <TabLoading />,
+});
+const FeesTab = dynamic(() => import("@/components/facility/FeesTab").then((m) => m.FeesTab), {
+  loading: () => <TabLoading />,
+});
+const OnboardingWorkTab = dynamic(() => import("@/components/facility/OnboardingWorkTab").then((m) => m.OnboardingWorkTab), {
+  loading: () => <TabLoading />,
+});
+const SpecialsTab = dynamic(() => import("@/components/facility/SpecialsTab").then((m) => m.SpecialsTab), {
+  loading: () => <TabLoading />,
+});
+const TaxesTab = dynamic(() => import("@/components/facility/TaxesTab").then((m) => m.TaxesTab), {
+  loading: () => <TabLoading />,
+});
+const UsersTab = dynamic(() => import("@/components/facility/UsersTab").then((m) => m.UsersTab), {
+  loading: () => <TabLoading />,
+});
 
 /**
  * Facility page -- originally General | Users | DropBox | Elavon |

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import QRCode from "qrcode";
 
 import { totpEnrollBegin, totpEnrollConfirm, type TotpEnrollment } from "@/lib/auth-session";
 
@@ -100,7 +99,8 @@ export default function TotpEnrollForm({
     let cancelled = false;
     const { secret, provisioning_uri: provisioningUri } = enrollment;
 
-    QRCode.toDataURL(provisioningUri)
+    import("qrcode")
+      .then((QRCode) => QRCode.toDataURL(provisioningUri))
       .then((dataUrl) => {
         if (!cancelled) setQr({ secret, dataUrl });
       })

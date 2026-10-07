@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.62] - 2026-10-07
+
+Efficiency refactor chunk F3: lazy loading. No visible change except a brief "Loading..." when a facility tab is first opened.
+
+### Changed
+- The facility page loads nine of its ten tabs on first use (`next/dynamic`); `GeneralTab`, the landing tab, stays in the main bundle.
+- `qrcode` loads only when TOTP enrolment shows its QR code; `fflate` only when an `.xlsx` header is read (`readXlsxHeadersFromBytes` is now async).
+- `OrchestratorLoader` (the canvas animation) loads client-side only, on the two pages that show it.
+- Not done: lazy-loading `lib/fieldProvenance.ts` into the Field Reference modal (small gain, would need the test and modal split). Bundle size was not measured; `next build` succeeds before and after.
+
 ## [1.6.61] - 2026-10-06
 
 Process Street task mapping and a Complete status that follows the credentials step. Pairs with `unitprep-api` 1.9.84 (needs its migration `20261006120000` applied first).
