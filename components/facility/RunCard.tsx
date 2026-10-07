@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 
+import ClickUpDuplicateCheckPanel from "@/components/clickup/ClickUpDuplicateCheckPanel";
 import { DedupRunDetails } from "@/components/facility/DedupRunDetails";
+import {
+  canUpdateClickUp,
+  RunClickUpAction,
+} from "@/components/facility/RunClickUpAction";
 import {
   DeleteRunButton,
   RunOutputAction,
@@ -32,6 +37,7 @@ export function RunCard({
   onDeleted: (runId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [clickUpOpen, setClickUpOpen] = useState(false);
 
   return (
     <div className="rounded border border-slate-800">
@@ -82,6 +88,11 @@ export function RunCard({
               facilityId={facilityId}
               run={run}
             />
+            <RunClickUpAction
+              run={run}
+              open={clickUpOpen}
+              onToggle={() => setClickUpOpen((current) => !current)}
+            />
             <div className="ml-auto">
               <DeleteRunButton
                 companyId={companyId}
@@ -91,6 +102,18 @@ export function RunCard({
               />
             </div>
           </div>
+
+          {clickUpOpen && canUpdateClickUp(run) && (
+            <ClickUpDuplicateCheckPanel
+              companyId={companyId}
+              facilityId={facilityId}
+              sessionId={run.id}
+              fileSavedToDropbox={
+                run.output_kind === "dropbox" || run.output_kind === "both"
+              }
+              onDismiss={() => setClickUpOpen(false)}
+            />
+          )}
 
           {run.tool === "dedup" && (
             <DedupRunDetails

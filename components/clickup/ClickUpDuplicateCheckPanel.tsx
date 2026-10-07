@@ -20,6 +20,9 @@ interface ClickUpDuplicateCheckPanelProps {
    * redone when this flips, so the panel always knows whether the comment
    * will carry a link. */
   fileSavedToDropbox: boolean;
+  /** Called when the person chooses "Not now", for a host that shows the
+   * panel on demand (the Onboarding Work tab) and so needs to close it. */
+  onDismiss?: () => void;
 }
 
 type Lookup =
@@ -85,6 +88,7 @@ export default function ClickUpDuplicateCheckPanel({
   facilityId,
   sessionId,
   fileSavedToDropbox,
+  onDismiss,
 }: ClickUpDuplicateCheckPanelProps) {
   const access = useClickUpAccess();
 
@@ -227,7 +231,10 @@ export default function ClickUpDuplicateCheckPanel({
             </button>
             <button
               type="button"
-              onClick={() => setDismissed(true)}
+              onClick={() => {
+                setDismissed(true);
+                onDismiss?.();
+              }}
               disabled={posting}
               className="rounded border border-slate-600 px-4 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800 disabled:opacity-50"
             >

@@ -8,6 +8,15 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.65] - 2026-10-07
+
+ClickUp Copy, phase 2a: the facility dialog. Needs the matching `unitprep-api` changes.
+
+### Added
+- **Copy comments…** on a facility's ClickUp section (when another facility of the company has a list linked) opens a dialog: source task | target task | editable comment | Confirm. Rows are grouped by phase (Set Up, then Migration; collapsible), and only the mid-level tasks show, with their subtasks collapsed until expanded. The source defaults to the company's parent and can be changed; a Corporate/Facility filter narrows the rows.
+- **Update ClickUp** on each recorded duplicate check in Onboarding Work (shown to users with ClickUp access): a manual way to post the check's result to its ClickUp task afterwards, when that was skipped or ClickUp was unavailable at the time. It opens the same panel as right after a check -- finds the 1st/2nd check's task, you confirm it, and it comments (with the results-file link when saved to Dropbox), adds you as assignee and completes the task. "Not now" closes it. Unit Groups and Template Tagger runs don't have the button yet (no ClickUp task is defined for them).
+- Each comment box is prefilled with the source task's latest comment and the cursor starts in the first one. The target task is a suggestion the person can override (including "no match"). A task that looks already copied is flagged but still allowed. Comment lookups run only for rows on screen, three at a time.
+
 ## [1.6.64] - 2026-10-07
 
 ClickUp Copy, phase 1: the prerequisites. Needs `unitprep-api` with migration `20261007130000`.

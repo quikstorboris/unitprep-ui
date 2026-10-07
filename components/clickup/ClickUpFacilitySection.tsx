@@ -6,6 +6,7 @@ import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
 import type { FacilityDetail } from "@/lib/clientsDetail";
 import { unlinkFacilityClickUp } from "@/lib/clickupLinks";
 import ClickUpLinkDot from "./ClickUpLinkDot";
+import CopyCommentsDialog from "./copy/CopyCommentsDialog";
 import LinkClickUpDialog from "./LinkClickUpDialog";
 import { useClickUpAccess } from "./useClickUpAccess";
 
@@ -35,11 +36,19 @@ export default function ClickUpFacilitySection({
   const access = useClickUpAccess();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
   const [confirmingUnlink, setConfirmingUnlink] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const linked = Boolean(facility.clickup_list_id && facility.clickup_list_url);
+
+  // Comments can be copied from any *other* facility with a list linked;
+  // the company's designated parent is the default.
+  const parentId = company?.clickup_parent_facility_id ?? null;
+  const copySources = (company?.facilities ?? [])
+    .filter((other) => other.id !== facility.id && other.clickup_list_id)
+    .map((other) => ({ id: other.id, name: other.name }));
 
   // Nothing to show or do for a viewer without ClickUp on an unlinked
   // facility.
@@ -97,6 +106,12 @@ export default function ClickUpFacilitySection({
             {linked ? "Change link" : "Link ClickUp"}
           </button>
 
+          {linked && copySources.length > 0 && (
+            <button type="button" onClick={() => setCopyOpen(true)} className={buttonClass}>
+              Copy comments…
+            </button>
+          )}
+
           {linked && !confirmingUnlink && (
             <button type="button" onClick={() => setConfirmingUnlink(true)} className={buttonClass}>
               Unlink
@@ -126,6 +141,19 @@ export default function ClickUpFacilitySection({
         <p role="alert" className="mt-3 text-sm text-red-400">
           {error}
         </p>
+      )}
+
+      {copyOpen && (
+        <CopyCommentsDialog
+          companyId={facility.company_id}
+          facilityId={facility.id}
+          facilityName={facility.name}
+          sources={copySources}
+          defaultSourceId={
+            copySources.some((source) => source.id === parentId) ? parentId : (copySources[0]?.id ?? null)
+          }
+          onClose={() => setCopyOpen(false)}
+        />
       )}
 
       {dialogOpen && (
