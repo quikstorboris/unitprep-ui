@@ -1,4 +1,4 @@
-import { clientsDelete, clientsGet, clientsPost, type ClientsResult } from "@/lib/clientsApi";
+import { clientsDelete, clientsGet, clientsPost, clientsPut, type ClientsResult } from "@/lib/clientsApi";
 
 /**
  * The real `clients.companies` list -- backs the unified `/clients`
@@ -11,6 +11,9 @@ export interface CompanySummary {
   legal_name: string;
   created_at: string;
   archived_at: string | null;
+  /** Set once someone marks the implementation completed -- the Clients
+   * page lists such companies under "Completed Implementations". */
+  implementation_completed_at: string | null;
   facility_names: string[];
 }
 
@@ -25,6 +28,20 @@ export async function archiveCompany(companyId: string): Promise<ClientsResult<u
 
 export async function unarchiveCompany(companyId: string): Promise<ClientsResult<undefined>> {
   return clientsPost(`/clients/${companyId}/unarchive`);
+}
+
+/**
+ * Marks a company's implementation completed (`completed: true`) or
+ * reopens it. Both directions are idempotent on the backend
+ * (`api::clients_implementation_status`); needs `client_ops.perform`.
+ */
+export async function setImplementationCompleted(
+  companyId: string,
+  completed: boolean,
+): Promise<ClientsResult<undefined>> {
+  const path = `/clients/${companyId}/implementation-completed`;
+  // The PUT carries no payload -- the path is the whole request.
+  return completed ? clientsPut(path, undefined) : clientsDelete(path);
 }
 
 /**

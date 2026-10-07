@@ -41,6 +41,7 @@ function company(overrides: Record<string, unknown> = {}) {
     legal_name: "Prairie Enterprises LLC",
     created_at: "2026-01-01T00:00:00Z",
     archived_at: null,
+    implementation_completed_at: null,
     facility_names: ["Highway 20", "Carpentersville"],
     implementation_manager: { id: "im-1", name: "Sarah McDougal" },
     sales_rep: null,
@@ -128,6 +129,78 @@ describe("ClientsPage", () => {
 
     const details = screen.getByText("Archived (1)").closest("details");
     expect(details).toContainElement(screen.getByText("Absolute Management"));
+  });
+
+  it("lists in-flight companies under Implementations in Flight and completed ones in a collapsed Completed Implementations section", async () => {
+    listClientsDirectory.mockResolvedValue({
+      kind: "ok",
+      data: [
+        company(),
+        company({
+          id: "company-2",
+          legal_name: "Absolute Management",
+          implementation_completed_at: "2026-09-01T00:00:00Z",
+        }),
+      ],
+    });
+
+    render(<ClientsPage />);
+
+    await screen.findByText("Prairie Enterprises LLC");
+    expect(screen.getByRole("heading", { name: "Implementations in Flight" })).toBeInTheDocument();
+
+    const completedSummary = screen.getByText("Completed Implementations (1)");
+    const completedDetails = completedSummary.closest("details");
+    expect(completedDetails).not.toHaveAttribute("open");
+    expect(completedDetails).toContainElement(screen.getByText("Absolute Management"));
+
+    const inFlight = screen.getByRole("heading", { name: "Implementations in Flight" }).closest("section");
+    expect(inFlight).toContainElement(screen.getByText("Prairie Enterprises LLC"));
+    expect(inFlight).not.toContainElement(screen.getByText("Absolute Management"));
+  });
+
+  it("omits the Completed Implementations section when nothing is completed", async () => {
+    listClientsDirectory.mockResolvedValue({ kind: "ok", data: [company()] });
+
+    render(<ClientsPage />);
+
+    await screen.findByText("Prairie Enterprises LLC");
+    expect(screen.queryByText(/Completed Implementations/)).not.toBeInTheDocument();
+  });
+
+  it("says nothing is in flight when every active company is completed", async () => {
+    listClientsDirectory.mockResolvedValue({
+      kind: "ok",
+      data: [company({ implementation_completed_at: "2026-09-01T00:00:00Z" })],
+    });
+
+    render(<ClientsPage />);
+
+    expect(await screen.findByText("No implementations in flight.")).toBeInTheDocument();
+    expect(screen.getByText("Completed Implementations (1)")).toBeInTheDocument();
+  });
+
+  it("keeps an archived company in Archived even if its implementation was completed", async () => {
+    listClientsDirectory.mockResolvedValue({
+      kind: "ok",
+      data: [
+        company(),
+        company({
+          id: "company-2",
+          legal_name: "Absolute Management",
+          archived_at: "2026-08-01T00:00:00Z",
+          implementation_completed_at: "2026-09-01T00:00:00Z",
+        }),
+      ],
+    });
+
+    render(<ClientsPage />);
+
+    await screen.findByText("Prairie Enterprises LLC");
+    expect(screen.queryByText(/Completed Implementations/)).not.toBeInTheDocument();
+    expect(screen.getByText("Archived (1)").closest("details")).toContainElement(
+      screen.getByText("Absolute Management"),
+    );
   });
 
   it("archives a client from its kebab menu and reloads the directory", async () => {

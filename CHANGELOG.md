@@ -8,6 +8,14 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.63] - 2026-10-07
+
+"Implementation Completed". Pairs with `unitprep-api` 1.9.87 (needs its migration `20261007120000`).
+
+### Added
+- Company page: an **Implementation Completed** switch to the left of Field Reference (`ImplementationCompletedToggle`). Turning it on or off saves immediately; a failed save leaves the switch where it was and shows the error under it.
+- Clients page: the active list is now headed **Implementations in Flight** (still grouped by Implementation Manager). A company marked completed leaves it and appears in a new collapsed **Completed Implementations (N)** section below it, also grouped by manager. The section only exists when something is completed; if every active company is completed, Implementations in Flight says so. An archived company stays in Archived whether or not it was completed.
+
 ## [1.6.62] - 2026-10-07
 
 Efficiency refactor chunk F3: lazy loading. No visible change except a brief "Loading..." when a facility tab is first opened.

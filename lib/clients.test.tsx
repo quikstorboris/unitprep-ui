@@ -31,6 +31,7 @@ function summary(overrides: Partial<CompanySummary> = {}): CompanySummary {
     legal_name: "Prairie Enterprises LLC",
     created_at: "2026-08-28T12:00:00Z",
     archived_at: null,
+    implementation_completed_at: null,
     facility_names: ["Highway 20", "Carpentersville"],
     ...overrides,
   };

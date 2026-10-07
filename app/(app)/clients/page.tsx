@@ -104,7 +104,12 @@ export default function ClientsPage() {
 
   const active = companies.filter((company) => !company.archived_at);
   const archived = companies.filter((company) => company.archived_at);
-  const managerGroups = groupByImplementationManager(active);
+  // An archived company stays in Archived whether or not it was
+  // completed; completed only splits the active list.
+  const inFlight = active.filter((company) => !company.implementation_completed_at);
+  const completed = active.filter((company) => company.implementation_completed_at);
+  const managerGroups = groupByImplementationManager(inFlight);
+  const completedGroups = groupByImplementationManager(completed);
 
   const hasActiveFilter =
     effectiveQuery !== "" ||
@@ -169,6 +174,19 @@ export default function ClientsPage() {
     }
 
     await loadDirectory();
+  }
+
+  function renderGrid(list: CompanyDirectoryEntry[]) {
+    return (
+      <CompanyDirectoryGrid
+        companies={list}
+        pendingId={pendingId}
+        onNavigate={(id) => router.push(`/clients/${id}/info`)}
+        onArchive={(id) => toggleArchived(id, true)}
+        onUnarchive={(id) => toggleArchived(id, false)}
+        onDelete={handleDelete}
+      />
+    );
   }
 
   return (
@@ -268,22 +286,44 @@ export default function ClientsPage() {
               : "No clients yet — click Create to search Process Street and add one."}
           </p>
         ) : (
-          <div className="flex flex-col gap-8">
-            {managerGroups.map((group) => (
-              <section key={group.key}>
-                <h2 className="mb-3 text-lg font-semibold text-slate-200">
-                  {group.label === "Unassigned" ? "Unassigned" : `Implementation Manager: ${group.label}`}
-                </h2>
-                <CompanyDirectoryGrid
-                  companies={group.companies}
-                  pendingId={pendingId}
-                  onNavigate={(id) => router.push(`/clients/${id}/info`)}
-                  onArchive={(id) => toggleArchived(id, true)}
-                  onUnarchive={(id) => toggleArchived(id, false)}
-                  onDelete={handleDelete}
-                />
-              </section>
-            ))}
+          <div className="flex flex-col gap-10">
+            <section>
+              <h2 className="mb-4 text-2xl font-semibold text-slate-100">Implementations in Flight</h2>
+
+              {inFlight.length === 0 ? (
+                <p className="text-sm text-slate-400">No implementations in flight.</p>
+              ) : (
+                <div className="flex flex-col gap-8">
+                  {managerGroups.map((group) => (
+                    <section key={group.key}>
+                      <h3 className="mb-3 text-lg font-semibold text-slate-200">
+                        {group.label === "Unassigned" ? "Unassigned" : `Implementation Manager: ${group.label}`}
+                      </h3>
+                      {renderGrid(group.companies)}
+                    </section>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {completed.length > 0 && (
+              <details>
+                <summary className="cursor-pointer text-2xl font-semibold text-slate-100 hover:text-white">
+                  Completed Implementations ({completed.length})
+                </summary>
+
+                <div className="mt-4 flex flex-col gap-8">
+                  {completedGroups.map((group) => (
+                    <section key={group.key}>
+                      <h3 className="mb-3 text-lg font-semibold text-slate-200">
+                        {group.label === "Unassigned" ? "Unassigned" : `Implementation Manager: ${group.label}`}
+                      </h3>
+                      {renderGrid(group.companies)}
+                    </section>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
         )}
 
@@ -294,14 +334,7 @@ export default function ClientsPage() {
             </summary>
 
             <div className="mt-3">
-              <CompanyDirectoryGrid
-                companies={archived}
-                pendingId={pendingId}
-                onNavigate={(id) => router.push(`/clients/${id}/info`)}
-                onArchive={(id) => toggleArchived(id, true)}
-                onUnarchive={(id) => toggleArchived(id, false)}
-                onDelete={handleDelete}
-              />
+              {renderGrid(archived)}
             </div>
           </details>
         )}

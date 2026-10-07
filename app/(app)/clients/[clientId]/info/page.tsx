@@ -7,6 +7,7 @@ import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
 import DetailSection from "@/components/clients/DetailSection";
 import FacilityRail from "@/components/clients/FacilityRail";
 import FieldReferenceHelp from "@/components/clients/FieldReferenceHelp";
+import ImplementationCompletedToggle from "@/components/clients/ImplementationCompletedToggle";
 import ManualLinkDialog from "@/components/clients/ManualLinkDialog";
 import PartyCard from "@/components/clients/PartyCard";
 import ResyncButton from "@/components/clients/ResyncButton";
@@ -31,7 +32,7 @@ import { formatPhone } from "@/lib/format";
  */
 export default function ClientInfoPage() {
   const { clientId } = useParams<{ clientId: string }>();
-  const { company, loadError } = useCompanyDetail();
+  const { company, loadError, refetch } = useCompanyDetail();
 
   if (loadError) {
     return (
@@ -60,6 +61,11 @@ export default function ClientInfoPage() {
           <div className="flex items-start justify-between gap-4">
             <h1 className="min-w-0 break-words text-2xl font-bold">{company.legal_name}</h1>
             <div className="flex shrink-0 items-center gap-2">
+              <ImplementationCompletedToggle
+                companyId={clientId}
+                completed={company.implementation_completed_at !== null}
+                onChanged={refetch}
+              />
               <FieldReferenceHelp />
               <ResyncButton companyId={clientId} />
               <ManualLinkDialog companyId={clientId} />

@@ -57,6 +57,7 @@ export interface CompanyDetail {
   insurance_provider: string | null;
   website_url: string | null;
   archived_at: string | null;
+  implementation_completed_at: string | null;
   elavon_active: boolean;
   facilities: FacilitySummary[];
   owners: OwnerInfo[];

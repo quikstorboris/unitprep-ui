@@ -9,6 +9,7 @@ function company(overrides: Partial<CompanyDirectoryEntry> = {}): CompanyDirecto
     legal_name: "Prairie Enterprises LLC",
     created_at: "2026-01-01T00:00:00Z",
     archived_at: null,
+    implementation_completed_at: null,
     facility_names: [],
     implementation_manager: null,
     sales_rep: null,
