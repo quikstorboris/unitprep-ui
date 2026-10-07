@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
+import { hasPermission } from "@/lib/auth-session";
 import { prefetchClickUpHierarchy, unlinkCompanyClickUp } from "@/lib/clickupLinks";
+import { setClickUpWaiver } from "@/lib/clientsDetail";
+import { useCurrentUser } from "@/lib/currentUser";
 import ClickUpLinkDot from "./ClickUpLinkDot";
+import ClickUpParentPicker from "./ClickUpParentPicker";
 import LinkClickUpDialog from "./LinkClickUpDialog";
 import { useClickUpAccess } from "./useClickUpAccess";
 
@@ -41,7 +45,25 @@ export default function ClickUpCompanySection({
     if (clickUpAllowed) void prefetchClickUpHierarchy();
   }, [clickUpAllowed]);
 
+  const { user } = useCurrentUser();
+  const canEditCompany = hasPermission(user, "client_ops.perform");
+
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Create sends the user here with ?linkClickUp=1 so a new client gets
+  // its ClickUp lists linked straight away. Read from the URL in an
+  // effect (not render) so server and client render the same markup, then
+  // drop the flag so a refresh does not reopen the dialog.
+  useEffect(() => {
+    if (!clickUpAllowed) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("linkClickUp") !== "1") return;
+    params.delete("linkClickUp");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    queueMicrotask(() => setDialogOpen(true));
+  }, [clickUpAllowed]);
+
   const [confirmingUnlink, setConfirmingUnlink] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +92,16 @@ export default function ClickUpCompanySection({
         ? "Unlinked 1 facility."
         : `Unlinked ${result.data.unlinked} facilities.`
     );
+    refetch();
+  }
+
+  async function handleClearWaiver() {
+    setError(null);
+    const result = await setClickUpWaiver(companyId, false);
+    if (result.kind !== "ok") {
+      setError(result.message);
+      return;
+    }
     refetch();
   }
 
@@ -132,8 +164,17 @@ export default function ClickUpCompanySection({
         </p>
       )}
 
-      {linked.length === 0 ? (
-        <p className="text-sm text-slate-500">
+      {linked.length === 0 && company?.clickup_waived_at ? (
+        <p className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+          Created without a ClickUp project.
+          {canEditCompany && (
+            <button type="button" onClick={handleClearWaiver} className={linkButtonClass}>
+              Clear this
+            </button>
+          )}
+        </p>
+      ) : linked.length === 0 ? (
+        <p className="text-sm text-amber-400">
           None of this company&apos;s facilities are linked to a ClickUp list yet.
         </p>
       ) : (
@@ -162,6 +203,17 @@ export default function ClickUpCompanySection({
             </div>
           ))}
         </div>
+      )}
+
+      {linked.length > 0 && facilities.length > 1 && (
+        <ClickUpParentPicker
+          companyId={companyId}
+          facilities={facilities}
+          parentFacilityId={company?.clickup_parent_facility_id ?? null}
+          history={company?.clickup_parent_history ?? []}
+          canEdit={canEditCompany}
+          onChanged={refetch}
+        />
       )}
 
       {dialogOpen && (

@@ -8,7 +8,15 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
-## [1.6.63] - 2026-10-07
+## [1.6.64] - 2026-10-07
+
+ClickUp Copy, phase 1: the prerequisites. Needs `unitprep-api` with migration `20261007130000`.
+
+### Added
+- **Review & Create** has a ClickUp card with a "Create without ClickUp project" checkbox. Unticked, a user who can link ClickUp lands on the new client with the Link ClickUp dialog already open (`?linkClickUp=1`, removed from the URL once read); ticked, the waiver is recorded and the dialog is skipped.
+- The company page's ClickUp section gains a **Parent facility** dropdown (only facilities with a linked list; read-only without `client_ops.perform`) and a scrollable, oldest-first **parent history**. A client created without ClickUp says so, with a "Clear this" action; one with nothing linked and no waiver is flagged amber.
+
+ - 2026-10-07
 
 "Implementation Completed". Pairs with `unitprep-api` 1.9.87 (needs its migration `20261007120000`).
 

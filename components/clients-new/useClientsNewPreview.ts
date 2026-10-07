@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useClickUpAccess } from "@/components/clickup/useClickUpAccess";
 import { useClients } from "@/lib/clients";
 import {
   createClient,
@@ -58,6 +59,13 @@ export function useClientsNewPreview(selection: PreviewRunSelection[]) {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // "Create without ClickUp project": every client is expected to have a
+  // ClickUp list per facility, so Create sends users who can link one
+  // straight into the Link ClickUp dialog afterwards; this checkbox is
+  // the deliberate opt-out (recorded on the company).
+  const [clickUpWaived, setClickUpWaived] = useState(false);
+  const clickUpAccess = useClickUpAccess();
 
   async function loadPreview() {
     if (selection.length === 0) return;
@@ -191,6 +199,7 @@ export function useClientsNewPreview(selection: PreviewRunSelection[]) {
       company_intake_run_id: companySourceRunId,
       company: editedCompany,
       facilities,
+      clickup_waived: clickUpWaived,
     });
 
     setSubmitting(false);
@@ -201,7 +210,9 @@ export function useClientsNewPreview(selection: PreviewRunSelection[]) {
     }
 
     await refresh();
-    router.push(`/clients/${result.data.company_id}`);
+    // The company page opens the Link ClickUp dialog itself when asked to.
+    const needsLink = clickUpAccess.allowed && !clickUpWaived;
+    router.push(`/clients/${result.data.company_id}${needsLink ? "?linkClickUp=1" : ""}`);
   }
 
   return {
@@ -223,5 +234,8 @@ export function useClientsNewPreview(selection: PreviewRunSelection[]) {
     handleAcceptCompanyFallback,
     handleDismissCompanyFallback,
     handleCreate,
+    clickUpWaived,
+    setClickUpWaived,
+    clickUpAllowed: clickUpAccess.allowed,
   };
 }

@@ -2,13 +2,17 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { useRouter, useSearchParams, previewClients, createClient, useClients } = vi.hoisted(() => ({
-  useRouter: vi.fn(),
-  useSearchParams: vi.fn(),
-  previewClients: vi.fn(),
-  createClient: vi.fn(),
-  useClients: vi.fn(),
-}));
+const { useRouter, useSearchParams, previewClients, createClient, useClients, useCurrentUser } =
+  vi.hoisted(() => ({
+    useRouter: vi.fn(),
+    useSearchParams: vi.fn(),
+    previewClients: vi.fn(),
+    createClient: vi.fn(),
+    useClients: vi.fn(),
+    useCurrentUser: vi.fn(),
+  }));
+
+vi.mock("@/lib/currentUser", () => ({ useCurrentUser }));
 
 vi.mock("next/navigation", () => ({
   useRouter,
@@ -79,6 +83,56 @@ describe("ClientsNewPage", () => {
     useRouter.mockReturnValue({ push });
     useClients.mockReturnValue({ refresh });
     refresh.mockResolvedValue(undefined);
+    // No ClickUp access unless a test grants it.
+    useCurrentUser.mockReturnValue({ user: { user_id: "u1", permissions: [], roles: [] } });
+  });
+
+  /** One run, created successfully -- the ClickUp choice tests only care
+   * about what Create sends and where it navigates. */
+  async function createOneRun() {
+    useSearchParams.mockReturnValue(selectionParams([{ run_id: "run-1", run_name: "Solo - QMS Onboarding" }]));
+    previewClients.mockResolvedValue({
+      kind: "ok",
+      data: {
+        runs: [
+          {
+            run_id: "run-1",
+            company: mappedCompany({ legal_name: "Solo LLC" }),
+            facility: mappedFacility({ name: "Solo Storage" }),
+          },
+        ],
+      },
+    });
+    createClient.mockResolvedValue({ kind: "ok", data: { company_id: "company-9", facility_ids: ["f9"] } });
+
+    render(<ClientsNewPage />);
+    await screen.findByRole("heading", { name: "Solo LLC" });
+  }
+
+  it("sends a user who can link ClickUp to the Link ClickUp dialog after Create", async () => {
+    useCurrentUser.mockReturnValue({
+      user: { user_id: "u1", permissions: ["integrations.clickup"], roles: [] },
+    });
+    await createOneRun();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/clients/company-9?linkClickUp=1"));
+    expect(createClient.mock.calls[0][0].clickup_waived).toBe(false);
+  });
+
+  it("skips the Link ClickUp step and records the waiver when 'Create without ClickUp project' is ticked", async () => {
+    useCurrentUser.mockReturnValue({
+      user: { user_id: "u1", permissions: ["integrations.clickup"], roles: [] },
+    });
+    await createOneRun();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: "Create without ClickUp project" }));
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/clients/company-9"));
+    expect(createClient.mock.calls[0][0].clickup_waived).toBe(true);
   });
 
   it("prompts to go back to search when no runs were selected", async () => {

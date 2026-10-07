@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { Spinner } from "@/components/Spinner";
+import { ClickUpChoice } from "@/components/clients-new/ClickUpChoice";
 import { CompanyFallbackBanner } from "@/components/clients-new/CompanyFallbackBanner";
 import { CompanySection } from "@/components/clients-new/CompanySection";
 import { FacilitySection } from "@/components/clients-new/FacilitySection";
@@ -70,6 +71,9 @@ function ClientsNewPageInner() {
     handleAcceptCompanyFallback,
     handleDismissCompanyFallback,
     handleCreate,
+    clickUpWaived,
+    setClickUpWaived,
+    clickUpAllowed,
   } = useClientsNewPreview(selection);
 
   return (
@@ -149,6 +153,8 @@ function ClientsNewPageInner() {
                 onAddAllForRole={addAllForRole}
               />
             ))}
+
+            <ClickUpChoice waived={clickUpWaived} onChange={setClickUpWaived} canLink={clickUpAllowed} />
 
             <div className="flex items-center gap-3">
               <button

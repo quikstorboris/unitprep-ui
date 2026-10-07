@@ -39,6 +39,18 @@ export interface OwnerInfo {
   home_postal_code: string | null;
 }
 
+/** One designation of the company's ClickUp parent facility. Names are
+ * snapshots from the time, so the history stays readable after a rename
+ * or delete. */
+export interface ClickUpParentChange {
+  from_facility_id: string | null;
+  from_facility_name: string | null;
+  to_facility_id: string | null;
+  to_facility_name: string | null;
+  changed_by_name: string | null;
+  changed_at: string;
+}
+
 /** Mirrors `CompanyDetailResponse` in `unitprep-api`'s `clients_detail.rs`. */
 export interface CompanyDetail {
   id: string;
@@ -58,6 +70,12 @@ export interface CompanyDetail {
   website_url: string | null;
   archived_at: string | null;
   implementation_completed_at: string | null;
+  /** The facility whose ClickUp list is the source for ClickUp Copy. */
+  clickup_parent_facility_id: string | null;
+  /** Set when the company was deliberately created without ClickUp. */
+  clickup_waived_at: string | null;
+  /** Every parent designation, oldest first. */
+  clickup_parent_history: ClickUpParentChange[];
   elavon_active: boolean;
   facilities: FacilitySummary[];
   owners: OwnerInfo[];
@@ -65,6 +83,25 @@ export interface CompanyDetail {
 
 export async function getCompanyDetail(companyId: string): Promise<ClientsResult<CompanyDetail>> {
   return clientsGet(`/clients/${companyId}`);
+}
+
+/** Designates (or, with `null`, clears) the company's ClickUp parent
+ * facility. The facility must have a ClickUp list linked. */
+export async function setClickUpParent(
+  companyId: string,
+  facilityId: string | null,
+): Promise<ClientsResult<undefined>> {
+  return clientsPut(`/clients/${companyId}/clickup-parent`, { facility_id: facilityId });
+}
+
+/** Marks the company "no ClickUp project" (or clears that). */
+export async function setClickUpWaiver(
+  companyId: string,
+  waived: boolean,
+): Promise<ClientsResult<undefined>> {
+  const path = `/clients/${companyId}/clickup-waiver`;
+  // The PUT carries no payload -- the path is the whole request.
+  return waived ? clientsPut(path, undefined) : clientsDelete(path);
 }
 
 /** Mirrors `FacilityOnboardingSummary` (unitprep-api/src/api/clients_onboarding_summary.rs). */

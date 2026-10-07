@@ -164,6 +164,8 @@ export interface CreateClientRequest {
   company_intake_run_id: string;
   company: MappedCompany;
   facilities: CreateFacilitySelection[];
+  /** The "Create without ClickUp project" checkbox. */
+  clickup_waived?: boolean;
 }
 
 /** Mirrors `CreateClientResponse` in `unitprep-api`'s `clients_create.rs`. */
