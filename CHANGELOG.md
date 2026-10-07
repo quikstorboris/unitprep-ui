@@ -8,6 +8,14 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.66] - 2026-10-07
+
+ClickUp Copy, phase 3 and 4: the client's ClickUp Copy tab, with a dropdown for choosing the destination facilities. Needs `unitprep-api` 1.9.94 (migrations `20261007140000` and `20261007150000`).
+
+### Added
+- **ClickUp Copy tab** on the client page, between General and Onboarding Summary (shown to users with ClickUp access). Choose a task from the source facility's list (the parent by default; grouped by Set Up and Migration, mid-level tasks with subtasks collapsed), tick the facilities to copy to (all ticked to begin with, with Select all / Select none; each shows the task the comment will land on and lets you pick another, and a facility with no match stays unticked until you choose one), edit the comment (prefilled from the source task, the same for every facility) and Confirm. The Corporate/Facility filter and source choice work as in the facility dialog.
+- **Big copies run in the background.** One too big for a single request (about 16 facilities or more) says "We'll notify you when copying is complete" and carries on; **Recent copies** shows progress and, when done, each facility's outcome, and the browser raises a notification when it finishes (permission is asked for at the click that starts such a copy; without it the on-page list still shows the result).
+
 ## [1.6.65] - 2026-10-07
 
 ClickUp Copy, phase 2a: the facility dialog. Needs the matching `unitprep-api` changes.
@@ -16,6 +24,10 @@ ClickUp Copy, phase 2a: the facility dialog. Needs the matching `unitprep-api` c
 - **Copy comments…** on a facility's ClickUp section (when another facility of the company has a list linked) opens a dialog: source task | target task | editable comment | Confirm. Rows are grouped by phase (Set Up, then Migration; collapsible), and only the mid-level tasks show, with their subtasks collapsed until expanded. The source defaults to the company's parent and can be changed; a Corporate/Facility filter narrows the rows.
 - **Update ClickUp** on each recorded duplicate check in Onboarding Work (shown to users with ClickUp access): a manual way to post the check's result to its ClickUp task afterwards, when that was skipped or ClickUp was unavailable at the time. It opens the same panel as right after a check -- finds the 1st/2nd check's task, you confirm it, and it comments (with the results-file link when saved to Dropbox), adds you as assignee and completes the task. "Not now" closes it. Unit Groups and Template Tagger runs don't have the button yet (no ClickUp task is defined for them).
 - Each comment box is prefilled with the source task's latest comment and the cursor starts in the first one. The target task is a suggestion the person can override (including "no match"). A task that looks already copied is flagged but still allowed. Comment lookups run only for rows on screen, three at a time.
+
+### Changed (after the first live test, AffStor)
+- **Choose the destination facilities from a dropdown of checkboxes, with none picked to begin with.** The ClickUp Copy tab used to start with every facility ticked. Now "Select facilities" opens a list (Select all / Select none; closes on Escape or an outside click) and a task row appears only for each facility picked. A picked facility with no matching task must have a task chosen (or be unpicked) before Confirm is enabled; a facility whose list could not be read cannot be picked and Select all skips it.
+- **Copied comments end with `Main tracker task - {source task}`** (a link to the source task, added by the API). Both the tab and the facility dialog say so, and send the source task with the copy.
 
 ## [1.6.64] - 2026-10-07
 

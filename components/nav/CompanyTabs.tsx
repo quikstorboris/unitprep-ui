@@ -3,10 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useClickUpAccess } from "@/components/clickup/useClickUpAccess";
+
 interface TabItem {
   key: string;
   label: string;
   segment: string;
+  /** Shown only to users with the per-user ClickUp permission. */
+  requiresClickUp?: boolean;
 }
 
 // Company-level tabs -- only shown while no facility is selected (see
@@ -15,6 +19,12 @@ interface TabItem {
 // Template Tagger), which only make sense once a facility is picked.
 const TABS: TabItem[] = [
   { key: "general", label: "General", segment: "info" },
+  {
+    key: "clickup-copy",
+    label: "ClickUp Copy",
+    segment: "clickup-copy",
+    requiresClickUp: true,
+  },
   {
     key: "onboarding-summary",
     label: "Onboarding Summary",
@@ -31,6 +41,7 @@ export default function CompanyTabs({
   facilityId?: string;
 }) {
   const pathname = usePathname();
+  const clickUp = useClickUpAccess();
 
   if (facilityId) {
     return null;
@@ -39,7 +50,7 @@ export default function CompanyTabs({
   return (
     <div className="border-b border-slate-800">
       <nav className="flex gap-1 px-8">
-        {TABS.map((tab) => {
+        {TABS.filter((tab) => !tab.requiresClickUp || clickUp.allowed).map((tab) => {
           const href = `/clients/${clientId}/${tab.segment}`;
           const active = pathname.startsWith(href);
 

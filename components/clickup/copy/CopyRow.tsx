@@ -2,6 +2,7 @@
 
 import type { CopyTaskInfo } from "@/lib/clickupCopy";
 import type { CopyNode } from "./copyTree";
+import { pointerNote } from "./pointerNote";
 import type { RowState } from "./useCopyComments";
 
 /** Source | target | comment | confirm. Shared by the row and its header. */
@@ -9,20 +10,6 @@ export const COPY_GRID = "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1
 
 function taskLabel(task: CopyTaskInfo): string {
   return task.parent_name ? `${task.name} — ${task.parent_name}` : task.name;
-}
-
-function pointerNote(row: RowState): { text: string; failed: boolean } | null {
-  if (row.copyState !== "copied" || !row.pointer) return null;
-  switch (row.pointer.state) {
-    case "posted":
-      return { text: "Main-list note added.", failed: false };
-    case "already_present":
-      return { text: "Main-list note was already there.", failed: false };
-    case "failed":
-      return { text: `Main-list note failed: ${row.pointer.message ?? "unknown error"}`, failed: true };
-    default:
-      return null;
-  }
 }
 
 /**
@@ -60,7 +47,7 @@ export default function CopyRow({
   if (!state) return null;
 
   const isOpen = expanded.has(key);
-  const note = pointerNote(state);
+  const note = state.copyState === "copied" ? pointerNote(state.pointer) : null;
 
   // The suggestion and near misses first, then everything else.
   const preferred = [node.row.target, ...node.row.alternatives].filter((task) => task !== null);

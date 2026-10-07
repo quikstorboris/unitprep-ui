@@ -173,7 +173,7 @@ describe("CopyCommentsDialog", () => {
       expect(copyComments).toHaveBeenCalledWith(
         "c1",
         "tgt",
-        [{ target_task_id: "T1", comment: "Fees done, see list." }],
+        [{ target_task_id: "T1", comment: "Fees done, see list.", source_task_id: "S1" }],
         "src"
       )
     );

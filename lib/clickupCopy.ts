@@ -82,6 +82,11 @@ export interface CopyItemResult {
   target_task_id: string;
   comment: CopyOutcome;
   pointer: CopyPointerOutcome;
+  /** Which facility's task this was -- set for a copy to several
+   * facilities (the client's ClickUp Copy tab), absent in the facility
+   * dialog, where the facility is the one on screen. */
+  facility_id?: string;
+  facility_name?: string;
 }
 
 export interface CopyResult {
@@ -118,13 +123,14 @@ export async function getCopyComments(
   return clientsGet(`${base(companyId, facilityId)}/copy-comments?${query.toString()}`);
 }
 
-/** Posts each (edited) comment on its target task, plus -- once per target
- * task -- the generic "main task list" pointer. Rows succeed or fail
+/** Posts each (edited) comment on its target task (ending with a "Main
+ * tracker task - {source task}" link), plus -- once per target task -- the
+ * generic "main task list" pointer. Rows succeed or fail
  * independently. */
 export async function copyComments(
   companyId: string,
   facilityId: string,
-  items: { target_task_id: string; comment: string }[],
+  items: { target_task_id: string; comment: string; source_task_id: string }[],
   sourceFacilityId?: string | null
 ): Promise<ClientsResult<CopyResult>> {
   return clientsPost(`${base(companyId, facilityId)}/copy`, {

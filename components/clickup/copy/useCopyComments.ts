@@ -190,7 +190,7 @@ export function useCopyComments(companyId: string, facilityId: string, initialSo
     const result = await copyComments(
       companyId,
       facilityId,
-      [{ target_task_id: row.targetTaskId, comment: row.comment }],
+      [{ target_task_id: row.targetTaskId, comment: row.comment, source_task_id: key }],
       sourceId
     );
 

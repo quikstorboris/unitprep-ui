@@ -78,7 +78,8 @@ export default function CopyCommentsDialog({
             Copy comments to {facilityName}
           </h2>
           <p className="mt-1 text-sm text-slate-400">
-            Each comment is posted under your name on the matching task in this facility&apos;s list.
+            Each comment is posted under your name on the matching task in this facility&apos;s list, ending
+            with a &quot;Main tracker task&quot; link to the task it was copied from.
           </p>
         </div>
         <button type="button" onClick={onClose} className="text-sm text-slate-400 hover:text-slate-200">
