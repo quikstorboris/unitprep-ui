@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.78] - 2026-10-08
+
+Efficiency refactor chunk F8, part 5: `TaggerResultsPage` split. No behavior change.
+
+### Changed
+- `components/TaggerResultsPage.tsx` (428 -> 240 lines) now composes four new pieces in `components/tagger/`: `useTaggerReview` (tag catalog, per-candidate review state, tiers, confirmed substitutions), `usePreserveBlanksGate` (the shared "preserve blanks?" dialog flow for Download and Save), `CandidateSection` (replaces two copy-pasted tier blocks) and `SaveToFolderControl` (replaces two copy-pasted save/open-folder blocks that differed only in padding).
+
+### Added
+- `TaggerResultsPage.test.tsx` (18 tests; the page had none): loading/cancel, report error and cancelled states, expired session, tier seeding, apply with edited tags, blanks dialog for Apply and Save, direct save, destination link, errors, empty list, tag-catalog failure. Written against the old page first and green on both.
+
 ## [1.6.77] - 2026-10-08
 
 Efficiency refactor chunk F8, part 4: `DropboxFolderPicker` split. No behavior change.
