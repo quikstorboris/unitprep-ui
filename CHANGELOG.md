@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.74] - 2026-10-08
+
+Efficiency refactor chunk F8, part 1 (god files): `lib/clientsDetail.ts` split by area. No behavior change.
+
+### Changed
+- `lib/clientsDetail.ts` (670 lines) is now the folder `lib/clientsDetail/` with `company.ts`, `facility.ts`, `policies.ts`, `elavon.ts`, `people.ts` and `toolRuns.ts`; `index.ts` re-exports all of it, so the 35 existing `@/lib/clientsDetail` imports are unchanged.
+
 ## [1.6.73] - 2026-10-08
 
 Efficiency refactor chunk F5 (export pages): one export page for the Security Log and the Activity Log. No visible change.
