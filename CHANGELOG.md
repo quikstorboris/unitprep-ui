@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.71] - 2026-10-08
+
+Efficiency refactor chunk F2: stale answers can no longer overwrite newer ones, and the company list is no longer fetched by pages that do not use it.
+
+### Changed
+- New `useLatestRequest` hook: each new request aborts the previous one and hands back a fresh `AbortSignal`; a result whose signal was aborted is ignored. Used by the Clients directory (changing a filter or search quickly could let an older, slower answer replace the newer list), the Dropbox folder picker's listing and its search (separate guards). The directory, folder-listing and search calls take an optional `{ signal }`.
+- `ClientsProvider` no longer fetches `GET /clients` on mount. The provider sits in the app shell, so every signed-in page paid for it -- the Clients directory page then fetched its own filtered list on top. The fetch now starts the first time a component calls `useClients()` (still once, still shared).
+- Not done: a generic short-TTL cache / in-flight de-duplication inside the HTTP client (a stale cached GET after a mutation would be a worse bug than the duplicate request it saves) and the facility-switch refetch cache; revisit with a real data-fetching library if one is ever adopted.
+- Tests: the stale-answer race (verified to fail without the guard), the hook, and "no list fetch until something asks".
+
 ## [1.6.70] - 2026-10-08
 
 Efficiency refactor chunk F1: one HTTP client. No visible change.

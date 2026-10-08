@@ -16,6 +16,7 @@ import {
 } from "@/lib/clientsDirectory";
 import { groupByImplementationManager } from "@/lib/groupCompaniesByManager";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 // This page deliberately does NOT use `useClients()` (`lib/clients.tsx`)
 // -- that hook backs the unfiltered full-list cache several other
@@ -57,6 +58,7 @@ export default function ClientsPage() {
   const [hydrated, setHydrated] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const beginDirectoryRequest = useLatestRequest();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -73,13 +75,16 @@ export default function ClientsPage() {
   }, []);
 
   const loadDirectory = useCallback(async () => {
+    // A newer filter/search aborts this request; its answer must not land.
+    const signal = beginDirectoryRequest();
     const result = await listClientsDirectory({
       q: effectiveQuery || undefined,
       implementationManagerUserIds: selectedManagerIds,
       salesRepUserIds: selectedRepIds,
       states: selectedStates,
       previousPms: selectedPreviousPms,
-    });
+    }, { signal });
+    if (signal.aborted) return;
 
     if (result.kind !== "ok") {
       setLoadError(result.message);
@@ -90,7 +95,7 @@ export default function ClientsPage() {
     setLoadError(null);
     setCompanies(result.data);
     setHydrated(true);
-  }, [effectiveQuery, selectedManagerIds, selectedRepIds, selectedStates, selectedPreviousPms]);
+  }, [beginDirectoryRequest, effectiveQuery, selectedManagerIds, selectedRepIds, selectedStates, selectedPreviousPms]);
 
   useEffect(() => {
     // queueMicrotask, not a direct call -- otherwise

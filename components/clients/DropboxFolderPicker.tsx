@@ -1,5 +1,6 @@
 "use client";
 
+import { useLatestRequest } from "@/lib/useLatestRequest";
 import { useEffect, useState } from "react";
 
 import {
@@ -110,6 +111,9 @@ export function DropboxFolderPicker({
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const isSearchActive = searchQuery.trim().length >= SEARCH_MIN_CHARS;
+  // Separate guards: a folder listing and a search answer independently.
+  const beginLoadRequest = useLatestRequest();
+  const beginSearchRequest = useLatestRequest();
 
   useEffect(() => {
     if (!open) return;
@@ -152,9 +156,11 @@ export function DropboxFolderPicker({
     if (!isSearchActive) return;
 
     const timeout = setTimeout(async () => {
+      const signal = beginSearchRequest();
       setSearching(true);
 
-      const result = await searchDropboxFolders(searchQuery);
+      const result = await searchDropboxFolders(searchQuery, { signal });
+      if (signal.aborted) return;
 
       setSearching(false);
 
@@ -172,10 +178,12 @@ export function DropboxFolderPicker({
   }, [searchQuery]);
 
   async function load(path: string | undefined) {
+    const signal = beginLoadRequest();
     setLoading(true);
     setError(null);
 
-    const result = await listDropboxFolder(path, includeFiles);
+    const result = await listDropboxFolder(path, includeFiles, { signal });
+    if (signal.aborted) return;
 
     setLoading(false);
 

@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -40,6 +40,20 @@ function summary(overrides: Partial<CompanySummary> = {}): CompanySummary {
 describe("useClients / ClientsProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("does not fetch the company list until something asks for it", async () => {
+    listCompanies.mockResolvedValue({ kind: "ok", data: [] });
+    const { ClientsProvider } = await freshClientsModule();
+
+    render(
+      <ClientsProvider>
+        <p>no consumer</p>
+      </ClientsProvider>
+    );
+    await Promise.resolve();
+
+    expect(listCompanies).not.toHaveBeenCalled();
   });
 
   it("starts unhydrated and flips to hydrated once the backend fetch resolves", async () => {

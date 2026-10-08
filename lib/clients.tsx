@@ -139,10 +139,10 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
   const clients = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const hydrated = useSyncExternalStore(subscribe, getLoadedSnapshot, getLoadedServerSnapshot);
 
-  useEffect(() => {
-    loadFromBackend();
-  }, []);
-
+  // No fetch on mount: the provider sits in the app shell, so fetching
+  // here made every signed-in page -- including the Clients directory,
+  // which loads its own filtered list -- pay for `GET /clients`. The list
+  // is fetched the first time a component asks for it (`useClients`).
   const getClient = useCallback((id: string) => clients.find((c) => c.id === id), [clients]);
 
   const refresh = useCallback(() => {
@@ -160,6 +160,11 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
 
 export function useClients(): ClientsContextValue {
   const ctx = useContext(ClientsContext);
+
+  // Idempotent (`fetchStarted`): the first consumer starts the one fetch.
+  useEffect(() => {
+    loadFromBackend();
+  }, []);
 
   if (!ctx) {
     throw new Error("useClients must be used within a ClientsProvider");

@@ -1,5 +1,6 @@
 import { clientsGet } from "@/lib/clientsApi";
 import type { ClientsResult } from "@/lib/clientsApi";
+import type { RequestOptions } from "@/lib/http";
 import type { CompanySummary } from "@/lib/clientsCompanies";
 
 /**
@@ -68,7 +69,8 @@ function setCommaSeparated(params: URLSearchParams, key: string, values: string[
  * other, non-directory consumers of the unfiltered list still use).
  */
 export async function listClientsDirectory(
-  query: ClientsDirectoryQuery = {}
+  query: ClientsDirectoryQuery = {},
+  options?: RequestOptions
 ): Promise<ClientsResult<CompanyDirectoryEntry[]>> {
   const params = new URLSearchParams();
   if (query.q) params.set("q", query.q);
@@ -78,7 +80,7 @@ export async function listClientsDirectory(
   setCommaSeparated(params, "previous_pms", query.previousPms);
 
   const qs = params.toString();
-  return clientsGet(`/clients${qs ? `?${qs}` : ""}`);
+  return clientsGet(`/clients${qs ? `?${qs}` : ""}`, options);
 }
 
 /** A state option -- `name` is the canonical full name (what's shown and

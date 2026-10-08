@@ -1,4 +1,4 @@
-import { apiRequest, type ApiResult } from "@/lib/http";
+import { apiRequest, type ApiResult, type RequestOptions } from "@/lib/http";
 
 /**
  * Dropbox-folder-browsing API calls (`/dropbox/*`) -- kept in its own
@@ -8,9 +8,10 @@ import { apiRequest, type ApiResult } from "@/lib/http";
  * `clientOps.ts` -- GET only, so no method parameter needed here.
  */
 async function tryDropboxFetch<T>(
-  path: string
+  path: string,
+  options?: RequestOptions
 ): Promise<DropboxResult<T>> {
-  return apiRequest<T>("GET", path);
+  return apiRequest<T>("GET", path, undefined, options);
 }
 
 /** The shared `ApiResult` under this domain's own name. */
@@ -41,7 +42,8 @@ export interface DropboxListFolderResult {
  */
 export async function listDropboxFolder(
   path?: string,
-  includeFiles?: boolean
+  includeFiles?: boolean,
+  options?: RequestOptions
 ): Promise<DropboxResult<DropboxListFolderResult>> {
   const params = new URLSearchParams();
   if (path) params.set("path", path);
@@ -49,7 +51,7 @@ export async function listDropboxFolder(
 
   const query = params.toString();
 
-  return tryDropboxFetch(`/dropbox/list${query ? `?${query}` : ""}`);
+  return tryDropboxFetch(`/dropbox/list${query ? `?${query}` : ""}`, options);
 }
 
 /** Mirrors `SearchFoldersResponse` in `unitprep-api`'s `api::dropbox_browse`. */
@@ -66,13 +68,14 @@ export interface DropboxSearchResult {
  * duplicate the length check to avoid firing it needlessly).
  */
 export async function searchDropboxFolders(
-  query: string
+  query: string,
+  options?: RequestOptions
 ): Promise<DropboxResult<DropboxSearchResult>> {
   if (query.trim().length < 2) {
     return { kind: "ok", data: { entries: [] } };
   }
 
-  return tryDropboxFetch(`/dropbox/search?q=${encodeURIComponent(query.trim())}`);
+  return tryDropboxFetch(`/dropbox/search?q=${encodeURIComponent(query.trim())}`, options);
 }
 
 /** Mirrors `FacilityDropboxFolderResponse` in `unitprep-api`'s `api::dropbox_browse`. */

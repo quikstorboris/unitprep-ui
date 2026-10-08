@@ -1,4 +1,4 @@
-import { apiRequest, type ApiResult } from "@/lib/http";
+import { apiRequest, type ApiResult, type RequestOptions } from "@/lib/http";
 
 /**
  * Shared fetch plumbing for the `clients`-domain API (`/clients/*`) --
@@ -14,8 +14,8 @@ import { apiRequest, type ApiResult } from "@/lib/http";
 /** The shared `ApiResult` under this domain's own name. */
 export type ClientsResult<T> = ApiResult<T>;
 
-export async function clientsGet<T>(path: string): Promise<ClientsResult<T>> {
-  return apiRequest<T>("GET", path);
+export async function clientsGet<T>(path: string, options?: RequestOptions): Promise<ClientsResult<T>> {
+  return apiRequest<T>("GET", path, undefined, options);
 }
 
 export async function clientsPost<T>(path: string, body?: unknown): Promise<ClientsResult<T>> {

@@ -307,9 +307,45 @@ describe("ClientsPage", () => {
 
     await user.type(input, "c");
     await waitFor(
-      () => expect(listClientsDirectory).toHaveBeenCalledWith(expect.objectContaining({ q: "abc" })),
+      () => expect(listClientsDirectory).toHaveBeenCalledWith(expect.objectContaining({ q: "abc" }), expect.anything()),
       { timeout: 1000 }
     );
+  });
+
+  it("ignores an older directory answer that arrives after a newer one", async () => {
+    render(<ClientsPage />);
+    await waitFor(() => expect(listClientsDirectory).toHaveBeenCalledTimes(1));
+    listClientsDirectory.mockClear();
+
+    // The first search ("abc") is slow; the second ("abcd") answers at once.
+    let answerSlow: (value: unknown) => void = () => {};
+    listClientsDirectory
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            answerSlow = resolve;
+          })
+      )
+      .mockResolvedValueOnce({
+        kind: "ok",
+        data: [company({ id: "new", legal_name: "Newer Answer LLC" })],
+      });
+
+    const input = screen.getByPlaceholderText(/Search by facility/);
+    const user = userEvent.setup();
+    await user.type(input, "abc");
+    await waitFor(() => expect(listClientsDirectory).toHaveBeenCalledTimes(1), { timeout: 1500 });
+    await user.type(input, "d");
+    await screen.findByText("Newer Answer LLC", undefined, { timeout: 1500 });
+
+    // The slow, stale answer finally lands -- it must not replace the newer list.
+    await act(async () => {
+      answerSlow({ kind: "ok", data: [company({ id: "old", legal_name: "Stale Answer LLC" })] });
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("Newer Answer LLC")).toBeInTheDocument();
+    expect(screen.queryByText("Stale Answer LLC")).not.toBeInTheDocument();
   });
 
   it("combines a Previous PMS filter selection into the directory query", async () => {
@@ -330,7 +366,8 @@ describe("ClientsPage", () => {
 
     await waitFor(() =>
       expect(listClientsDirectory).toHaveBeenCalledWith(
-        expect.objectContaining({ previousPms: ["SiteLink"] })
+        expect.objectContaining({ previousPms: ["SiteLink"] }),
+        expect.anything()
       )
     );
   });
