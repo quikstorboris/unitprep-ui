@@ -5,7 +5,6 @@ import Link from "next/link";
 
 import ClickUpDuplicateCheckPanel from "./clickup/ClickUpDuplicateCheckPanel";
 import { useClickUpAccess } from "./clickup/useClickUpAccess";
-import { DropboxLogo } from "./icons/DropboxLogo";
 import DedupSummaryStats from "./dedup/DedupSummaryStats";
 import FlaggedGroupsSection from "./dedup/FlaggedGroupsSection";
 import RelatedTenantsSection from "./dedup/RelatedTenantsSection";
@@ -17,8 +16,10 @@ import { useDedupExport } from "./dedup/useDedupExport";
 import { useDedupReport } from "./dedup/useDedupReport";
 import { useDedupSaveLocation } from "./dedup/useDedupSaveLocation";
 import { useDedupSaveToDropbox } from "./dedup/useDedupSaveToDropbox";
+import DropboxSaveAction from "./dedup/DropboxSaveAction";
+import ExportProgress from "./dedup/ExportProgress";
+import { FORMAT_OPTIONS } from "./dedup/exportFormats";
 import SessionExpiredPage from "./SessionExpiredPage";
-import { dropboxFolderWebUrl, dropboxParentFolder } from "@/lib/dropbox";
 import { prefetchDuplicateCheckTasks } from "@/lib/clickupDuplicateCheck";
 import { formatElapsed } from "@/lib/useAbortableOperation";
 import type { DedupExportFormat } from "@/types/api";
@@ -28,106 +29,6 @@ interface DedupResultsPageProps {
   facilityId: string;
   sessionId: string;
   onHome: () => void;
-}
-
-const FORMAT_OPTIONS: Array<{
-  value: DedupExportFormat;
-  label: string;
-}> = [
-  { value: "xlsx", label: "Excel (.xlsx)" },
-  { value: "csv", label: "CSV" },
-  {
-    value: "both",
-    label: "Both (as a .zip)",
-  },
-];
-
-interface DropboxSaveActionProps {
-  /** `null`/`undefined` once saved -- there's nothing left to click,
-   * `DedupSaveAction` renders the "Open Destination Folder" link
-   * instead. `null` before a save location is even known (e.g. a
-   * locally-uploaded session) hides the whole action. */
-  defaultFolderPath: string | null | undefined;
-  savedPath: string | null;
-  saving: boolean;
-  onSave: () => void;
-  /** Padding classes only -- lets each call site match its own sibling
-   * buttons' size (the Export Format panel's own buttons are bigger
-   * than Download Again/Home's). */
-  sizeClassName: string;
-}
-
-interface ExportProgressProps {
-  exporting: boolean;
-  elapsedMs: number;
-  onCancel: () => void;
-}
-
-/**
- * The export/download button's own elapsed-time label + Cancel button,
- * shown only while generating -- /dedup/export doesn't stream a real
- * percentage, so this is an honest "still working" indicator instead of
- * a fake progress bar. Shared between the pre- and post-download
- * panels below, which each have their own Download button.
- */
-function ExportProgress({ exporting, elapsedMs, onCancel }: ExportProgressProps) {
-  if (!exporting) return null;
-
-  return (
-    <span className="inline-flex items-center gap-3 text-sm text-slate-400">
-      {formatElapsed(elapsedMs)} elapsed
-      <button
-        type="button"
-        onClick={onCancel}
-        className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 transition-colors hover:bg-slate-800"
-      >
-        Cancel
-      </button>
-    </span>
-  );
-}
-
-/**
- * One-click "Save to Facility Folder" -> "Open Destination Folder" pair,
- * shared between the pre- and post-local-download panels below (saving
- * to Dropbox is independent of downloading locally -- a user may want
- * both, so this must stay available in either state, not disappear once
- * `downloadComplete`).
- */
-function DropboxSaveAction({
-  defaultFolderPath,
-  savedPath,
-  saving,
-  onSave,
-  sizeClassName,
-}: DropboxSaveActionProps) {
-  if (savedPath) {
-    return (
-      <a
-        href={dropboxFolderWebUrl(dropboxParentFolder(savedPath))}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`inline-flex items-center gap-2 rounded bg-[#0061FF] text-sm font-medium text-white transition-colors hover:bg-[#0050d1] ${sizeClassName}`}
-      >
-        <DropboxLogo className="h-4 w-4" />
-        Open Destination Folder
-      </a>
-    );
-  }
-
-  if (!defaultFolderPath) return null;
-
-  return (
-    <button
-      type="button"
-      onClick={onSave}
-      disabled={saving}
-      className={`inline-flex items-center gap-2 rounded bg-blue-600 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50 ${sizeClassName}`}
-    >
-      <DropboxLogo className="h-4 w-4" />
-      {saving ? "Saving…" : "Save to Facility Folder"}
-    </button>
-  );
 }
 
 export default function DedupResultsPage({

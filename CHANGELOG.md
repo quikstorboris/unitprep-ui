@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.75] - 2026-10-08
+
+Efficiency refactor chunk F8, part 2: the dedup results page's helper pieces move out. No behavior change.
+
+### Changed
+- `components/DedupResultsPage.tsx` (530 -> 431 lines) now imports `ExportProgress`, `DropboxSaveAction` and the export-format list from `components/dedup/`.
+
 ## [1.6.74] - 2026-10-08
 
 Efficiency refactor chunk F8, part 1 (god files): `lib/clientsDetail.ts` split by area. No behavior change.
