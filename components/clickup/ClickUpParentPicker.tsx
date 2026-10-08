@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format";
 import { useState } from "react";
 
 import { setClickUpParent, type ClickUpParentChange, type FacilitySummary } from "@/lib/clientsDetail";
@@ -93,7 +94,7 @@ export default function ClickUpParentPicker({
           <ul className="max-h-32 overflow-y-auto rounded border border-slate-800 px-3 py-2 text-xs text-slate-400">
             {history.map((change) => (
               <li key={`${change.changed_at}-${change.to_facility_id ?? "none"}`} className="py-0.5">
-                {new Date(change.changed_at).toLocaleString()} —{" "}
+                {formatDateTime(change.changed_at)} —{" "}
                 {change.to_facility_name ?? "none"}
                 {change.from_facility_name ? ` (was ${change.from_facility_name})` : ""}
                 {change.changed_by_name ? ` · ${change.changed_by_name}` : ""}

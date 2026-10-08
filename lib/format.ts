@@ -69,3 +69,54 @@ export function formatDateOnly(raw: string | null | undefined): string {
   const [, year, month, day] = match;
   return `${month}-${day}-${year}`;
 }
+
+/**
+ * Discovery's file names are actually the uploaded folder-relative path
+ * (browsers send `file.webkitRelativePath` as the multipart filename for
+ * a directory upload, e.g. "Wave 3/Facility A/units.csv") — the full
+ * path is still the right value to key selections and API calls by
+ * (two different subfolders could share a bare filename), but showing
+ * it in the UI is just noise. This strips everything but the last
+ * segment for display only.
+ */
+export function basename(
+  path: string
+): string {
+  const segments = path.split(/[\\/]/);
+  return (
+    segments[segments.length - 1] ||
+    path
+  );
+}
+
+/**
+ * Like `basename`, but keeps one directory of context — used where
+ * several same-named-looking files need to stay distinguishable (e.g.
+ * a master group file candidate list spanning several facility
+ * subfolders) without showing the full uploaded path. Falls back to
+ * `basename` alone when the file has no parent segment (sits directly
+ * in the uploaded root).
+ */
+export function parentAndBasename(
+  path: string
+): string {
+  const segments = path.split(/[\\/]/);
+  const name =
+    segments[segments.length - 1] ||
+    path;
+
+  const parent =
+    segments[segments.length - 2];
+
+  return parent
+    ? `${parent}/${name}`
+    : name;
+}
+
+/** A date and time for display in the viewer's own locale -- the one
+ * spelling of `new Date(value).toLocaleString()` that was repeated across
+ * run cards, job lists and status panels. Accepts an ISO string, epoch
+ * milliseconds or a `Date`. */
+export function formatDateTime(value: string | number | Date): string {
+  return new Date(value).toLocaleString();
+}

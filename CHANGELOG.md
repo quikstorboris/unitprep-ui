@@ -8,6 +8,19 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.72] - 2026-10-08
+
+Efficiency refactor chunk F6 (first part): shared hooks and helpers. No visible change except that a copied-flag no longer lingers after leaving a page.
+
+### Added
+- `useCopyToClipboard(resetMs)` -> `{ copied, copy(text) }`: `copy` never throws (it answers `false` when the browser refuses), the timer is cleared on unmount and restarted on a repeat copy. Replaces four hand-written copies (QMS tag row, secret field, facility Users roster, admin invite link); the roster's "could not copy" message now keys off the result.
+- `formatDateTime(value)` in `lib/format.ts` replaces five `new Date(x).toLocaleString()` spellings (run card, copy-jobs list, parent-change history, Unit file picker, ClickUp status).
+- `useAsyncResource(load, deps)` -> `{ data, error, loading, refetch }`: load on mount and on dependency change, drop back to loading each time, ignore answers that arrive late or after unmount. `CompanyDetailProvider` is built on it (it was a 30-line hand-written effect).
+
+### Changed
+- `basename` / `parentAndBasename` moved from `lib/api.ts` (HTTP concerns) to `lib/format.ts` with their tests.
+- Not done yet in F6: adopting `useAsyncResource` in the facility page, the Clients directory and the facility tabs; a shared `Tabs` component (unchecked whether `ClientTabs` and the facility tabs match); the eight `key={index}` list keys.
+
 ## [1.6.71] - 2026-10-08
 
 Efficiency refactor chunk F2: stale answers can no longer overwrite newer ones, and the company list is no longer fetched by pages that do not use it.

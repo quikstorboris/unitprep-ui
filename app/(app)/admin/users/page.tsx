@@ -1,5 +1,6 @@
 "use client";
 
+import { useCopyToClipboard } from "@/lib/useCopyToClipboard";
 import { useState } from "react";
 
 import RequirePermission from "@/components/auth/RequirePermission";
@@ -15,6 +16,7 @@ function inviteLinkFor(token: string): string {
 }
 
 export default function AdminUsersPage() {
+  const { copy } = useCopyToClipboard();
   const { user: currentUser } = useCurrentUser();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showDisabled, setShowDisabled] = useState(false);
@@ -118,9 +120,7 @@ export default function AdminUsersPage() {
             />
             <button
               type="button"
-              onClick={() =>
-                navigator.clipboard.writeText(inviteLinkFor(issued.invite_token))
-              }
+              onClick={() => void copy(inviteLinkFor(issued.invite_token))}
               className={smallButtonClass}
             >
               Copy

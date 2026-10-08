@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 
 import { getCompanyDetail, type CompanyDetail } from "@/lib/clientsDetail";
+import { useAsyncResource } from "@/lib/useAsyncResource";
 
 /**
  * Fetches `getCompanyDetail` once per `companyId` and shares it across
@@ -22,40 +23,14 @@ interface CompanyDetailContextValue {
 const CompanyDetailContext = createContext<CompanyDetailContextValue | null>(null);
 
 export function CompanyDetailProvider({ companyId, children }: { companyId: string; children: ReactNode }) {
-  const [company, setCompany] = useState<CompanyDetail | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  // Bumped by `refetch()` to force the effect below to re-run without
-  // depending on `companyId` changing.
-  const [generation, setGeneration] = useState(0);
+  // Reloads on a company switch (back to "Loading..." rather than
+  // flashing the previous company) and on `refetch()`.
+  const {
+    data: company,
+    error: loadError,
+    refetch,
+  } = useAsyncResource(() => getCompanyDetail(companyId), [companyId]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    queueMicrotask(async () => {
-      // Reset so a company switch shows "Loading…" again instead of
-      // flashing the previous company's data -- done here (inside the
-      // effect's async callback, not synchronously in the effect body)
-      // per the `react-hooks/set-state-in-effect` rule.
-      if (cancelled) return;
-      setCompany(null);
-      setLoadError(null);
-
-      const result = await getCompanyDetail(companyId);
-      if (cancelled) return;
-      if (result.kind !== "ok") {
-        setLoadError(result.message);
-        return;
-      }
-      setLoadError(null);
-      setCompany(result.data);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [companyId, generation]);
-
-  const refetch = useCallback(() => setGeneration((g) => g + 1), []);
   const value = useMemo(() => ({ company, loadError, refetch }), [company, loadError, refetch]);
 
   return <CompanyDetailContext.Provider value={value}>{children}</CompanyDetailContext.Provider>;

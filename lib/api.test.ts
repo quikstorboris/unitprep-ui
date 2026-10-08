@@ -2,44 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   API_URL,
-  basename,
   cancelSession,
   describeFetchError,
   errorMessageFrom,
-  parentAndBasename,
 } from "./api";
-
-describe("basename", () => {
-  it("returns the last segment of a forward-slash path", () => {
-    expect(basename("Wave 3/Facility A/units.csv")).toBe("units.csv");
-  });
-
-  it("returns the last segment of a backslash path", () => {
-    expect(basename("Wave 3\\Facility A\\units.csv")).toBe("units.csv");
-  });
-
-  it("returns the input unchanged when there is no separator", () => {
-    expect(basename("units.csv")).toBe("units.csv");
-  });
-});
-
-describe("parentAndBasename", () => {
-  it("keeps one directory of context", () => {
-    expect(parentAndBasename("Wave 3/Facility A/units.csv")).toBe(
-      "Facility A/units.csv"
-    );
-  });
-
-  it("falls back to the bare name when there is no parent segment", () => {
-    expect(parentAndBasename("units.csv")).toBe("units.csv");
-  });
-
-  it("works with backslash-separated paths", () => {
-    expect(parentAndBasename("Wave 3\\Facility A\\units.csv")).toBe(
-      "Facility A/units.csv"
-    );
-  });
-});
 
 describe("describeFetchError", () => {
   it("explains a TypeError as an unreachable API server", () => {

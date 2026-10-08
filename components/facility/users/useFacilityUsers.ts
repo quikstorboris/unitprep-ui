@@ -1,5 +1,6 @@
 "use client";
 
+import { useCopyToClipboard } from "@/lib/useCopyToClipboard";
 import { useEffect, useState } from "react";
 
 import {
@@ -35,7 +36,7 @@ export function useFacilityUsers(companyId: string, facilityId: string) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard(2000);
 
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<PersonFormState>(emptyPersonForm());
@@ -66,7 +67,6 @@ export function useFacilityUsers(companyId: string, facilityId: string) {
       setPeople(null);
       setLoadError(null);
       setActionError(null);
-      setCopied(false);
       setEditingKey(null);
       setAddingManually(false);
       await load();
@@ -155,11 +155,7 @@ export function useFacilityUsers(companyId: string, facilityId: string) {
   async function handleCopyAll() {
     if (!people || people.roster.length === 0) return;
 
-    try {
-      await navigator.clipboard.writeText(formatRosterForClipboard(people.roster));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
+    if (!(await copy(formatRosterForClipboard(people.roster)))) {
       setActionError("Could not copy to the clipboard -- your browser may be blocking clipboard access.");
     }
   }

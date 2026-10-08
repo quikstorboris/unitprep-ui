@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDateOnly, formatPhone, formatUnits } from "./format";
+import { formatDateOnly, formatPhone, formatUnits, basename, parentAndBasename, formatDateTime } from "./format";
 
 describe("formatUnits", () => {
   it('returns "no units" for an empty list', () => {
@@ -72,5 +72,49 @@ describe("formatDateOnly", () => {
   it("returns an empty string for null/undefined", () => {
     expect(formatDateOnly(null)).toBe("");
     expect(formatDateOnly(undefined)).toBe("");
+  });
+});
+
+describe("basename", () => {
+  it("returns the last segment of a forward-slash path", () => {
+    expect(basename("Wave 3/Facility A/units.csv")).toBe("units.csv");
+  });
+
+  it("returns the last segment of a backslash path", () => {
+    expect(basename("Wave 3\\Facility A\\units.csv")).toBe("units.csv");
+  });
+
+  it("returns the input unchanged when there is no separator", () => {
+    expect(basename("units.csv")).toBe("units.csv");
+  });
+});
+
+describe("parentAndBasename", () => {
+  it("keeps one directory of context", () => {
+    expect(parentAndBasename("Wave 3/Facility A/units.csv")).toBe(
+      "Facility A/units.csv"
+    );
+  });
+
+  it("falls back to the bare name when there is no parent segment", () => {
+    expect(parentAndBasename("units.csv")).toBe("units.csv");
+  });
+
+  it("works with backslash-separated paths", () => {
+    expect(parentAndBasename("Wave 3\\Facility A\\units.csv")).toBe(
+      "Facility A/units.csv"
+    );
+  });
+});
+
+describe("formatDateTime", () => {
+  it("formats an ISO string, epoch milliseconds and a Date identically", () => {
+    const iso = "2026-10-08T12:34:56Z";
+
+    const expected = new Date(iso).toLocaleString();
+
+    expect(formatDateTime(iso)).toBe(expected);
+    expect(formatDateTime(Date.parse(iso))).toBe(expected);
+    expect(formatDateTime(new Date(iso))).toBe(expected);
   });
 });

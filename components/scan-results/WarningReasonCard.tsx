@@ -1,7 +1,7 @@
 "use client";
 import type { RefObject } from "react";
 
-import { basename } from "@/lib/api";
+import { basename } from "@/lib/format";
 import type { ValidateResponse } from "@/types/api";
 
 import { AcknowledgedGroupsList } from "./AcknowledgedGroupsList";

@@ -1,5 +1,5 @@
 "use client";
-import { basename } from "@/lib/api";
+import { basename } from "@/lib/format";
 import type { FileValidationError } from "@/types/api";
 
 interface FileErrorsSectionProps {

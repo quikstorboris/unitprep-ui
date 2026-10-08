@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format";
 import { useState } from "react";
 
 import RequirePermission from "@/components/auth/RequirePermission";
@@ -25,7 +26,7 @@ const dangerButtonClass =
 
 function formatCheckedAt(iso: string | null): string {
   if (!iso) return "never";
-  return new Date(iso).toLocaleString();
+  return formatDateTime(iso);
 }
 
 function StatusPanel({ connection }: { connection: ClickUpConnection | null }) {

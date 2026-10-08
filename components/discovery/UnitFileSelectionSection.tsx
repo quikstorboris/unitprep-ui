@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { basename } from "@/lib/api";
+import { basename, formatDateTime } from "@/lib/format";
 import { useSessionAction } from "@/lib/useSessionAction";
 import { useManualUnitFileUpload } from "@/components/discovery/useManualUnitFileUpload";
 import type { DiscoverResponse } from "@/types/api";
@@ -24,7 +24,7 @@ function formatModifiedAt(modifiedAt: number | null): string {
     return "modified date unknown";
   }
 
-  return new Date(modifiedAt).toLocaleString();
+  return formatDateTime(modifiedAt);
 }
 
 /**

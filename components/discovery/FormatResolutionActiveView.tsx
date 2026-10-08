@@ -1,6 +1,6 @@
 "use client";
 
-import { basename } from "@/lib/api";
+import { basename } from "@/lib/format";
 import { UnitFileUsedNote } from "@/components/discovery/UnitFileUsedNote";
 import type { DiscoverResponse } from "@/types/api";
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCopyToClipboard } from "@/lib/useCopyToClipboard";
 import { useState } from "react";
 
 const iconClass = "h-4 w-4";
@@ -59,18 +60,12 @@ export function SecretField({
   hint?: string;
 }) {
   const [revealed, setRevealed] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
 
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard access can be denied (permissions, insecure context) --
-      // nothing actionable for a convenience button beyond leaving it as
-      // "Copy"; no error worth surfacing.
-    }
+  function handleCopy() {
+    // A refused clipboard write leaves the button as "Copy" -- nothing
+    // actionable for a convenience button, so no error is surfaced.
+    void copy(value);
   }
 
   return (

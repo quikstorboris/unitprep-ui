@@ -1,6 +1,6 @@
 "use client";
 
-import { parentAndBasename } from "@/lib/api";
+import { parentAndBasename } from "@/lib/format";
 import type { DiscoverResponse } from "@/types/api";
 
 interface GroupFileCandidatePickerProps {

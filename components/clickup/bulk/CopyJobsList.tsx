@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format";
 import type { CopyJob } from "@/lib/clickupBulkCopy";
 import CopyResults from "./CopyResults";
 
@@ -42,7 +43,7 @@ export default function CopyJobsList({ jobs }: { jobs: CopyJob[] }) {
             <li key={job.id} className="text-sm">
               <div>
                 <span className="text-slate-200">“{job.source_task_name}”</span>{" "}
-                <span className="text-xs text-slate-500">{new Date(job.created_at).toLocaleString()}</span>
+                <span className="text-xs text-slate-500">{formatDateTime(job.created_at)}</span>
               </div>
               <div className={tone}>{text}</div>
               {job.status === "running" && (

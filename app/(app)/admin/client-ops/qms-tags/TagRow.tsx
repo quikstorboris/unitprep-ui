@@ -1,5 +1,6 @@
 "use client";
 
+import { useCopyToClipboard } from "@/lib/useCopyToClipboard";
 import { useState } from "react";
 
 import type { QmsTag } from "@/lib/clientOps";
@@ -45,7 +46,7 @@ export default function TagRow({
 }: TagRowProps) {
   const [editLabel, setEditLabel] = useState(tag.label);
   const [editCategory, setEditCategory] = useState(tag.category);
-  const [justCopied, setJustCopied] = useState(false);
+  const { copied: justCopied, copy } = useCopyToClipboard();
 
   const isPending = pendingKey === tag.tag_key;
   const tagPlaceholder = `{{${tag.tag_key}}}`;
@@ -57,9 +58,7 @@ export default function TagRow({
   }
 
   function handleCopy() {
-    navigator.clipboard.writeText(tagPlaceholder);
-    setJustCopied(true);
-    setTimeout(() => setJustCopied(false), 1500);
+    void copy(tagPlaceholder);
   }
 
   return (

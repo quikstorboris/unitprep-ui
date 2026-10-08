@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format";
 import { useState } from "react";
 
 import ClickUpDuplicateCheckPanel from "@/components/clickup/ClickUpDuplicateCheckPanel";
@@ -52,7 +53,7 @@ export function RunCard({
           </div>
           <div className="mt-1 text-xs text-slate-400">
             {actorLabel(run)} &middot;{" "}
-            {new Date(run.created_at).toLocaleString()}
+            {formatDateTime(run.created_at)}
           </div>
         </div>
         <span className="text-xs text-slate-500">
