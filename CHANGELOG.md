@@ -8,6 +8,10 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.86] - 2026-10-08
+
+Refactor chunk G1a (UI side): the new `integration_settings_updated` security event appears under the Security Logs "Permissions & Roles" preset. It (and the Activity Logs' new `activity_log_exported`) were already offered in the event filter dropdowns, which are served by the backend (`unitprep-api` v1.9.111).
+
 ## [1.6.85] - 2026-10-08
 
 Efficiency refactor chunk F7c: the dedup file-classification types are generated from the Rust structs. No behavior change.

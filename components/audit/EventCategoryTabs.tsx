@@ -37,6 +37,7 @@ const EVENT_CATEGORIES: { label: string; eventTypes: string[] }[] = [
       "permission_revoked",
       "integration_connected",
       "integration_disconnected",
+      "integration_settings_updated",
       "auth_configuration_updated",
     ],
   },
