@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.77] - 2026-10-08
+
+Efficiency refactor chunk F8, part 4: `DropboxFolderPicker` split. No behavior change.
+
+### Changed
+- `components/clients/DropboxFolderPicker.tsx` (442 -> 205 lines) now composes `components/clients/dropbox-picker/`: `useDropboxBrowse` (listing, `load`, `goUp`, root path), `useDropboxSearch` (debounced search; its effect no longer needs an `exhaustive-deps` suppression), `EntryList`, `SearchResultsList` and `breadcrumbFor`. The open-effect keeps its one documented suppression (it must re-run on `initialPath` but not on `value`).
+
+### Added
+- `DropboxFolderPicker.test.tsx` (9 tests: browse/commit, Up, file mode, `showFiles`, listing error, search + breadcrumbs + navigate, search error/empty, Cancel). Written against the old component first and green on both.
+
 ## [1.6.76] - 2026-10-08
 
 Efficiency refactor chunk F8, part 3: `ElavonTab` split. No behavior change.
