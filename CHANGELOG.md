@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.76] - 2026-10-08
+
+Efficiency refactor chunk F8, part 3: `ElavonTab` split. No behavior change.
+
+### Changed
+- `components/facility/ElavonTab.tsx` (449 -> 57 lines) is now a thin orchestrator over `components/facility/elavon/`: `useElavonTab` (load, link, unlink, resync state; `load` is a `useCallback`, so the old `react-hooks/exhaustive-deps` suppression is gone), `LinkedElavonView`, `UnlinkedElavonView` and `CredentialField`.
+
+### Added
+- `ElavonTab.test.tsx` (7 tests: load error, link candidate + reload + company refetch, manual link validation/error, credential masking, unlink confirm/cancel/apply, resync error). Written against the old component first and green on both.
+
 ## [1.6.75] - 2026-10-08
 
 Efficiency refactor chunk F8, part 2: the dedup results page's helper pieces move out. No behavior change.
