@@ -1,0 +1,60 @@
+import type { FieldProvenanceEntry } from "./types";
+
+/** Facility Policies (Facility page) -- all Intake. See `types.ts` for what this table is. */
+export const FACILITY_POLICY_FIELDS: FieldProvenanceEntry[] = [
+  {
+    ooSection: "Facility Policies -- Fees",
+    ooField: "Security Deposit / NSF / Move-In Admin / Transfer / Cleaning / Other Fees",
+    psWorkflow: "Intake",
+    psStep: "B.) DLQ/Taxes/Fees/Specials",
+    psFieldKey: "Security_Deposit / NSF_/_Chargeback_Fee / Move-In_Admin_Fee / Transfer_Fee / Cleaning_Fee / Any_Other_Fees:",
+    psFieldLabel: "Security Deposit, NSF/Chargeback Fee, Move-In Admin Fee, Transfer Fee, Cleaning Fee, Any Other Fees",
+    status: "mapped",
+  },
+  {
+    ooSection: "Facility Policies -- Taxes",
+    ooField: "Sales / Rent / Other Taxes",
+    psWorkflow: "Intake",
+    psStep: "B.) DLQ/Taxes/Fees/Specials",
+    psFieldKey: "Is_this_facility_subject_to_sales_tax... / Does_the_facility_use_a_Rent_Tax?...",
+    psFieldLabel: "Sales tax applies/rate, Rent tax applies/rate/scope, Additional One-Time/Recurring Taxes",
+    status: "mapped",
+  },
+  {
+    ooSection: "Facility Policies -- Delinquency",
+    ooField: "Delinquency Steps / Notice Type / Notes",
+    psWorkflow: "Intake",
+    psStep: "B.) DLQ/Taxes/Fees/Specials",
+    psFieldKey: "Which_type_of_late_notice_should_recur? / How_many_days_after_Paid_THRU_Date... / Add'l_Delinquency_Actions: / Delinquency_Notes:",
+    psFieldLabel: "Late notice type/timing, additional delinquency actions, delinquency notes",
+    status: "mapped",
+  },
+  {
+    ooSection: "Facility Policies -- Specials",
+    ooField: "Specials",
+    psWorkflow: "Intake",
+    psStep: "B.) DLQ/Taxes/Fees/Specials",
+    psFieldKey: "Specials:",
+    psFieldLabel: "Specials:",
+    status: "mapped",
+    notes: "One raw text blob, preserved verbatim (whitespace/indentation included).",
+  },
+  {
+    ooSection: "Facility Policies -- Coverage",
+    ooField: "Coverage Tiers (1-6)",
+    psWorkflow: "Intake",
+    psStep: "C.) Coverage",
+    psFieldKey: "Coverage_Level_1..6_-_Cost_to_Tenant:",
+    psFieldLabel: "Coverage Level 1-6 - Cost to Tenant",
+    status: "mapped",
+  },
+  {
+    ooSection: "Facility Policies -- Coverage",
+    ooField: "Commission",
+    psWorkflow: "Intake",
+    psStep: "C.) Coverage",
+    psFieldKey: "Is_Commission_a_Percentage_or_Flat_Dollar_Amount? / $_Commission_Amount: / %_Commission_Amount:",
+    psFieldLabel: "Commission type, dollar amount, percent amount",
+    status: "mapped",
+  },
+];

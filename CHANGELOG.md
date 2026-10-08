@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.81] - 2026-10-08
+
+Efficiency refactor chunk F8, part 8: `lib/fieldProvenance.ts` split by section. No behavior change.
+
+### Changed
+- `lib/fieldProvenance.ts` (778 lines of static table) is now the folder `lib/fieldProvenance/`: `types.ts`, one data file per section (`company`, `financial`, `owners`, `facility`, `policies`, `elavon`) and an `index.ts` that re-exports the types and concatenates the sections into `FIELD_PROVENANCE` in the original order, so `@/lib/fieldProvenance` imports are unchanged. Verified by dumping the exported array before and after: byte-identical (80 entries).
+
 ## [1.6.80] - 2026-10-08
 
 Efficiency refactor chunk F8, part 7: Clients directory page split. No behavior change.

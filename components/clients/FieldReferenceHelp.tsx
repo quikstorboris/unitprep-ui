@@ -19,7 +19,7 @@ const statusBadgeClass = (status: MappingStatus) =>
  * show yet. Same search+filter pattern as the QMS Tag Catalog admin
  * page (`admin/client-ops/qms-tags`) -- a small, fully-in-memory table,
  * filtered live rather than round-tripping an API per keystroke.
- * Data lives in `lib/fieldProvenance.ts`, hand-maintained like
+ * Data lives in `lib/fieldProvenance/`, hand-maintained like
  * `client_ops.qms_tag` -- there's no backend endpoint for this, it's
  * static reference content about the mapping code itself.
  */
