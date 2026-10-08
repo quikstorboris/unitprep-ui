@@ -70,7 +70,7 @@ describe("clientsPost", () => {
     vi.clearAllMocks();
   });
 
-  it("sends no body/content-type at all when none is given", async () => {
+  it("sends no body when none is given, but still a JSON content type (a bodyless POST must not be forgeable by a cross-site form)", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -78,7 +78,7 @@ describe("clientsPost", () => {
 
     const [, init] = fetchMock.mock.calls[0];
     expect(init.body).toBeUndefined();
-    expect(init.headers).toBeUndefined();
+    expect(init.headers).toEqual({ "Content-Type": "application/json" });
   });
 
   it("JSON-encodes a body when one is given", async () => {

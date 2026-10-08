@@ -1,8 +1,8 @@
 "use client";
 
-import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
+import { describeFetchError } from "@/lib/api";
+import { fetchForDownload } from "@/lib/auth-shared";
 import { toolRunOutputUrl, toolRunSourceUrl } from "@/lib/clientsDetail";
-import { notifyUnauthorized } from "@/lib/sessionExpiry";
 import { downloadBlob } from "@/lib/useSessionAction";
 
 export type ToolRunOutputDownloadResult =
@@ -19,22 +19,14 @@ export type ToolRunOutputDownloadResult =
  * uses for the live export download.
  */
 async function downloadFromPath(path: string, fallbackFileName: string): Promise<ToolRunOutputDownloadResult> {
+  const fetched = await fetchForDownload(path, undefined, "GET");
+  if (fetched.kind !== "ok") {
+    return fetched;
+  }
+
   try {
-    const response = await fetch(`${API_URL}${path}`, {
-      credentials: "include",
-    });
-
-    if (response.status === 401) {
-      notifyUnauthorized();
-      return { kind: "unauthorized", message: await errorMessageFrom(response) };
-    }
-
-    if (!response.ok) {
-      return { kind: "error", message: await errorMessageFrom(response) };
-    }
-
-    const blob = await response.blob();
-    downloadBlob(blob, response.headers.get("Content-Disposition"), fallbackFileName);
+    const blob = await fetched.response.blob();
+    downloadBlob(blob, fetched.response.headers.get("Content-Disposition"), fallbackFileName);
     return { kind: "ok" };
   } catch (err) {
     return { kind: "error", message: describeFetchError(err) };

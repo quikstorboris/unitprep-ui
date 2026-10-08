@@ -1,5 +1,4 @@
-import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
-import { notifyUnauthorized } from "@/lib/sessionExpiry";
+import { apiRequest, type ApiResult } from "@/lib/http";
 
 /**
  * Dropbox-folder-browsing API calls (`/dropbox/*`) -- kept in its own
@@ -11,31 +10,11 @@ import { notifyUnauthorized } from "@/lib/sessionExpiry";
 async function tryDropboxFetch<T>(
   path: string
 ): Promise<DropboxResult<T>> {
-  try {
-    const response = await fetch(`${API_URL}${path}`, {
-      credentials: "include",
-    });
-
-    if (response.status === 401) {
-      notifyUnauthorized();
-      return { kind: "unauthorized", message: await errorMessageFrom(response) };
-    }
-
-    if (!response.ok) {
-      return { kind: "error", message: await errorMessageFrom(response) };
-    }
-
-    return { kind: "ok", data: (await response.json()) as T };
-  } catch (err) {
-    return { kind: "error", message: describeFetchError(err) };
-  }
+  return apiRequest<T>("GET", path);
 }
 
-/** Same shape/reasoning as `lib/clientOps.ts`'s `ClientOpsResult`. */
-export type DropboxResult<T> =
-  | { kind: "ok"; data: T }
-  | { kind: "unauthorized"; message: string }
-  | { kind: "error"; message: string };
+/** The shared `ApiResult` under this domain's own name. */
+export type DropboxResult<T> = ApiResult<T>;
 
 /** Mirrors `FolderEntry` in `unitprep-api`'s `api::dropbox_browse`. */
 export interface DropboxEntry {

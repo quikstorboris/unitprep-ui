@@ -1,5 +1,4 @@
-import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
-import { notifyUnauthorized } from "@/lib/sessionExpiry";
+import { apiRequest, type ApiResult } from "@/lib/http";
 
 /**
  * Client-ops-domain API calls (`/client-ops/*`) -- kept in its own module
@@ -13,52 +12,15 @@ import { notifyUnauthorized } from "@/lib/sessionExpiry";
  */
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH";
 
-async function clientOpsFetch(
-  path: string,
-  body?: unknown,
-  method: HttpMethod = "POST"
-): Promise<Response> {
-  return fetch(`${API_URL}${path}`, {
-    method,
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-}
-
-/** Same shape/reasoning as `lib/auth.ts`'s `AuthResult`. */
-export type ClientOpsResult<T> =
-  | { kind: "ok"; data: T }
-  | { kind: "unauthorized"; message: string }
-  | { kind: "error"; message: string };
-
-async function parseClientOpsResult<T>(
-  response: Response
-): Promise<ClientOpsResult<T>> {
-  if (response.status === 401) {
-    notifyUnauthorized();
-    return { kind: "unauthorized", message: await errorMessageFrom(response) };
-  }
-
-  if (!response.ok) {
-    return { kind: "error", message: await errorMessageFrom(response) };
-  }
-
-  return { kind: "ok", data: (await response.json()) as T };
-}
+/** The shared `ApiResult` under this domain's own name. */
+export type ClientOpsResult<T> = ApiResult<T>;
 
 async function tryClientOpsFetch<T>(
   path: string,
   body?: unknown,
   method: HttpMethod = "POST"
 ): Promise<ClientOpsResult<T>> {
-  try {
-    return await parseClientOpsResult<T>(
-      await clientOpsFetch(path, body, method)
-    );
-  } catch (err) {
-    return { kind: "error", message: describeFetchError(err) };
-  }
+  return apiRequest<T>(method, path, body);
 }
 
 /** Mirrors `QmsTag` in `unitprep-api`'s `client_ops_qms_tags.rs`. */

@@ -1,5 +1,4 @@
-import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
-import { notifyUnauthorized } from "@/lib/sessionExpiry";
+import { apiRequest, type ApiResult } from "@/lib/http";
 
 /**
  * Shared fetch/parse plumbing for the admin-only Integrations settings
@@ -13,10 +12,8 @@ import { notifyUnauthorized } from "@/lib/sessionExpiry";
  */
 type HttpMethod = "GET" | "PUT";
 
-export type SettingsResult<T> =
-  | { kind: "ok"; data: T }
-  | { kind: "unauthorized"; message: string }
-  | { kind: "error"; message: string };
+/** The shared `ApiResult` under this domain's own name. */
+export type SettingsResult<T> = ApiResult<T>;
 
 /** Mirrors `dropbox_settings.rs`/`process_street_settings.rs`'s `ConfigSource` --
  * whether a value came from a saved database row or is falling back to
@@ -24,36 +21,10 @@ export type SettingsResult<T> =
  * `integrations::env_source`). */
 export type ConfigSource = "database" | "environment";
 
-async function settingsFetch(path: string, body: unknown, method: HttpMethod): Promise<Response> {
-  return fetch(`${API_URL}${path}`, {
-    method,
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-}
-
-async function parseSettingsResult<T>(response: Response): Promise<SettingsResult<T>> {
-  if (response.status === 401) {
-    notifyUnauthorized();
-    return { kind: "unauthorized", message: await errorMessageFrom(response) };
-  }
-
-  if (!response.ok) {
-    return { kind: "error", message: await errorMessageFrom(response) };
-  }
-
-  return { kind: "ok", data: (await response.json()) as T };
-}
-
 export async function trySettingsFetch<T>(
   path: string,
   body: unknown,
   method: HttpMethod
 ): Promise<SettingsResult<T>> {
-  try {
-    return await parseSettingsResult<T>(await settingsFetch(path, body, method));
-  } catch (err) {
-    return { kind: "error", message: describeFetchError(err) };
-  }
+  return apiRequest<T>(method, path, body);
 }

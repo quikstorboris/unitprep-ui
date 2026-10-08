@@ -1,6 +1,5 @@
-import { API_URL, describeFetchError } from "@/lib/api";
+import { apiRequest } from "@/lib/http";
 import {
-  parseAuthResult,
   tryAuthFetch,
   type AuthResult,
   type Role,
@@ -39,14 +38,7 @@ export function hasPermission(
  * ordinary "nobody is signed in" case, not a failure.
  */
 export async function whoAmI(): Promise<AuthResult<WhoAmI>> {
-  try {
-    const response = await fetch(`${API_URL}/health/whoami`, {
-      credentials: "include",
-    });
-    return await parseAuthResult<WhoAmI>(response);
-  } catch (err) {
-    return { kind: "error", message: describeFetchError(err) };
-  }
+  return apiRequest<WhoAmI>("GET", "/health/whoami");
 }
 
 /**

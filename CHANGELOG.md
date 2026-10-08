@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.70] - 2026-10-08
+
+Efficiency refactor chunk F1: one HTTP client. No visible change.
+
+### Changed
+- New `lib/http.ts`: `apiRequest(method, path, body?, { signal? })` returning one `ApiResult<T>` (`ok` / `unauthorized` / `error`; a 204 is success with no data; a 401 notifies the session-expiry listener), plus `apiFetch` for callers that need the raw `Response`. The five near-identical wrappers -- `auth-shared`, `clientsApi`, `clientOps`, `integrationSettings`, `dropbox` -- are now thin delegates, and their five separately declared result types are aliases of `ApiResult`. `whoAmI`, the Dedup file-requirements hook and the tool-run output download use it too. The duplicated fetch/401/error plumbing (about 190 lines across the five wrappers) is replaced by one 90-line module.
+- Header policy is now uniform: a JSON content type on every request that is not a plain GET (body or not), none on a bodyless GET. A bodyless POST such as sign-out or a re-sync used to go out without it from the `clients` wrappers; it now always carries `application/json`, which a cross-site HTML form cannot send without a CORS preflight. Plain GETs through the auth, client-ops and settings wrappers no longer send a content type (they never had a body).
+- Not migrated, deliberately: the multipart uploads and abortable tool-session calls in `useSessionPost`, `useSessionAction` and `useDiscoveryFlow` (form data, not JSON) and `cancelSession` (fire-and-forget with `keepalive`).
+- 10 new tests for `lib/http.ts`; two existing tests that pinned the old per-wrapper header differences were updated.
+
 ## [1.6.69] - 2026-10-08
 
 Dependency security update. No app code changed.

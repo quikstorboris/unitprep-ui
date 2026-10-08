@@ -1,4 +1,5 @@
-import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
+import { describeFetchError, errorMessageFrom } from "@/lib/api";
+import { apiFetch, apiRequest, parseApiResult, type ApiResult } from "@/lib/http";
 import { notifyUnauthorized } from "@/lib/sessionExpiry";
 
 /**
@@ -20,59 +21,27 @@ export async function authFetch(
   body?: unknown,
   method: HttpMethod = "POST"
 ): Promise<Response> {
-  return fetch(`${API_URL}${path}`, {
-    method,
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  return apiFetch(method, path, body);
 }
 
 /**
  * Structured result every function below returns, mirroring
  * `useSessionAction`'s `SessionActionResult` shape/reasoning: a caller
  * needs the outcome as a return value it can act on immediately, not a
- * state update that isn't visible until the next render.
- *
- * `unauthorized` carries the backend's own `message` rather than a bare
- * marker -- the Rust side deliberately crafts these to be exactly as
- * vague as anti-enumeration requires ("Could not sign in with that
- * address.", never "no such user" vs. "wrong passkey"). Re-wording that
- * in the frontend would mean the same fact -- what's safe to tell an
- * anonymous caller -- living in two places that could drift out of
- * agreement; reading the message the server already wrote keeps it in
- * one.
+ * state update that isn't visible until the next render. The shared
+ * `ApiResult` under this domain's own name -- its `unauthorized` carries
+ * the backend's own `message` (see `lib/http.ts`).
  */
-export type AuthResult<T> =
-  | { kind: "ok"; data: T }
-  | { kind: "unauthorized"; message: string }
-  | { kind: "error"; message: string };
+export type AuthResult<T> = ApiResult<T>;
 
-export async function parseAuthResult<T>(
-  response: Response
-): Promise<AuthResult<T>> {
-  if (response.status === 401) {
-    notifyUnauthorized();
-    return { kind: "unauthorized", message: await errorMessageFrom(response) };
-  }
-
-  if (!response.ok) {
-    return { kind: "error", message: await errorMessageFrom(response) };
-  }
-
-  return { kind: "ok", data: (await response.json()) as T };
-}
+export const parseAuthResult = parseApiResult;
 
 export async function tryAuthFetch<T>(
   path: string,
   body?: unknown,
   method: HttpMethod = "POST"
 ): Promise<AuthResult<T>> {
-  try {
-    return await parseAuthResult<T>(await authFetch(path, body, method));
-  } catch (err) {
-    return { kind: "error", message: describeFetchError(err) };
-  }
+  return apiRequest<T>(method, path, body);
 }
 
 /** Role keys are real, open-ended data now (`auth.roles`), not a closed

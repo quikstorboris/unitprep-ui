@@ -16,7 +16,7 @@ describe("trySettingsFetch", () => {
     vi.clearAllMocks();
   });
 
-  it("always sends credentials: include and a JSON content type, GET or PUT", async () => {
+  it("sends credentials: include, and no content type or body on a plain GET", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
@@ -26,11 +26,8 @@ describe("trySettingsFetch", () => {
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(`${API_URL}/integrations/dropbox/settings`);
-    expect(init).toMatchObject({
-      method: "GET",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-    });
+    expect(init).toMatchObject({ method: "GET", credentials: "include" });
+    expect(init.headers).toBeUndefined();
     expect(init.body).toBeUndefined();
   });
 

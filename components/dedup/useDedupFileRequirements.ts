@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
-import { notifyUnauthorized } from "@/lib/sessionExpiry";
+import { apiRequest } from "@/lib/http";
 import type { DedupFileRequirementsResponse } from "@/types/api";
 
 interface UseDedupFileRequirementsResult {
@@ -22,26 +21,20 @@ export function useDedupFileRequirements(): UseDedupFileRequirementsResult {
     const controller = new AbortController();
 
     const load = async () => {
-      try {
-        const response = await fetch(`${API_URL}/dedup/file-requirements`, {
-          credentials: "include",
-          signal: controller.signal,
-        });
+      const result = await apiRequest<DedupFileRequirementsResponse>(
+        "GET",
+        "/dedup/file-requirements",
+        undefined,
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted) return;
 
-        if (response.status === 401) notifyUnauthorized();
-
-        if (!response.ok) {
-          setError(await errorMessageFrom(response));
-          return;
-        }
-
-        setRequirements((await response.json()) as DedupFileRequirementsResponse);
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        setError(describeFetchError(err));
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
+      if (result.kind === "ok") {
+        setRequirements(result.data);
+      } else {
+        setError(result.message);
       }
+      setLoading(false);
     };
 
     void load();
