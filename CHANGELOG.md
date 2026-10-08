@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.73] - 2026-10-08
+
+Efficiency refactor chunk F5 (export pages): one export page for the Security Log and the Activity Log. No visible change.
+
+### Changed
+- New `components/audit/LogExportPage`: the date range, event-type and user filters, the live preview table, the export button(s) and the PDF download that the two export pages each carried as a near-copy (~590 lines between them). `security-logs/export/page.tsx` (327 -> ~75 lines) adds only its IP-address filter, its columns and its API calls; `activity-logs/export/page.tsx` (262 -> ~55) adds its columns and maps the shared user filter to `actorUserIds`.
+- A preview answer that arrives after a newer filter change is now ignored (it could previously overwrite the newer rows) via `useLatestRequest`.
+- 7 new tests (the pages had none): date range required before anything runs, the preview call and the row table, a truncated preview, no export while no event type is selected, export hands the file to the download helper with the fallback name, export and preview failures.
+- Not merged: the two list pages (`security-logs/page.tsx`, `activity-logs/page.tsx`); after the 2026-09-09 split they share the feed hook and the row pieces and differ in filters and columns, so a merged list page would be mostly parameters.
+
 ## [1.6.72] - 2026-10-08
 
 Efficiency refactor chunk F6 (first part): shared hooks and helpers. No visible change except that a copied-flag no longer lingers after leaving a page.
