@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.88] - 2026-10-08
+
+Efficiency refactor chunk F7e: the company-detail, facility-people and Elavon types are generated from the Rust structs. No behavior change.
+
+### Changed
+- `lib/clientsDetail/company.ts`, `people.ts` and `elavon.ts` now re-export ts-rs output (from `unitprep-api` v1.9.114) instead of hand-written interfaces: `FacilitySummary`, `OwnerInfo`, `ClickUpParentChange`, `FacilityPerson`, `PersonAssignment`, `MissingLegalOwner`, `LegalOwnerSource` and the Elavon party / financials / candidate / credentials types under their existing names, and `CompanyDetail`, `FacilityPeople` and `ElavonStatus` as aliases of `CompanyDetailResponse`, `FacilityPeopleResponse` and `ElavonStatusResponse`, so no importer changed. The generated shapes are identical to the ones they replace (`tsc` clean with no consumer edits).
+
 ## [1.6.87] - 2026-10-08
 
 Efficiency refactor chunk F7d: the facility and policy types are generated from the Rust structs. No behavior change.
