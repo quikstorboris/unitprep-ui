@@ -1,49 +1,14 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
-import { GeneralTab } from "@/components/facility/GeneralTab";
 import FacilityRail from "@/components/clients/FacilityRail";
 import FieldReferenceHelp from "@/components/clients/FieldReferenceHelp";
-import { getFacilityDetail, getFacilityPolicies, type FacilityDetail, type FacilityPolicies } from "@/lib/clientsDetail";
-
-function TabLoading() {
-  return <p className="text-sm text-slate-400">Loading…</p>;
-}
-
-// Only one tab renders at a time, so each non-default tab is its own
-// chunk, fetched when first opened. `GeneralTab` is the landing tab and
-// stays in the main bundle.
-const CoverageTab = dynamic(() => import("@/components/facility/CoverageTab").then((m) => m.CoverageTab), {
-  loading: () => <TabLoading />,
-});
-const DelinquencyTab = dynamic(() => import("@/components/facility/DelinquencyTab").then((m) => m.DelinquencyTab), {
-  loading: () => <TabLoading />,
-});
-const DropboxTab = dynamic(() => import("@/components/facility/DropboxTab").then((m) => m.DropboxTab), {
-  loading: () => <TabLoading />,
-});
-const ElavonTab = dynamic(() => import("@/components/facility/ElavonTab").then((m) => m.ElavonTab), {
-  loading: () => <TabLoading />,
-});
-const FeesTab = dynamic(() => import("@/components/facility/FeesTab").then((m) => m.FeesTab), {
-  loading: () => <TabLoading />,
-});
-const OnboardingWorkTab = dynamic(() => import("@/components/facility/OnboardingWorkTab").then((m) => m.OnboardingWorkTab), {
-  loading: () => <TabLoading />,
-});
-const SpecialsTab = dynamic(() => import("@/components/facility/SpecialsTab").then((m) => m.SpecialsTab), {
-  loading: () => <TabLoading />,
-});
-const TaxesTab = dynamic(() => import("@/components/facility/TaxesTab").then((m) => m.TaxesTab), {
-  loading: () => <TabLoading />,
-});
-const UsersTab = dynamic(() => import("@/components/facility/UsersTab").then((m) => m.UsersTab), {
-  loading: () => <TabLoading />,
-});
+import { FacilityTabBar, isTab, type Tab } from "@/components/facility/FacilityTabBar";
+import { FacilityTabContent } from "@/components/facility/FacilityTabContent";
+import { useFacilityPageData } from "@/components/facility/useFacilityPageData";
 
 /**
  * Facility page -- originally General | Users | DropBox | Elavon |
@@ -58,52 +23,16 @@ const UsersTab = dynamic(() => import("@/components/facility/UsersTab").then((m)
  * 2026-09-09: this page used to hold all nine tabs' JSX inline
  * (~2300 lines). Each tab is now its own component under
  * `components/facility/` -- this file is just the shell: tab-switch
- * state, the two facility-scoped fetches (`loadFacility`/
- * `loadPolicies`), and routing.
+ * state and routing. The facility-scoped fetches live in
+ * `useFacilityPageData`, the tab buttons in `FacilityTabBar` and the
+ * tab switch (with each tab's lazy chunk) in `FacilityTabContent`.
  */
-type Tab =
-  | "general"
-  | "users"
-  | "dropbox"
-  | "elavon"
-  | "fees"
-  | "taxes"
-  | "delinquency"
-  | "coverage"
-  | "specials"
-  | "onboarding_work";
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: "general", label: "General" },
-  { key: "users", label: "Users" },
-  { key: "dropbox", label: "DropBox" },
-  { key: "elavon", label: "Elavon" },
-  { key: "fees", label: "Fees" },
-  { key: "taxes", label: "Taxes" },
-  { key: "delinquency", label: "Delinquency" },
-  { key: "coverage", label: "Coverage" },
-  { key: "specials", label: "Specials" },
-  { key: "onboarding_work", label: "Onboarding Work" },
-];
-
-function tabButtonClass(active: boolean) {
-  return `rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-    active ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-  }`;
-}
-
-function isTab(value: string | null): value is Tab {
-  return TABS.some((t) => t.key === value);
-}
-
 export default function FacilityDetailPage() {
   const { clientId, facilityId } = useParams<{ clientId: string; facilityId: string }>();
   const searchParams = useSearchParams();
   const { company, loadError: companyLoadError } = useCompanyDetail();
+  const { facility, policies, loadError, loadFacility, loadPolicies } = useFacilityPageData(clientId, facilityId);
 
-  const [facility, setFacility] = useState<FacilityDetail | null>(null);
-  const [policies, setPolicies] = useState<FacilityPolicies | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
   // Seeded from `?tab=` when present (e.g. the Dedup completion screen's
   // "View in Onboarding Work" link) so that deep link actually lands on
   // the right tab instead of always defaulting to General -- read once
@@ -113,70 +42,6 @@ export default function FacilityDetailPage() {
     const requested = searchParams.get("tab");
     return isTab(requested) ? requested : "general";
   });
-
-  // Re-fetches just the policies -- passed to each split Fees/Taxes/
-  // Delinquency/Coverage/Specials tab as `onSaved`, so a save reflects
-  // its own (possibly just-flagged-exempt) fresh state immediately
-  // without a full page reload.
-  async function loadPolicies() {
-    const result = await getFacilityPolicies(clientId, facilityId);
-    if (result.kind !== "ok") {
-      setLoadError(result.message);
-      return;
-    }
-    setPolicies(result.data);
-  }
-
-  // Same idea as `loadPolicies` above, for the DropBox tab's own save.
-  async function loadFacility() {
-    const result = await getFacilityDetail(clientId, facilityId);
-    if (result.kind !== "ok") {
-      setLoadError(result.message);
-      return;
-    }
-    setFacility(result.data);
-  }
-
-  // Company data comes from the shared `CompanyDetailProvider` (fetched
-  // once per company, not per facility -- see that module's own doc
-  // comment). Only the facility-specific reads re-fetch here, on
-  // `facilityId` alone.
-  useEffect(() => {
-    let cancelled = false;
-
-    queueMicrotask(async () => {
-      // Reset here (inside the effect's async callback, not
-      // synchronously in the effect body) per the
-      // `react-hooks/set-state-in-effect` rule.
-      if (cancelled) return;
-      setFacility(null);
-      setPolicies(null);
-      setLoadError(null);
-
-      const [facilityResult, policiesResult] = await Promise.all([
-        getFacilityDetail(clientId, facilityId),
-        getFacilityPolicies(clientId, facilityId),
-      ]);
-
-      if (cancelled) return;
-      if (facilityResult.kind !== "ok") {
-        setLoadError(facilityResult.message);
-        return;
-      }
-      if (policiesResult.kind !== "ok") {
-        setLoadError(policiesResult.message);
-        return;
-      }
-
-      setLoadError(null);
-      setFacility(facilityResult.data);
-      setPolicies(policiesResult.data);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [clientId, facilityId]);
 
   const effectiveLoadError = companyLoadError ?? loadError;
 
@@ -220,46 +85,17 @@ export default function FacilityDetailPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {TABS.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setTab(t.key)}
-                  className={tabButtonClass(tab === t.key)}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            <FacilityTabBar tab={tab} onChange={setTab} />
 
-            {tab === "general" && <GeneralTab facility={facility} onChanged={loadFacility} />}
-            {tab === "fees" && (
-              <FeesTab companyId={clientId} facilityId={facilityId} policies={policies} onSaved={loadPolicies} />
-            )}
-            {tab === "taxes" && (
-              <TaxesTab companyId={clientId} facilityId={facilityId} policies={policies} onSaved={loadPolicies} />
-            )}
-            {tab === "delinquency" && (
-              <DelinquencyTab companyId={clientId} facilityId={facilityId} policies={policies} onSaved={loadPolicies} />
-            )}
-            {tab === "coverage" && (
-              <CoverageTab companyId={clientId} facilityId={facilityId} policies={policies} onSaved={loadPolicies} />
-            )}
-            {tab === "specials" && (
-              <SpecialsTab companyId={clientId} facilityId={facilityId} policies={policies} onSaved={loadPolicies} />
-            )}
-            {tab === "elavon" && <ElavonTab companyId={clientId} facilityId={facilityId} />}
-            {tab === "users" && <UsersTab companyId={clientId} facilityId={facilityId} />}
-            {tab === "dropbox" && (
-              <DropboxTab
-                companyId={clientId}
-                facilityId={facilityId}
-                dropboxFolderUrl={facility.dropbox_folder_url}
-                onSaved={loadFacility}
-              />
-            )}
-            {tab === "onboarding_work" && <OnboardingWorkTab companyId={clientId} facilityId={facilityId} />}
+            <FacilityTabContent
+              tab={tab}
+              companyId={clientId}
+              facilityId={facilityId}
+              facility={facility}
+              policies={policies}
+              loadFacility={loadFacility}
+              loadPolicies={loadPolicies}
+            />
           </div>
         )}
       </div>

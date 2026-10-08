@@ -8,6 +8,21 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.82] - 2026-10-08
+
+Efficiency refactor chunk F6 (remainder): facility page shell split. No behavior change.
+
+### Changed
+- `app/(app)/clients/[clientId]/facilities/[facilityId]/page.tsx` (268 -> 104 lines) is now just the shell. The two facility-scoped reads and the in-place `loadFacility`/`loadPolicies` refreshes moved to `components/facility/useFacilityPageData.ts`, the tab buttons to `FacilityTabBar.tsx`, and the tab switch with each tab's lazy chunk to `FacilityTabContent.tsx`.
+
+### Added
+- `page.test.tsx` for the facility page (10 tests; it had none): load, Loading state, error precedence, `?tab=` deep link, tab switching, policies-only and facility-only refresh without blanking the page, failed refresh, facility switch. Written against the old page first and green on both.
+
+### Decided (no change)
+- A shared `Tabs` component was not built: `nav/ClientTabs` and `nav/CompanyTabs` are route-driven links, the facility tabs are state-driven buttons.
+- The facility page's loads do NOT use `useAsyncResource`: its `refetch` drops back to "loading", which would blank the page after every save; these refreshes keep the old data on screen.
+- The `key={index}` sites are editable draft rows (Fees, Taxes, Delinquency, Coverage) and static lists with no stable id; an index key is correct there and changing it would risk input state.
+
 ## [1.6.81] - 2026-10-08
 
 Efficiency refactor chunk F8, part 8: `lib/fieldProvenance.ts` split by section. No behavior change.
