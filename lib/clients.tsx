@@ -4,6 +4,8 @@ import {
   createContext,
   useContext,
   useEffect,
+  useCallback,
+  useMemo,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -141,15 +143,17 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     loadFromBackend();
   }, []);
 
-  const value: ClientsContextValue = {
-    clients,
-    hydrated,
-    getClient: (id) => clients.find((c) => c.id === id),
-    refresh: () => {
-      fetchStarted = false;
-      return loadFromBackend();
-    },
-  };
+  const getClient = useCallback((id: string) => clients.find((c) => c.id === id), [clients]);
+
+  const refresh = useCallback(() => {
+    fetchStarted = false;
+    return loadFromBackend();
+  }, []);
+
+  const value = useMemo<ClientsContextValue>(
+    () => ({ clients, hydrated, getClient, refresh }),
+    [clients, hydrated, getClient, refresh],
+  );
 
   return <ClientsContext.Provider value={value}>{children}</ClientsContext.Provider>;
 }

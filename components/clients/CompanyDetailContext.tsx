@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { getCompanyDetail, type CompanyDetail } from "@/lib/clientsDetail";
 
@@ -55,13 +55,10 @@ export function CompanyDetailProvider({ companyId, children }: { companyId: stri
     };
   }, [companyId, generation]);
 
-  return (
-    <CompanyDetailContext.Provider
-      value={{ company, loadError, refetch: () => setGeneration((g) => g + 1) }}
-    >
-      {children}
-    </CompanyDetailContext.Provider>
-  );
+  const refetch = useCallback(() => setGeneration((g) => g + 1), []);
+  const value = useMemo(() => ({ company, loadError, refetch }), [company, loadError, refetch]);
+
+  return <CompanyDetailContext.Provider value={value}>{children}</CompanyDetailContext.Provider>;
 }
 
 export function useCompanyDetail(): CompanyDetailContextValue {

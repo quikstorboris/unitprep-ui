@@ -118,6 +118,7 @@ describe("cancelSession", () => {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: "s1" }),
+      keepalive: true,
     });
   });
 

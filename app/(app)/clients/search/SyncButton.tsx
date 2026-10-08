@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getSyncStatus, startSync, type SyncStatus } from "@/lib/clientsSearch";
 
@@ -25,54 +25,61 @@ const POLL_INTERVAL_MS = 1500;
 export default function SyncButton() {
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const aliveRef = useRef(true);
 
-  function stopPolling() {
-    if (pollRef.current !== null) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
+  // One status check, then -- only if a sync is still running and the tab
+  // is visible -- the next check, scheduled AFTER this response arrives. A
+  // fixed interval could start a second check before the first answered;
+  // this cannot overlap itself, and a hidden tab stops polling until it is
+  // shown again (see the visibilitychange listener below).
+  const pollOnce = useCallback(async function poll(): Promise<void> {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
-  }
 
-  async function pollOnce() {
     const result = await getSyncStatus();
+    if (!aliveRef.current) {
+      return;
+    }
     if (result.kind !== "ok") {
       // A transient fetch error while polling shouldn't blow away the
       // last-known progress -- just stop polling silently and let the
       // user retry with the button.
-      stopPolling();
       return;
     }
 
     setStatus(result.data);
-    if (result.data.state !== "running") {
-      stopPolling();
+    if (result.data.state === "running" && !document.hidden) {
+      timerRef.current = setTimeout(poll, POLL_INTERVAL_MS);
     }
-  }
-
-  function startPolling() {
-    stopPolling();
-    pollRef.current = setInterval(pollOnce, POLL_INTERVAL_MS);
-  }
-
-  useEffect(() => {
-    // Picks up a sync already in progress (the nightly task, or another
-    // browser tab's manual trigger) as soon as this page loads, not just
-    // ones this button itself starts.
-    queueMicrotask(async () => {
-      await pollOnce();
-    });
-
-    return stopPolling;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (status?.state === "running" && pollRef.current === null) {
-      startPolling();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status?.state]);
+    aliveRef.current = true;
+
+    // Picks up a sync already in progress (the nightly task, or another
+    // browser tab's manual trigger) as soon as this page loads, not just
+    // ones this button itself starts.
+    queueMicrotask(pollOnce);
+
+    const onVisible = () => {
+      if (!document.hidden) {
+        void pollOnce();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      aliveRef.current = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [pollOnce]);
 
   async function handleClick(force: boolean) {
     if (force) {

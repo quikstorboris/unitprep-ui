@@ -4,6 +4,8 @@ import {
   createContext,
   useContext,
   useEffect,
+  useCallback,
+  useMemo,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -134,26 +136,32 @@ export function CurrentUserProvider({
     refreshCurrentUser();
   }, []);
 
-  const signOut = async () => {
+  // Stable identities: the value below is a context value read by LeftNav,
+  // RequirePermission and most pages, so a fresh object on every render
+  // would re-render all of them whenever this provider does.
+  const signOut = useCallback(async () => {
     // Sign-out is idempotent and never fails from the caller's point of
     // view (see auth_logout.rs) -- commit clears the local user
     // regardless of what the network call actually returned.
     await logout();
     commit(null, true);
-  };
+  }, []);
 
-  const signOutEverywhere = async () => {
+  const signOutEverywhere = useCallback(async () => {
     await logoutEverywhere();
     commit(null, true);
-  };
+  }, []);
 
-  const value: CurrentUserContextValue = {
-    user,
-    checked: isChecked,
-    refresh: refreshCurrentUser,
-    signOut,
-    signOutEverywhere,
-  };
+  const value = useMemo<CurrentUserContextValue>(
+    () => ({
+      user,
+      checked: isChecked,
+      refresh: refreshCurrentUser,
+      signOut,
+      signOutEverywhere,
+    }),
+    [user, isChecked, signOut, signOutEverywhere],
+  );
 
   return (
     <CurrentUserContext.Provider value={value}>

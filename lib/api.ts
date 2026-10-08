@@ -129,5 +129,9 @@ export function cancelSession(
     body: JSON.stringify({
       session_id: sessionId,
     }),
+    // Usually called as the page is being left: keepalive lets the
+    // browser finish the request after the document is gone, where a
+    // plain fetch would be cancelled with it.
+    keepalive: true,
   }).catch(() => {});
 }

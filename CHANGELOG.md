@@ -8,6 +8,15 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.68] - 2026-10-08
+
+Efficiency refactor chunks F4 and F9: steadier context values, a polling loop that cannot overlap, and a cancel that survives leaving the page. No visible change.
+
+### Changed
+- The current-user, clients and company-detail providers hand out a memoized context value with stable `signOut` / `signOutEverywhere` / `getClient` / `refresh` / `refetch` functions, so a parent re-render no longer re-renders every consumer (the left nav, permission gates, pages). A test proves the company-detail value is the same object across an unchanged re-render.
+- `SyncButton` (Process Street "Sync Now"): the status poll is now self-scheduling -- the next check is scheduled after the previous one answers, so two checks can never overlap on a slow response -- it does not schedule while the tab is hidden and resumes on `visibilitychange`, and it stops on unmount. Four new tests (it had none; the page test mocks it). Two `eslint-disable exhaustive-deps` comments are gone.
+- `cancelSession` sends `keepalive: true`, so the request survives the page being closed or navigated away (it is called exactly then).
+
 ## [1.6.67] - 2026-10-07
 
 ClickUp Copy can also complete the destination tasks (opt-in). Needs `unitprep-api` 1.9.95.

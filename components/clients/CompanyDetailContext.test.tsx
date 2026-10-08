@@ -111,6 +111,35 @@ describe("CompanyDetailProvider / useCompanyDetail", () => {
     expect(getCompanyDetail).toHaveBeenCalledTimes(1);
   });
 
+  it("hands consumers the same context value across a re-render that changes nothing", async () => {
+    getCompanyDetail.mockResolvedValue({ kind: "ok", data: company() });
+    const { CompanyDetailProvider, useCompanyDetail } = await freshModule();
+    const seen: unknown[] = [];
+    function Probe() {
+      seen.push(useCompanyDetail());
+      return null;
+    }
+
+    const { rerender } = render(
+      <CompanyDetailProvider companyId="company-1">
+        <Probe />
+      </CompanyDetailProvider>
+    );
+    await waitFor(() => expect(getCompanyDetail).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect((seen.at(-1) as { company: unknown }).company).not.toBeNull());
+    const settled = seen.at(-1);
+
+    // A parent re-render with identical props: the memoized value (and its
+    // `refetch`) must be the very same objects, so consumers do not re-render.
+    rerender(
+      <CompanyDetailProvider companyId="company-1">
+        <Probe />
+      </CompanyDetailProvider>
+    );
+
+    expect(seen.at(-1)).toBe(settled);
+  });
+
   it("refetches when companyId changes", async () => {
     getCompanyDetail.mockResolvedValueOnce({ kind: "ok", data: company({ legal_name: "Prairie Enterprises LLC" }) });
     const { CompanyDetailProvider, useCompanyDetail } = await freshModule();
