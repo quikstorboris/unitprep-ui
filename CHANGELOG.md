@@ -8,6 +8,14 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.85] - 2026-10-08
+
+Efficiency refactor chunk F7c: the dedup file-classification types are generated from the Rust structs. No behavior change.
+
+### Changed
+- `DedupFileClassification`, `DedupClassifyResponse`, `DedupClassifyFileInput` and `DedupFileRequirementsResponse` are now aliases of the ts-rs output (`ClassifiedFileView`, `ClassifyResponse`, `ClassifyFileInput`, `FileRequirementsResponse`, plus `SuggestionView`, `RequirementVendor`, `RequirementFormat`, `FileRole`, `FileStatus`) from `unitprep-api` v1.9.110, so none of the seven importing files changed.
+- `closest_vendor` and `missing_headers` are now required (the backend always sends them; they were optional only "so this UI also works against an API that predates the field"). The shared test fixture sets them.
+
 ## [1.6.84] - 2026-10-08
 
 Efficiency refactor chunk F7b: the Template Tagger types are generated from the Rust structs. No behavior change.

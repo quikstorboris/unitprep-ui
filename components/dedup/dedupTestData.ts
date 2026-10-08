@@ -19,6 +19,8 @@ export function classified(
     report_name: "Directory",
     role: "primary",
     selection_priority: 1,
+    closest_vendor: null,
+    missing_headers: [],
     ...overrides,
   };
 }
