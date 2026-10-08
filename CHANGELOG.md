@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.69] - 2026-10-08
+
+Dependency security update. No app code changed.
+
+### Changed
+- `next` 16.3.6 -> 16.4.0 (lockfile only, via `npm audit fix`) for six advisories published 2026-10-08 against 16.0.0-16.3.7 (information disclosure in App Router metadata image routes, cache poisoning in SSG/ISR, SSRF in Image Optimization, and others). They failed the pre-push `npm audit` gate; the only advisory the gate still allows is the unfixable dev-only `braces` one. tsc, eslint, 946 tests and `next build` pass.
+
 ## [1.6.68] - 2026-10-08
 
 Efficiency refactor chunks F4 and F9: steadier context values, a polling loop that cannot overlap, and a cancel that survives leaving the page. No visible change.
