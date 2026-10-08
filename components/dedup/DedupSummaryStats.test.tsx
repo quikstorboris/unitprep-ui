@@ -12,6 +12,8 @@ function baseReport(overrides: Partial<DedupReportView> = {}): DedupReportView {
     flagged_groups: [],
     typo_variant_candidates: [],
     related_tenant_candidates: [],
+    duplicate_customer_records: [],
+    unidentified: null,
     ...overrides,
   };
 }

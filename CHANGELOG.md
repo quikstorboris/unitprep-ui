@@ -8,6 +8,18 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.83] - 2026-10-08
+
+Efficiency refactor chunk F7a: the dedup report view types are generated from the Rust structs. No behavior change.
+
+### Changed
+- `DedupCheckResponse`, `DedupReportView`, `FlaggedGroupView`, `BulletView`, `TypoVariantView`, the related-tenant, duplicate-customer-record and unidentified views, and the `FieldCategory` / `FieldName` / `RelatednessSignal` / `UnidentifiedMode` unions are now ts-rs output in `types/generated/` (from `unitprep-api` v1.9.107), re-exported through `types/api.ts` so no importer changed. About 180 lines of hand-mirrored types are gone.
+- `DuplicateCustomerRecordTenantView` is now the Rust name, `DuplicateTenantView` (one component).
+- Three test fixtures gained `duplicate_customer_records: []` and `unidentified: null`, which the generated type requires.
+
+### Fixed
+- The hand-written `FieldName` union included `PhoneNumberPrefix` and `AltContactPhoneNumberPrefix`, which the backend never sends; the generated union does not.
+
 ## [1.6.82] - 2026-10-08
 
 Efficiency refactor chunk F6 (remainder): facility page shell split. No behavior change.

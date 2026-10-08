@@ -1,6 +1,6 @@
 import { formatUnits } from "@/lib/format";
 import type {
-  DuplicateCustomerRecordTenantView,
+  DuplicateTenantView,
   DuplicateCustomerRecordView,
   FieldCategory,
 } from "@/types/api";
@@ -19,7 +19,7 @@ const CATEGORY_LABELS: Record<FieldCategory, string> = {
   Name: "name",
 };
 
-function tenantPhrase(tenant: DuplicateCustomerRecordTenantView): string {
+function tenantPhrase(tenant: DuplicateTenantView): string {
   return tenant.units.length === 0
     ? `ID ${tenant.tenant_id}`
     : `ID ${tenant.tenant_id} — ${formatUnits(tenant.units)}`;

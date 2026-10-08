@@ -14,9 +14,13 @@ removal broke at runtime, not at compile time). These specific types —
 `AnalyzeResponse`, and everything they're built from — are now
 generated straight from the struct definitions, so a backend field
 rename shows up as a TypeScript error here the moment you regenerate,
-not as a runtime surprise later. The rest of `types/api.ts` (dedup,
-tagger, and other response shapes) is still hand-mirrored the old way —
-extending this to them is a separate, mechanical follow-up.
+not as a runtime surprise later. The dedup report views
+(`DedupCheckResponse`, `DedupReportView` and the types under it) were
+added the same way (2026-10-08, refactor chunk F7a). The rest of
+`types/api.ts` (dedup file classification, tagger, tool-run summaries
+and other response shapes) is still hand-mirrored the old way —
+extending this to them is a separate, mechanical follow-up, one domain
+at a time.
 
 ## Regenerating
 
