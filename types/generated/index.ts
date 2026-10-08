@@ -32,3 +32,8 @@ export type { UnidentifiedTenantView } from "./UnidentifiedTenantView";
 export type { UnidentifiedView } from "./UnidentifiedView";
 export type { DedupReportView } from "./DedupReportView";
 export type { DedupCheckResponse } from "./DedupCheckResponse";
+export type { RegionView } from "./RegionView";
+export type { TierView } from "./TierView";
+export type { CandidateView } from "./CandidateView";
+export type { TaggerCheckResponse } from "./TaggerCheckResponse";
+export type { ConfirmedSubstitution } from "./ConfirmedSubstitution";

@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.84] - 2026-10-08
+
+Efficiency refactor chunk F7b: the Template Tagger types are generated from the Rust structs. No behavior change.
+
+### Changed
+- `TaggerCheckResponse`, `CandidateView`, `RegionView`, `TierView` and `ConfirmedSubstitution` are now ts-rs output in `types/generated/` (from `unitprep-api` v1.9.109), re-exported through `types/api.ts` so no importer changed. The generated shapes are identical to the hand-written ones they replace.
+
 ## [1.6.83] - 2026-10-08
 
 Efficiency refactor chunk F7a: the dedup report view types are generated from the Rust structs. No behavior change.
