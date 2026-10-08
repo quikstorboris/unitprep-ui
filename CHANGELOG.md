@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.87] - 2026-10-08
+
+Efficiency refactor chunk F7d: the facility and policy types are generated from the Rust structs. No behavior change.
+
+### Changed
+- `FacilityDetail`, `FacilityPolicies` and the policy row types in `lib/clientsDetail/facility.ts` and `policies.ts` are now ts-rs output (from `unitprep-api` v1.9.113), re-exported with the UI's existing names (`FacilityDetail = FacilityDetailResponse`, `TaxEntry = TaxEntryRow`, `DelinquencyEntry = DelinquencyEntryRow`, `FacilityPolicies = FacilityPoliciesResponse`), so no importer changed. The generated shapes are identical to the hand-written ones they replace.
+
 ## [1.6.86] - 2026-10-08
 
 Refactor chunk G1a (UI side): the new `integration_settings_updated` security event appears under the Security Logs "Permissions & Roles" preset. It (and the Activity Logs' new `activity_log_exported`) were already offered in the event filter dropdowns, which are served by the backend (`unitprep-api` v1.9.111).
