@@ -38,7 +38,7 @@ const linked = {
   last_synced_at: null,
   parties: [],
   financials: {},
-  qms_credentials: { account_id: "A-1", user_id: "U-1", pin_password: "s3cret-pin" },
+  qms_credentials: { account_id: "A-1", user_id: "U-1", pin_password: "pin-one" },
   pinpad_credentials: { pinpad_user_id: "P-1", qss_api_pin: "9999" },
 } as unknown as ElavonStatus;
 
@@ -85,9 +85,9 @@ describe("ElavonTab", () => {
     render(<ElavonTab companyId="c1" facilityId="f1" />);
 
     await screen.findByText("A-1");
-    expect(screen.queryByText("s3cret-pin")).not.toBeInTheDocument();
+    expect(screen.queryByText("pin-one")).not.toBeInTheDocument();
     await userEvent.click(screen.getAllByRole("button", { name: "Show" })[0]);
-    expect(screen.getByText("s3cret-pin")).toBeInTheDocument();
+    expect(screen.getByText("pin-one")).toBeInTheDocument();
   });
 
   it("asks for confirmation before unlinking, and Cancel backs out", async () => {
