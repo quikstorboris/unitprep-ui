@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.79] - 2026-10-08
+
+Efficiency refactor chunk F8, part 6: `useDiscoveryFlow` split. No behavior change.
+
+### Changed
+- `components/unit-groups/useDiscoveryFlow.ts` (480 -> 181 lines) keeps only the orchestration. The reducer/state moved to `discoveryFlowState.ts` and the three requests (Dropbox import, local upload with its supported-extension filter, discover) to `discoveryRequests.ts`, which removes the two near-identical inline upload branches. Covered by the existing 574-line `useDiscoveryFlow.test.ts`, unchanged.
+
 ## [1.6.78] - 2026-10-08
 
 Efficiency refactor chunk F8, part 5: `TaggerResultsPage` split. No behavior change.
