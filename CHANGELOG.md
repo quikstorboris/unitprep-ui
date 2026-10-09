@@ -8,6 +8,22 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.91] - 2026-10-09
+
+TOTP step-up prompt: a sign-in from an unseen browser and network can now actually be completed.
+
+### Fixed
+- **Locked-out sign-ins.** When an account that has an authenticator app signs in from BOTH a browser and a network it has not used before, the backend lets the sign-in succeed but refuses every request except `/health/whoami` and `/auth/totp/step-up` until a current code is entered (`unitprep-api` `auth_login::assess_login_risk`, `AuthenticatedUser`). The UI never built the prompt: `totpStepUp()` had no caller and nothing read `step_up_required`, so the app loaded and every request failed with a 403 and no place to type the code (a new laptop on a new network would hit exactly this).
+
+### Added
+- `components/auth/StepUpPrompt.tsx`: explains why it is asking, takes the 6-digit code (trimmed), shows the server's message for a wrong code (including lockouts), offers **Sign out** as the way out (logout is not blocked while a step-up is pending), and on success refreshes the current user.
+- `app/(app)/layout.tsx` renders the prompt in place of the signed-in shell while `user.step_up_required` is true, so nothing underneath fires requests that are certain to be refused. `WhoAmI` gains `step_up_required` (the backend always sent it).
+- Tests: 4 for the prompt, 2 for the layout gate (mutation-checked: removing the gate fails both), and the three `WhoAmI` fixtures gained the field.
+
+### Notes
+- Not driven in a real browser: sign-in is passkey-only, and reaching this state needs a real second network and browser for a TOTP-enrolled account. It is covered by component tests and by the backend's own step-up tests.
+- The account page has no "add a passkey" UI, so the other step-up path (`ADD_PASSKEY`) has no equivalent gap.
+
 ## [1.6.90] - 2026-10-08
 
 Efficiency refactor chunk F7f: the company-list, resync, manual-link, directory, client-import, search, onboarding-summary and a few auth/settings types are generated from the Rust structs. No behavior change.

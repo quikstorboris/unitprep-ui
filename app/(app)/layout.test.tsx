@@ -20,6 +20,15 @@ vi.mock("@/lib/clients", () => ({
   ),
 }));
 
+vi.mock("@/components/auth/StepUpPrompt", () => ({
+  default: ({ onVerified, onSignOut }: { onVerified: () => void; onSignOut: () => void }) => (
+    <div data-testid="step-up">
+      <button onClick={onVerified}>verified</button>
+      <button onClick={onSignOut}>leave</button>
+    </div>
+  ),
+}));
+
 vi.mock("@/components/nav/LeftNav", () => ({
   default: () => <nav data-testid="left-nav" />,
 }));
@@ -93,5 +102,50 @@ describe("AppLayout", () => {
 
     expect(screen.queryByTestId("page-content")).not.toBeInTheDocument();
     expect(replace).toHaveBeenCalledWith("/login");
+  });
+
+  // The login-time step-up gate: a session from an unseen browser AND
+  // network can call nothing but whoami and the step-up endpoint, so the
+  // shell (and every fetch its children would start) must not mount.
+  it("shows the step-up prompt, not the shell, while the session is pending step-up", () => {
+    useCurrentUser.mockReturnValue({
+      user: { user_id: "u1", roles: ["admin"], permissions: [], totp_enrolled: true, step_up_required: true },
+      checked: true,
+      refresh: vi.fn(),
+      signOut: vi.fn(),
+    });
+
+    render(
+      <AppLayout>
+        <div data-testid="page-content">admin page</div>
+      </AppLayout>,
+    );
+
+    expect(screen.getByTestId("step-up")).toBeInTheDocument();
+    expect(screen.queryByTestId("page-content")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("left-nav")).not.toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("hands the prompt the provider's refresh and sign-out", async () => {
+    const refresh = vi.fn();
+    const signOut = vi.fn();
+    useCurrentUser.mockReturnValue({
+      user: { user_id: "u1", roles: ["admin"], permissions: [], totp_enrolled: true, step_up_required: true },
+      checked: true,
+      refresh,
+      signOut,
+    });
+
+    render(
+      <AppLayout>
+        <div />
+      </AppLayout>,
+    );
+
+    screen.getByText("verified").click();
+    screen.getByText("leave").click();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(signOut).toHaveBeenCalledTimes(1);
   });
 });

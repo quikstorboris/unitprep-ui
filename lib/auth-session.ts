@@ -19,6 +19,9 @@ export interface WhoAmI {
    * the backend already owns. */
   permissions: string[];
   totp_enrolled: boolean;
+  /** The session signed in from an unseen browser AND network: every request except this one and
+   * `totpStepUp` is refused until an authenticator code clears it (see `StepUpPrompt`). */
+  step_up_required: boolean;
 }
 
 /** Whether `user` currently holds `permissionKey`, per the backend's own

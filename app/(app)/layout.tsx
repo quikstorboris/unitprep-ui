@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+import StepUpPrompt from "@/components/auth/StepUpPrompt";
 import LeftNav from "@/components/nav/LeftNav";
 import { ClientsProvider } from "@/lib/clients";
 import { useCurrentUser } from "@/lib/currentUser";
@@ -19,7 +20,7 @@ export default function AppLayout({
   children: React.ReactNode;
 }>) {
   const router = useRouter();
-  const { user, checked } = useCurrentUser();
+  const { user, checked, refresh, signOut } = useCurrentUser();
 
   // proxy.ts only checks that a session cookie is *present*, not that it
   // still resolves server-side -- deliberately, per its own doc comment,
@@ -41,6 +42,12 @@ export default function AppLayout({
   // per-page, so a new page added under this group gets the guard for
   // free.
   const needsTotpOnboarding = checked && !!user && !user.totp_enrolled;
+
+  // Signed in, but from a browser and network this account has not used
+  // before: the backend refuses everything but the step-up call until an
+  // authenticator code clears it. Rendered in place of the shell (not as
+  // a redirect) so nothing underneath fires requests that would all 403.
+  const needsStepUp = checked && !!user && user.totp_enrolled && user.step_up_required;
 
   useEffect(() => {
     if (isSignedOut) {
@@ -66,6 +73,10 @@ export default function AppLayout({
         <p className="text-sm text-slate-400">Checking your session…</p>
       </div>
     );
+  }
+
+  if (needsStepUp) {
+    return <StepUpPrompt onVerified={refresh} onSignOut={signOut} />;
   }
 
   return (

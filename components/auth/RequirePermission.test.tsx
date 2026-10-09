@@ -21,6 +21,7 @@ function user(permissions: string[]): WhoAmI {
     roles: ["admin"],
     permissions,
     totp_enrolled: true,
+    step_up_required: false,
   };
 }
 

@@ -25,6 +25,7 @@ function user(overrides: Partial<WhoAmI> = {}): WhoAmI {
     roles: ["onboarding_manager"],
     permissions: ["client_ops.perform"],
     totp_enrolled: true,
+    step_up_required: false,
     ...overrides,
   };
 }
