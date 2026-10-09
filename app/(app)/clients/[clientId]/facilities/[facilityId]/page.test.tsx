@@ -133,6 +133,28 @@ describe("FacilityDetailPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("refresh failed");
   });
 
+  it("ignores a refresh answer that arrives after the facility changed", async () => {
+    const { rerender } = render(<FacilityDetailPage />);
+    await screen.findByRole("heading", { name: "Highway 20" });
+
+    let release!: (value: unknown) => void;
+    m.getFacilityDetail.mockImplementationOnce(
+      () => new Promise((resolve) => { release = resolve; })
+    );
+    await userEvent.click(screen.getByText("general-tab"));
+
+    m.params = { clientId: "c1", facilityId: "f2" };
+    m.getFacilityDetail.mockResolvedValue(ok({ name: "Main St", dropbox_folder_url: null }));
+    rerender(<FacilityDetailPage />);
+    await screen.findByRole("heading", { name: "Main St" });
+
+    release(ok({ name: "STALE Highway 20", dropbox_folder_url: null }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(screen.getByRole("heading", { name: "Main St" })).toBeInTheDocument();
+    expect(screen.queryByText("STALE Highway 20")).not.toBeInTheDocument();
+  });
+
   it("reloads when the facility changes, going back to Loading in between", async () => {
     const { rerender } = render(<FacilityDetailPage />);
     await screen.findByRole("heading", { name: "Highway 20" });

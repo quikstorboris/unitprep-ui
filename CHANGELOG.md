@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.89] - 2026-10-08
+
+Fix: a facility refresh that finishes after you switched facilities no longer lands on the new facility's page.
+
+### Fixed
+- `useFacilityPageData`: the in-place `loadFacility` / `loadPolicies` refreshes (run after a save) now check, once their request answers, that the page is still showing the facility they were started for, and drop the answer otherwise. Before, saving on one facility and quickly opening another could show the first facility's data (or a stale error) on the second. Regression test added to the facility page tests; it fails with the guard removed.
+
 ## [1.6.88] - 2026-10-08
 
 Efficiency refactor chunk F7e: the company-detail, facility-people and Elavon types are generated from the Rust structs. No behavior change.

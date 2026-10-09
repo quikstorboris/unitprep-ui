@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   getFacilityDetail,
@@ -25,12 +25,23 @@ export function useFacilityPageData(clientId: string, facilityId: string) {
   const [policies, setPolicies] = useState<FacilityPolicies | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Which facility the page is showing right now, readable from an
+  // in-flight refresh after an `await` (state would be stale in its closure).
+  const activeKey = useRef(`${clientId}/${facilityId}`);
+  useEffect(() => {
+    activeKey.current = `${clientId}/${facilityId}`;
+  }, [clientId, facilityId]);
+
   // Re-fetches just the policies -- passed to each split Fees/Taxes/
   // Delinquency/Coverage/Specials tab as `onSaved`, so a save reflects
   // its own (possibly just-flagged-exempt) fresh state immediately
   // without a full page reload.
   async function loadPolicies() {
+    const key = `${clientId}/${facilityId}`;
     const result = await getFacilityPolicies(clientId, facilityId);
+    // The reviewer may have switched facilities while this was in flight:
+    // an answer for the old one must not land on the new one's page.
+    if (activeKey.current !== key) return;
     if (result.kind !== "ok") {
       setLoadError(result.message);
       return;
@@ -40,7 +51,9 @@ export function useFacilityPageData(clientId: string, facilityId: string) {
 
   // Same idea as `loadPolicies` above, for the General/DropBox tabs' own save.
   async function loadFacility() {
+    const key = `${clientId}/${facilityId}`;
     const result = await getFacilityDetail(clientId, facilityId);
+    if (activeKey.current !== key) return;
     if (result.kind !== "ok") {
       setLoadError(result.message);
       return;
