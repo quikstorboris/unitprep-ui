@@ -3,18 +3,18 @@
 import { useEffect, useState } from "react";
 
 import {
-  getDuplicateCheckTasks,
-  postDuplicateCheckResults,
-  type DuplicateCheckTasks,
-  type PostedDuplicateCheck,
+  getRunUpdateTasks,
+  postRunUpdate,
+  type RunUpdateTasks,
+  type PostedRunUpdate,
   type StepOutcome,
-} from "@/lib/clickupDuplicateCheck";
+} from "@/lib/clickupRunUpdate";
 import { useClickUpAccess } from "./useClickUpAccess";
 
-interface ClickUpDuplicateCheckPanelProps {
+interface ClickUpRunUpdatePanelProps {
   companyId: string;
   facilityId: string;
-  /** The dedup session being posted. */
+  /** The run's session (or row) id being posted. */
   sessionId: string;
   /** Whether its summary file has been saved to Dropbox. The lookup is
    * redone when this flips, so the panel always knows whether the comment
@@ -28,7 +28,7 @@ interface ClickUpDuplicateCheckPanelProps {
 type Lookup =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; tasks: DuplicateCheckTasks };
+  | { kind: "ready"; tasks: RunUpdateTasks };
 
 const linkClass = "text-blue-400 hover:underline";
 
@@ -41,7 +41,7 @@ function OutcomeLine({ label, outcome }: { label: string; outcome: StepOutcome }
   );
 }
 
-function PostedSummary({ posted }: { posted: PostedDuplicateCheck }) {
+function PostedSummary({ posted }: { posted: PostedRunUpdate }) {
   const allDone = [posted.comment, posted.assignee, posted.status].every((o) => o === null || o.ok);
 
   return (
@@ -76,34 +76,36 @@ function PostedSummary({ posted }: { posted: PostedDuplicateCheck }) {
 }
 
 /**
- * Shown after a duplicate check's summary file is saved to the facility's
- * Dropbox folder: finds the facility's ClickUp task for this check (the
- * 1st or the 2nd) and asks whether to update it. The candidates always
+ * Shown after a run's results file is saved to the facility's Dropbox
+ * folder (or on demand from the Onboarding Work tab): finds the
+ * facility's ClickUp task for this run -- the 1st or 2nd duplicate check,
+ * Unit Groups, the Template Tagger; the server knows which -- and asks
+ * whether to update it. The candidates always
  * appear as a list to confirm -- even a single match -- because a wrong
  * silent match would write to the wrong task under the user's name. With
  * several, the person must pick one (nothing is pre-selected).
  */
-export default function ClickUpDuplicateCheckPanel({
+export default function ClickUpRunUpdatePanel({
   companyId,
   facilityId,
   sessionId,
   fileSavedToDropbox,
   onDismiss,
-}: ClickUpDuplicateCheckPanelProps) {
+}: ClickUpRunUpdatePanelProps) {
   const access = useClickUpAccess();
 
   const [lookup, setLookup] = useState<Lookup>({ kind: "loading" });
   const [selected, setSelected] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
-  const [posted, setPosted] = useState<PostedDuplicateCheck | null>(null);
+  const [posted, setPosted] = useState<PostedRunUpdate | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     if (!access.allowed) return;
 
     let cancelled = false;
-    getDuplicateCheckTasks(companyId, facilityId, sessionId).then((result) => {
+    getRunUpdateTasks(companyId, facilityId, sessionId).then((result) => {
       if (cancelled) return;
 
       if (result.kind !== "ok") {
@@ -128,7 +130,7 @@ export default function ClickUpDuplicateCheckPanel({
 
     setPostError(null);
     setPosting(true);
-    const result = await postDuplicateCheckResults(companyId, facilityId, sessionId, selected);
+    const result = await postRunUpdate(companyId, facilityId, sessionId, selected);
     setPosting(false);
 
     if (result.kind !== "ok") {
@@ -144,7 +146,7 @@ export default function ClickUpDuplicateCheckPanel({
       <h2 className="mb-3 text-lg font-semibold">Update ClickUp</h2>
 
       {lookup.kind === "loading" && (
-        <div className="text-sm text-slate-400">Looking for this check&apos;s task in ClickUp…</div>
+        <div className="text-sm text-slate-400">Looking for this run&apos;s task in ClickUp…</div>
       )}
 
       {lookup.kind === "error" && (

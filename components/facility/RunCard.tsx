@@ -3,7 +3,7 @@
 import { formatDateTime } from "@/lib/format";
 import { useState } from "react";
 
-import ClickUpDuplicateCheckPanel from "@/components/clickup/ClickUpDuplicateCheckPanel";
+import ClickUpRunUpdatePanel from "@/components/clickup/ClickUpRunUpdatePanel";
 import { DedupRunDetails } from "@/components/facility/DedupRunDetails";
 import {
   canUpdateClickUp,
@@ -105,7 +105,7 @@ export function RunCard({
           </div>
 
           {clickUpOpen && canUpdateClickUp(run) && (
-            <ClickUpDuplicateCheckPanel
+            <ClickUpRunUpdatePanel
               companyId={companyId}
               facilityId={facilityId}
               sessionId={run.id}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-import ClickUpDuplicateCheckPanel from "./clickup/ClickUpDuplicateCheckPanel";
+import ClickUpRunUpdatePanel from "./clickup/ClickUpRunUpdatePanel";
 import { useClickUpAccess } from "./clickup/useClickUpAccess";
 import DedupSummaryStats from "./dedup/DedupSummaryStats";
 import FlaggedGroupsSection from "./dedup/FlaggedGroupsSection";
@@ -20,7 +20,7 @@ import DropboxSaveAction from "./dedup/DropboxSaveAction";
 import ExportProgress from "./dedup/ExportProgress";
 import { FORMAT_OPTIONS } from "./dedup/exportFormats";
 import SessionExpiredPage from "./SessionExpiredPage";
-import { prefetchDuplicateCheckTasks } from "@/lib/clickupDuplicateCheck";
+import { prefetchRunUpdateTasks } from "@/lib/clickupRunUpdate";
 import { formatElapsed } from "@/lib/useAbortableOperation";
 import type { DedupExportFormat } from "@/types/api";
 
@@ -87,7 +87,7 @@ export default function DedupResultsPage({
   // the results, so the ClickUp panel opens instantly later.
   const clickUpAllowed = clickUpAccess.allowed;
   useEffect(() => {
-    if (clickUpAllowed) void prefetchDuplicateCheckTasks(clientId, facilityId);
+    if (clickUpAllowed) void prefetchRunUpdateTasks(clientId, facilityId);
   }, [clickUpAllowed, clientId, facilityId]);
 
   // The user's latest choice for tenants without a customer id replaces
@@ -417,7 +417,7 @@ export default function DedupResultsPage({
 
       {(clickUpRequested || completed) && (
         <div className="mt-6">
-          <ClickUpDuplicateCheckPanel
+          <ClickUpRunUpdatePanel
             companyId={clientId}
             facilityId={facilityId}
             sessionId={sessionId}

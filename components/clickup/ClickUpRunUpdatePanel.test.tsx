@@ -2,20 +2,20 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { DuplicateCheckTaskCandidate, DuplicateCheckTasks } from "@/lib/clickupDuplicateCheck";
+import type { RunUpdateTaskCandidate, RunUpdateTasks } from "@/lib/clickupRunUpdate";
 
-const { useClickUpAccess, getDuplicateCheckTasks, postDuplicateCheckResults } = vi.hoisted(() => ({
+const { useClickUpAccess, getRunUpdateTasks, postRunUpdate } = vi.hoisted(() => ({
   useClickUpAccess: vi.fn(),
-  getDuplicateCheckTasks: vi.fn(),
-  postDuplicateCheckResults: vi.fn(),
+  getRunUpdateTasks: vi.fn(),
+  postRunUpdate: vi.fn(),
 }));
 
 vi.mock("./useClickUpAccess", () => ({ useClickUpAccess }));
-vi.mock("@/lib/clickupDuplicateCheck", () => ({ getDuplicateCheckTasks, postDuplicateCheckResults }));
+vi.mock("@/lib/clickupRunUpdate", () => ({ getRunUpdateTasks, postRunUpdate }));
 
-import ClickUpDuplicateCheckPanel from "./ClickUpDuplicateCheckPanel";
+import ClickUpRunUpdatePanel from "./ClickUpRunUpdatePanel";
 
-function candidate(overrides: Partial<DuplicateCheckTaskCandidate> = {}): DuplicateCheckTaskCandidate {
+function candidate(overrides: Partial<RunUpdateTaskCandidate> = {}): RunUpdateTaskCandidate {
   return {
     task_id: "c1",
     name: "COMPLETE Duplicate Tenant Corrections",
@@ -30,9 +30,9 @@ function candidate(overrides: Partial<DuplicateCheckTaskCandidate> = {}): Duplic
 }
 
 function tasks(
-  candidates: DuplicateCheckTaskCandidate[],
-  overrides: Partial<DuplicateCheckTasks> = {}
-): DuplicateCheckTasks {
+  candidates: RunUpdateTaskCandidate[],
+  overrides: Partial<RunUpdateTasks> = {}
+): RunUpdateTasks {
   return {
     step_label: "1st Duplicate Check",
     sequence_number: 1,
@@ -49,7 +49,7 @@ const ok = { ok: true, message: null };
 
 function renderPanel(fileSavedToDropbox = true) {
   return render(
-    <ClickUpDuplicateCheckPanel
+    <ClickUpRunUpdatePanel
       companyId="co"
       facilityId="fa"
       sessionId="se"
@@ -58,7 +58,7 @@ function renderPanel(fileSavedToDropbox = true) {
   );
 }
 
-describe("ClickUpDuplicateCheckPanel", () => {
+describe("ClickUpRunUpdatePanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useClickUpAccess.mockReturnValue({ allowed: true });
@@ -69,22 +69,22 @@ describe("ClickUpDuplicateCheckPanel", () => {
     const { container } = renderPanel();
 
     expect(container).toBeEmptyDOMElement();
-    expect(getDuplicateCheckTasks).not.toHaveBeenCalled();
+    expect(getRunUpdateTasks).not.toHaveBeenCalled();
   });
 
   it("asks even when only one task matches, with it already selected", async () => {
-    getDuplicateCheckTasks.mockResolvedValue({ kind: "ok", data: tasks([candidate()]) });
+    getRunUpdateTasks.mockResolvedValue({ kind: "ok", data: tasks([candidate()]) });
     renderPanel();
 
     expect(await screen.findByText(/Is this the right task\?/)).toBeInTheDocument();
-    expect(getDuplicateCheckTasks).toHaveBeenCalledWith("co", "fa", "se");
+    expect(getRunUpdateTasks).toHaveBeenCalledWith("co", "fa", "se");
     expect(screen.getByRole("radio")).toBeChecked();
     expect(screen.getByText(/Under “4. Data Cleanup”/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Update ClickUp task" })).toBeEnabled();
   });
 
   it("makes the person pick one when several match", async () => {
-    getDuplicateCheckTasks.mockResolvedValue({
+    getRunUpdateTasks.mockResolvedValue({
       kind: "ok",
       data: tasks([candidate(), candidate({ task_id: "c2", name: "Duplicate Tenant Corrections", parent_name: null })]),
     });
@@ -100,8 +100,8 @@ describe("ClickUpDuplicateCheckPanel", () => {
   });
 
   it("posts the chosen task and shows how each step went", async () => {
-    getDuplicateCheckTasks.mockResolvedValue({ kind: "ok", data: tasks([candidate()]) });
-    postDuplicateCheckResults.mockResolvedValue({
+    getRunUpdateTasks.mockResolvedValue({ kind: "ok", data: tasks([candidate()]) });
+    postRunUpdate.mockResolvedValue({
       kind: "ok",
       data: {
         task_name: "COMPLETE Duplicate Tenant Corrections",
@@ -117,7 +117,7 @@ describe("ClickUpDuplicateCheckPanel", () => {
 
     await user.click(await screen.findByRole("button", { name: "Update ClickUp task" }));
 
-    expect(postDuplicateCheckResults).toHaveBeenCalledWith("co", "fa", "se", "c1");
+    expect(postRunUpdate).toHaveBeenCalledWith("co", "fa", "se", "c1");
     expect(await screen.findByText(/partly updated/)).toBeInTheDocument();
     expect(screen.getByText(/✗ You added as assignee — ClickUp rejected it/)).toBeInTheDocument();
     expect(screen.getByText(/✓ Task set to complete/)).toBeInTheDocument();
@@ -126,8 +126,8 @@ describe("ClickUpDuplicateCheckPanel", () => {
   });
 
   it("says plainly when the update could not be made and keeps the picker", async () => {
-    getDuplicateCheckTasks.mockResolvedValue({ kind: "ok", data: tasks([candidate()]) });
-    postDuplicateCheckResults.mockResolvedValue({ kind: "error", message: "ClickUp is down" });
+    getRunUpdateTasks.mockResolvedValue({ kind: "ok", data: tasks([candidate()]) });
+    postRunUpdate.mockResolvedValue({ kind: "error", message: "ClickUp is down" });
     const user = userEvent.setup();
     renderPanel();
 
@@ -138,12 +138,12 @@ describe("ClickUpDuplicateCheckPanel", () => {
   });
 
   it("explains when nothing matches, and when the facility is not linked", async () => {
-    getDuplicateCheckTasks.mockResolvedValueOnce({ kind: "ok", data: tasks([]) });
+    getRunUpdateTasks.mockResolvedValueOnce({ kind: "ok", data: tasks([]) });
     const { unmount } = renderPanel();
     expect(await screen.findByText(/No task that looks like the 1st Duplicate Check/)).toBeInTheDocument();
     unmount();
 
-    getDuplicateCheckTasks.mockResolvedValueOnce({
+    getRunUpdateTasks.mockResolvedValueOnce({
       kind: "error",
       message: "Link this facility to its ClickUp list first",
     });
@@ -152,18 +152,18 @@ describe("ClickUpDuplicateCheckPanel", () => {
   });
 
   it("can be dismissed with Not now", async () => {
-    getDuplicateCheckTasks.mockResolvedValue({ kind: "ok", data: tasks([candidate()]) });
+    getRunUpdateTasks.mockResolvedValue({ kind: "ok", data: tasks([candidate()]) });
     const user = userEvent.setup();
     renderPanel();
 
     await user.click(await screen.findByRole("button", { name: "Not now" }));
 
     await waitFor(() => expect(screen.queryByText("Update ClickUp")).not.toBeInTheDocument());
-    expect(postDuplicateCheckResults).not.toHaveBeenCalled();
+    expect(postRunUpdate).not.toHaveBeenCalled();
   });
 
   it("warns that the comment will have no link when the file is not in Dropbox", async () => {
-    getDuplicateCheckTasks.mockResolvedValue({
+    getRunUpdateTasks.mockResolvedValue({
       kind: "ok",
       data: tasks([candidate()], { file_link_available: false }),
     });
@@ -173,23 +173,23 @@ describe("ClickUpDuplicateCheckPanel", () => {
   });
 
   it("looks again when the file gets saved to Dropbox", async () => {
-    getDuplicateCheckTasks.mockResolvedValue({ kind: "ok", data: tasks([candidate()]) });
+    getRunUpdateTasks.mockResolvedValue({ kind: "ok", data: tasks([candidate()]) });
     const { rerender } = renderPanel(false);
     await screen.findByText(/Is this the right task\?/);
 
     rerender(
-      <ClickUpDuplicateCheckPanel companyId="co" facilityId="fa" sessionId="se" fileSavedToDropbox />
+      <ClickUpRunUpdatePanel companyId="co" facilityId="fa" sessionId="se" fileSavedToDropbox />
     );
 
-    await waitFor(() => expect(getDuplicateCheckTasks).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(getRunUpdateTasks).toHaveBeenCalledTimes(2));
   });
 
   it("describes a later check as comment-only and tells the user to add the file by hand after a no-link post", async () => {
-    getDuplicateCheckTasks.mockResolvedValue({
+    getRunUpdateTasks.mockResolvedValue({
       kind: "ok",
       data: tasks([candidate()], { comment_only: true, file_link_available: false }),
     });
-    postDuplicateCheckResults.mockResolvedValue({
+    postRunUpdate.mockResolvedValue({
       kind: "ok",
       data: {
         task_name: "PERFORM 2nd Duplicate Check",

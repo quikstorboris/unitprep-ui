@@ -1,16 +1,17 @@
 import { clientsGet, clientsPost, type ClientsResult } from "@/lib/clientsApi";
 
 /**
- * Posting a finished duplicate check to the facility's ClickUp task
- * (`unitprep-api`'s `clickup_duplicate_check`). The server works out
- * which check this is and where its file was saved from the run itself;
- * the browser only names the session and, to update, the task the person
- * confirmed. Needs the per-user `integrations.clickup` permission and
+ * Posting a finished tool run (duplicate check, Unit Groups, Template
+ * Tagger) to the facility's ClickUp task (`unitprep-api`'s
+ * `clickup_run_update`). The server works out which step the run stands
+ * for, what its comment says and where its file was saved from the run
+ * itself; the browser only names the session and, to update, the task the
+ * person confirmed. Needs the per-user `integrations.clickup` permission and
  * runs with the signed-in user's own ClickUp token.
  */
 
-/** A task in the facility's ClickUp list that could be this check's. */
-export interface DuplicateCheckTaskCandidate {
+/** A task in the facility's ClickUp list that could be this run's. */
+export interface RunUpdateTaskCandidate {
   task_id: string;
   name: string;
   /** The task's parent, when it is a subtask -- the same step name
@@ -25,8 +26,8 @@ export interface DuplicateCheckTaskCandidate {
   score: number;
 }
 
-export interface DuplicateCheckTasks {
-  /** "1st Duplicate Check", "2nd Duplicate Check", ... */
+export interface RunUpdateTasks {
+  /** "1st Duplicate Check", "2nd Duplicate Check", "Unit Groups", ... */
   step_label: string;
   sequence_number: number;
   list_name: string;
@@ -34,9 +35,9 @@ export interface DuplicateCheckTasks {
   /** Whether the summary file is saved in Dropbox, so the comment can
    * link it. When false the comment has no link. */
   file_link_available: boolean;
-  /** Third and later checks only add a comment to the task. */
+  /** Later runs only add a comment to the task. */
   comment_only: boolean;
-  candidates: DuplicateCheckTaskCandidate[];
+  candidates: RunUpdateTaskCandidate[];
 }
 
 /** How one of the three ClickUp writes went. */
@@ -45,7 +46,7 @@ export interface StepOutcome {
   message: string | null;
 }
 
-export interface PostedDuplicateCheck {
+export interface PostedRunUpdate {
   task_name: string;
   task_url: string;
   /** What the comment links: a Dropbox share link, the file's plain
@@ -53,31 +54,31 @@ export interface PostedDuplicateCheck {
    * Dropbox file -- the person adds it by hand). */
   link_kind: "shared" | "path" | "none";
   comment: StepOutcome;
-  /** Null when not part of this update (third and later checks). */
+  /** Null when not part of this update (later runs). */
   assignee: StepOutcome | null;
   status: StepOutcome | null;
 }
 
-export async function getDuplicateCheckTasks(
+export async function getRunUpdateTasks(
   companyId: string,
   facilityId: string,
   sessionId: string
-): Promise<ClientsResult<DuplicateCheckTasks>> {
+): Promise<ClientsResult<RunUpdateTasks>> {
   return clientsGet(
-    `/clients/${companyId}/facilities/${facilityId}/clickup/duplicate-check-tasks?session_id=${encodeURIComponent(sessionId)}`
+    `/clients/${companyId}/facilities/${facilityId}/clickup/run-tasks?session_id=${encodeURIComponent(sessionId)}`
   );
 }
 
 /** Comments on the task with a link to the saved file, adds the signed-in
  * user as assignee and sets the task complete. The three writes are
  * separate ClickUp calls, so each reports its own outcome. */
-export async function postDuplicateCheckResults(
+export async function postRunUpdate(
   companyId: string,
   facilityId: string,
   sessionId: string,
   taskId: string
-): Promise<ClientsResult<PostedDuplicateCheck>> {
-  return clientsPost(`/clients/${companyId}/facilities/${facilityId}/clickup/duplicate-check-results`, {
+): Promise<ClientsResult<PostedRunUpdate>> {
+  return clientsPost(`/clients/${companyId}/facilities/${facilityId}/clickup/run-results`, {
     session_id: sessionId,
     task_id: taskId,
   });
@@ -87,6 +88,6 @@ export async function postDuplicateCheckResults(
  * the background so the panel's lookup is instant later. Fire and forget:
  * it answers at once, and any failure is harmless (the lookup then loads
  * the list itself). */
-export async function prefetchDuplicateCheckTasks(companyId: string, facilityId: string): Promise<void> {
+export async function prefetchRunUpdateTasks(companyId: string, facilityId: string): Promise<void> {
   await clientsPost(`/clients/${companyId}/facilities/${facilityId}/clickup/prefetch-tasks`);
 }

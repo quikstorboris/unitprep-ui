@@ -5,13 +5,13 @@ import type { ToolRunSummary } from "@/types/api";
 
 /** Whether a run has a ClickUp task Orchestrator knows how to update.
  *
- * Only duplicate checks do today (the 1st and 2nd check each have a task;
- * later ones add a comment to the 2nd's). Unit Groups and Template Tagger
- * runs have no ClickUp task defined yet: adding one is a new step in
- * `integrations.clickup_task_steps` plus the comment wording, then this
- * list. */
+ * Every tool does: which task (its name phrases) and what the comment says
+ * are rows of `integrations.clickup_task_steps` on the server, so adding
+ * or renaming one is a data edit, not a change here. A tool added to
+ * `ToolRunSummary` without a step row gets the server's "no ClickUp task
+ * is configured" message in the panel. */
 export function canUpdateClickUp(run: ToolRunSummary): boolean {
-  return run.tool === "dedup";
+  return run.tool === "dedup" || run.tool === "unit_group" || run.tool === "tagger";
 }
 
 /**

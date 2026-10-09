@@ -8,7 +8,7 @@ const { useClickUpAccess } = vi.hoisted(() => ({ useClickUpAccess: vi.fn() }));
 vi.mock("@/components/clickup/useClickUpAccess", () => ({ useClickUpAccess }));
 
 // The panel is covered by its own tests; here it only shows what it was given.
-vi.mock("@/components/clickup/ClickUpDuplicateCheckPanel", () => ({
+vi.mock("@/components/clickup/ClickUpRunUpdatePanel", () => ({
   default: ({
     sessionId,
     fileSavedToDropbox,
@@ -125,7 +125,7 @@ describe("Update ClickUp on a run", () => {
     expect(screen.queryByRole("button", { name: "Update ClickUp" })).not.toBeInTheDocument();
   });
 
-  it("is not offered on Unit Groups or Template Tagger runs, which have no ClickUp task yet", () => {
+  it("is offered on Unit Groups and Template Tagger runs too", () => {
     const unitGroup = {
       ...base,
       tool: "unit_group",
@@ -144,6 +144,7 @@ describe("Update ClickUp on a run", () => {
     } as ToolRunSummary;
     renderExpanded(unitGroup);
 
-    expect(screen.queryByRole("button", { name: "Update ClickUp" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Update ClickUp" }));
+    expect(screen.getByLabelText("Update ClickUp panel")).toBeInTheDocument();
   });
 });
