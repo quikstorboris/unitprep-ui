@@ -8,6 +8,17 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.93] - 2026-10-09
+
+"Update ClickUp" for Unit Groups and Template Tagger runs, and a "Last Synced Project" log on the facility's ClickUp section. Needs `unitprep-api` 1.9.118 (the `run-tasks` / `run-results` routes and the sync log).
+
+### Added
+- **Update ClickUp on Unit Groups and Template Tagger runs** in the Onboarding Work tab, not only duplicate checks. Which ClickUp task a run stands for and what the comment says come from the server (`clickup_task_steps` rows), so nothing about a tool's task is hard-coded here.
+- **Last Synced Project** on the facility's ClickUp section (`CopySyncLog`): the facility the last comments were copied from and when, with a scrollable, newest-first history (who, how many copied/failed/completed, whether from the client tab) and "Show older" paging. It reloads when the Copy comments dialog closes.
+
+### Changed
+- The duplicate-check panel and helpers are renamed to run-update (`ClickUpRunUpdatePanel`, `lib/clickupRunUpdate.ts`) and call `clickup/run-tasks` / `clickup/run-results`. The panel reads "this run's task" instead of "this check's".
+
 ## [1.6.92] - 2026-10-09
 
 ClickUp Copy shows every Onboarding Phase. Needs the matching `unitprep-api` change (rows carry `phase_order`).
