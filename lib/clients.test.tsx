@@ -33,6 +33,8 @@ function summary(overrides: Partial<CompanySummary> = {}): CompanySummary {
     archived_at: null,
     implementation_completed_at: null,
     facility_names: ["Highway 20", "Carpentersville"],
+    implementation_manager: null,
+    sales_rep: null,
     ...overrides,
   };
 }

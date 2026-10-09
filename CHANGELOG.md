@@ -8,6 +8,14 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.90] - 2026-10-08
+
+Efficiency refactor chunk F7f: the company-list, resync, manual-link, directory, client-import, search, onboarding-summary and a few auth/settings types are generated from the Rust structs. No behavior change.
+
+### Changed
+- `lib/clientsCompanies.ts`, `clientsDirectory.ts`, `clientsImport.ts`, `clientsSearch.ts`, `clientsDetail/company.ts`, `auth-users.ts` and `integrationSettings.ts` now re-export ts-rs output (from `unitprep-api` v1.9.116) instead of hand-written interfaces, under their existing names (`ClientsFilterOptions = FilterOptionsResponse`, `AssignedUserRef = StaffRef`, `InviteIssued = CreateInviteResponse`, `UserPermissions = UserPermissionsResponse`), so no importer changed. About 28 types. Kept hand-written on purpose where the UI is tighter than Rust can express: `UserSummary`, `CreateInviteRequest`, `SyncStatus`, `PsWorkflow`, `PreviewRunSelection` (see `types/generated/README.md`).
+- The test fixture in `lib/clients.test.tsx` sets `implementation_manager` / `sales_rep` (the backend always sends them; the old type made them optional).
+
 ## [1.6.89] - 2026-10-08
 
 Fix: a facility refresh that finishes after you switched facilities no longer lands on the new facility's page.
