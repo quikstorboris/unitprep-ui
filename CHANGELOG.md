@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.92] - 2026-10-09
+
+ClickUp Copy shows every Onboarding Phase. Needs the matching `unitprep-api` change (rows carry `phase_order`).
+
+### Changed
+- The ClickUp Copy tab's task picker and the facility Copy comments dialog now group by **every phase the ClickUp list has** -- Scheduling, Show Stoppers and the rest, not only Set Up and Migration -- in the list's own order (the API sends each row's `phase_order`; the hard-coded Set Up/Migration ordering is gone). Each group still collapses, and mid-level tasks still show with their subtasks collapsed. "No tasks to copy" replaces the Set Up/Migration wording.
+
 ## [1.6.91] - 2026-10-09
 
 TOTP step-up prompt: a sign-in from an unseen browser and network can now actually be completed.

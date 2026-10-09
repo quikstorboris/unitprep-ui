@@ -32,8 +32,11 @@ export interface CopyTargetChoice extends CopyTaskInfo {
 }
 
 export interface CopyPairRow {
-  /** "Set Up" or "Migration" -- what the dialog groups rows under. */
+  /** The task's Onboarding Phase ("Set Up", "Scheduling", "Show Stoppers",
+   * ...) -- what the dialog groups rows under -- and that phase's position
+   * in the ClickUp list's own phase order. */
   phase: string;
+  phase_order: number;
   source: CopyTaskInfo;
   /** The suggested counterpart; null is "no match". */
   target: CopyTargetChoice | null;

@@ -9,6 +9,7 @@ import { buildCopyGroups, type CopyNode } from "@/components/clickup/copy/copyTr
 function asRows(tasks: BulkTask[]) {
   return tasks.map((task) => ({
     phase: task.phase,
+    phase_order: task.phase_order,
     source: task,
     target: null,
     alternatives: [],
@@ -114,7 +115,7 @@ export default function BulkTaskPicker({
   }
 
   if (groups.length === 0) {
-    return <p className="text-sm text-slate-400">No Set Up or Migration tasks to copy.</p>;
+    return <p className="text-sm text-slate-400">No tasks to copy.</p>;
   }
 
   return (

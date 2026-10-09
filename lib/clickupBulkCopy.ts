@@ -20,6 +20,8 @@ import type {
 /** A source task offered for copying, with its phase. */
 export interface BulkTask extends CopyTaskInfo {
   phase: string;
+  /** The phase's position in the ClickUp list's own phase order. */
+  phase_order: number;
 }
 
 export interface FacilityRef {

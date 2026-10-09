@@ -16,21 +16,56 @@ function task(id: string, parentId: string | null = null): CopyTaskInfo {
   };
 }
 
+/** The list's own phase order, as the API reports it per row. */
+const PHASE_ORDER: Record<string, number> = {
+  "Set Up": 0,
+  Migration: 1,
+  Scheduling: 2,
+  "Show Stoppers": 3,
+};
+
 function row(id: string, phase: string, parentId: string | null = null): CopyPairRow {
-  return { phase, source: task(id, parentId), target: null, alternatives: [] };
+  return {
+    phase,
+    phase_order: PHASE_ORDER[phase] ?? 1_000_000,
+    source: task(id, parentId),
+    target: null,
+    alternatives: [],
+  };
 }
 
 describe("buildCopyGroups", () => {
-  it("lists Set Up before Migration whatever order the rows arrive in", () => {
-    const groups = buildCopyGroups([row("m1", "Migration"), row("s1", "Set Up")]);
+  it("shows every phase the list has, in the list's own order, whatever order the rows arrive in", () => {
+    const groups = buildCopyGroups([
+      row("x1", "Show Stoppers"),
+      row("m1", "Migration"),
+      row("c1", "Scheduling"),
+      row("s1", "Set Up"),
+    ]);
 
-    expect(groups.map((group) => group.phase)).toEqual(["Set Up", "Migration"]);
+    expect(groups.map((group) => group.phase)).toEqual([
+      "Set Up",
+      "Migration",
+      "Scheduling",
+      "Show Stoppers",
+    ]);
   });
 
-  it("treats the two spellings of Set Up as the same position", () => {
-    const groups = buildCopyGroups([row("m1", "Migration"), row("s1", "Setup")]);
+  it("puts a phase the list gave no position after the ordered ones, by name", () => {
+    const groups = buildCopyGroups([
+      row("z1", "Zeta"),
+      row("a1", "Alpha"),
+      row("s1", "Set Up"),
+    ]);
 
-    expect(groups.map((group) => group.phase)).toEqual(["Setup", "Migration"]);
+    expect(groups.map((group) => group.phase)).toEqual(["Set Up", "Alpha", "Zeta"]);
+  });
+
+  it("keeps all of a phase's rows in one group", () => {
+    const groups = buildCopyGroups([row("a", "Scheduling"), row("b", "Set Up"), row("c", "Scheduling")]);
+
+    const scheduling = groups.find((group) => group.phase === "Scheduling");
+    expect(scheduling?.nodes.map((node) => node.row.source.task_id)).toEqual(["a", "c"]);
   });
 
   it("nests subtasks under their mid-level task, leaving only that task at the top", () => {

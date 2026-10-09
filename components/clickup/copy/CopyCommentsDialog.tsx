@@ -146,7 +146,7 @@ export default function CopyCommentsDialog({
 
           {groups.length === 0 && (
             <p className="text-sm text-slate-400">
-              No Set Up or Migration tasks to copy{copy.scope === "all" ? "" : " with this filter"}.
+              No tasks to copy{copy.scope === "all" ? "" : " with this filter"}.
             </p>
           )}
 

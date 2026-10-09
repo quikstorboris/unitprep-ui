@@ -62,10 +62,13 @@ function bulkTasks(): BulkTasks {
     source: list("main", "Main St"),
     parent: list("main", "Main St"),
     tasks: [
-      { phase: "Set Up", ...task("S1", "CONFIGURE Fees") },
-      { phase: "Set Up", ...task("S2", "CONFIGURE Delinquency") },
-      { phase: "Set Up", ...task("S2a", "Add late fee", "S2") },
-      { phase: "Migration", ...task("S3", "IMPORT Tenants") },
+      { phase: "Set Up", phase_order: 0, ...task("S1", "CONFIGURE Fees") },
+      { phase: "Set Up", phase_order: 0, ...task("S2", "CONFIGURE Delinquency") },
+      { phase: "Set Up", phase_order: 0, ...task("S2a", "Add late fee", "S2") },
+      { phase: "Migration", phase_order: 1, ...task("S3", "IMPORT Tenants") },
+      // Listed out of the list's own order on purpose.
+      { phase: "Show Stoppers", phase_order: 3, ...task("S5", "RESOLVE Open Blockers") },
+      { phase: "Scheduling", phase_order: 2, ...task("S4", "BOOK Go-Live Call") },
     ],
     destinations: [
       { facility_id: "second", facility_name: "Second St" },
@@ -153,6 +156,20 @@ describe("BulkCopyPanel", () => {
     expect(screen.getByText("1 subtask")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Set Up/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Migration/ })).toBeInTheDocument();
+  });
+
+  it("offers every phase the list has -- Scheduling and Show Stoppers too -- in the list's own order", async () => {
+    render(<BulkCopyPanel companyId="c1" />);
+    await screen.findByRole("radio", { name: "Copy from CONFIGURE Fees" });
+
+    const headings = screen.getAllByRole("button", { expanded: true }).map((button) => button.textContent);
+    expect(headings).toEqual([
+      expect.stringContaining("Set Up"),
+      expect.stringContaining("Migration"),
+      expect.stringContaining("Scheduling"),
+      expect.stringContaining("Show Stoppers"),
+    ]);
+    expect(screen.getByRole("radio", { name: "Copy from RESOLVE Open Blockers" })).toBeInTheDocument();
   });
 
   it("reveals subtasks when a task is expanded", async () => {

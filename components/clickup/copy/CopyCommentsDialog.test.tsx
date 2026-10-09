@@ -32,8 +32,22 @@ function pair(
   source: CopyTaskInfo,
   target: CopyTaskInfo | null
 ): CopyPairRow {
-  return { phase, source, target: target && { ...target, score: 1 }, alternatives: [] };
+  return {
+    phase,
+    phase_order: PHASE_ORDER[phase] ?? 1_000_000,
+    source,
+    target: target && { ...target, score: 1 },
+    alternatives: [],
+  };
 }
+
+/** The list's own phase order, as the API reports it per row. */
+const PHASE_ORDER: Record<string, number> = {
+  "Set Up": 0,
+  Migration: 1,
+  Scheduling: 2,
+  "Show Stoppers": 3,
+};
 
 const ROWS: CopyPairRow[] = [
   pair("Set Up", task("S1", "CONFIGURE Fees"), task("T1", "CONFIGURE Fees")),
@@ -111,6 +125,27 @@ describe("CopyCommentsDialog", () => {
     const headings = screen.getAllByRole("button", { expanded: true }).map((button) => button.textContent);
     expect(headings[0]).toContain("Set Up");
     expect(headings[1]).toContain("Migration");
+  });
+
+  it("offers every phase the list has -- Scheduling and Show Stoppers too -- in the list's order", async () => {
+    getCopyPairs.mockResolvedValue({
+      kind: "ok",
+      data: pairs([
+        pair("Show Stoppers", task("X1", "RESOLVE Open Blockers"), task("TX1", "RESOLVE Open Blockers")),
+        pair("Scheduling", task("C1", "BOOK Go-Live Call"), task("TC1", "BOOK Go-Live Call")),
+        pair("Set Up", task("S1", "CONFIGURE Fees"), task("T1", "CONFIGURE Fees")),
+      ]),
+    });
+    renderDialog();
+    await findSource("CONFIGURE Fees");
+
+    const headings = screen.getAllByRole("button", { expanded: true }).map((button) => button.textContent);
+    expect(headings).toEqual([
+      expect.stringContaining("Set Up"),
+      expect.stringContaining("Scheduling"),
+      expect.stringContaining("Show Stoppers"),
+    ]);
+    expect(await findSource("RESOLVE Open Blockers")).toBeInTheDocument();
   });
 
   it("shows only the mid-level tasks, with their subtasks collapsed", async () => {

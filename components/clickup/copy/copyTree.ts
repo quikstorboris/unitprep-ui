@@ -9,25 +9,20 @@ export interface CopyNode {
 /** A phase's rows as a tree. */
 export interface CopyGroup {
   phase: string;
+  /** The phase's position in the ClickUp list's own phase order. */
+  order: number;
   nodes: CopyNode[];
-}
-
-/** Phases are shown in the order the template lists them, not alphabetical
- * (Migration would otherwise precede Set Up). Compared by letters and
- * digits only, so "Set Up" and "Setup" are the same phase. Anything else
- * sorts after. */
-const PHASE_ORDER = ["setup", "migration"];
-
-function phaseRank(phase: string): number {
-  const rank = PHASE_ORDER.indexOf(phase.toLowerCase().replace(/[^a-z0-9]/g, ""));
-  return rank === -1 ? PHASE_ORDER.length : rank;
 }
 
 /**
  * Groups the rows by phase and nests each task under its parent task when
  * the parent is itself a row. A task whose parent is not a row (a
- * top-level task, or one whose parent is outside Set Up/Migration) sits at
- * the top of its group.
+ * top-level task, or one whose parent is in another phase) sits at the top
+ * of its group.
+ *
+ * Every phase the list has is a group (Set Up, Migration, Scheduling, Show
+ * Stoppers, ...), shown in the list's own phase order -- the API sends each
+ * row's `phase_order` -- not alphabetically.
  *
  * The dialog shows only those top-level ("mid-level") tasks, collapsed;
  * their subtasks appear when expanded -- so a long list stays readable.
@@ -48,12 +43,13 @@ export function buildCopyGroups(rows: CopyPairRow[]): CopyGroup[] {
       continue;
     }
 
-    const group = groups.get(row.phase) ?? { phase: row.phase, nodes: [] };
+    const group = groups.get(row.phase) ?? { phase: row.phase, order: row.phase_order, nodes: [] };
     group.nodes.push(node);
     groups.set(row.phase, group);
   }
 
-  return [...groups.values()].sort((a, b) => phaseRank(a.phase) - phaseRank(b.phase));
+  // Equal orders (two phases the list gave no position) fall back to name.
+  return [...groups.values()].sort((a, b) => a.order - b.order || a.phase.localeCompare(b.phase));
 }
 
 /** Every row key at or below `node`. */
