@@ -146,3 +146,39 @@ export async function copyComments(
     complete_tasks: completeTasks,
   });
 }
+
+/** One copy made onto a facility, from the Activity Logs trail. */
+export interface SyncLogEntry {
+  id: string;
+  created_at: string;
+  /** Who copied; null when their name is not readable by the caller. */
+  actor_name: string | null;
+  source_facility_id: string | null;
+  /** The source facility's current name; null if it was deleted. */
+  source_facility_name: string | null;
+  copied: number;
+  failed: number;
+  /** From the client's ClickUp Copy tab rather than this facility's dialog. */
+  bulk: boolean;
+  pointers_posted: number;
+  complete_requested: boolean;
+  tasks_completed: number;
+}
+
+export interface SyncLog {
+  /** Newest first. */
+  entries: SyncLogEntry[];
+  has_more: boolean;
+}
+
+/** The copies made onto this facility's tasks -- its "Last Synced
+ * Project" log. Read from the Activity Logs trail; pass the last entry's
+ * id as `beforeId` for the next, older page. */
+export async function getSyncLog(
+  companyId: string,
+  facilityId: string,
+  beforeId?: string
+): Promise<ClientsResult<SyncLog>> {
+  const query = beforeId ? `?before_id=${encodeURIComponent(beforeId)}` : "";
+  return clientsGet(`${base(companyId, facilityId)}/sync-log${query}`);
+}

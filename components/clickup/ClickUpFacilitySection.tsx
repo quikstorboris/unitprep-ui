@@ -7,6 +7,7 @@ import type { FacilityDetail } from "@/lib/clientsDetail";
 import { unlinkFacilityClickUp } from "@/lib/clickupLinks";
 import ClickUpLinkDot from "./ClickUpLinkDot";
 import CopyCommentsDialog from "./copy/CopyCommentsDialog";
+import CopySyncLog from "./copy/CopySyncLog";
 import LinkClickUpDialog from "./LinkClickUpDialog";
 import { useClickUpAccess } from "./useClickUpAccess";
 
@@ -37,6 +38,8 @@ export default function ClickUpFacilitySection({
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
+  // Bumped when the Copy dialog closes, so the log below reloads.
+  const [syncLogKey, setSyncLogKey] = useState(0);
   const [confirmingUnlink, setConfirmingUnlink] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,6 +146,10 @@ export default function ClickUpFacilitySection({
         </p>
       )}
 
+      {linked && access.allowed && (
+        <CopySyncLog companyId={facility.company_id} facilityId={facility.id} refreshKey={syncLogKey} />
+      )}
+
       {copyOpen && (
         <CopyCommentsDialog
           companyId={facility.company_id}
@@ -152,7 +159,10 @@ export default function ClickUpFacilitySection({
           defaultSourceId={
             copySources.some((source) => source.id === parentId) ? parentId : (copySources[0]?.id ?? null)
           }
-          onClose={() => setCopyOpen(false)}
+          onClose={() => {
+            setCopyOpen(false);
+            setSyncLogKey((key) => key + 1);
+          }}
         />
       )}
 

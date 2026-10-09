@@ -27,6 +27,9 @@ vi.mock("@/lib/clickupLinks", () => ({
   saveClickUpLinks: vi.fn(),
 }));
 
+// The sync log is exercised in its own test file.
+vi.mock("./copy/CopySyncLog", () => ({ default: () => null }));
+
 import ClickUpCompanySection from "./ClickUpCompanySection";
 import ClickUpFacilitySection from "./ClickUpFacilitySection";
 
