@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.95] - 2026-10-13
+
+The company page shows its Implementation Manager. Needs `unitprep-api` 1.9.121 (which also fills the manager and the specific Previous PMS, so the Clients page's two filters have options).
+
+### Added
+- "Implementation manager: John Doe" under the company page's title row, above Company Information ("Not assigned" when the Intake conductor has no OO account). `ImplementationManagerLine`, with tests.
+
 ## [1.6.94] - 2026-10-13
 
 ClickUp Copy: choose any number of source tasks at once. Needs `unitprep-api` 1.9.120 (`background` on bulk-copy).
