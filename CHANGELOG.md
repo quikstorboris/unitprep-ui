@@ -8,6 +8,15 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.94] - 2026-10-13
+
+ClickUp Copy: choose any number of source tasks at once. Needs `unitprep-api` 1.9.120 (`background` on bulk-copy).
+
+### Changed
+- **The client's ClickUp Copy tab takes any number of source tasks.** The task picker is checkboxes (was radio buttons, one task per copy), with Select all / Select none per phase. Each chosen task gets its own card with its own comment (prefilled from that task's latest ClickUp comment, editable) and, per chosen facility, the task it lands on. The facilities are chosen once for all the tasks.
+- Confirm sends one request per task, one after another, so each task keeps its own comment and its own "Main tracker task" link; the whole selection is added up, and when it is more than one request may spend inline (about 50 ClickUp calls) every task is sent to the background (one job each) and the notification permission is asked for first. Each task's outcome is listed under its name.
+- **A facility with no counterpart for a task is skipped for that task** (with an amber note and a count above Confirm) instead of blocking the whole copy; choose a task for it to include it. Before, a chosen facility with no match had to be unticked or given a task before Confirm enabled.
+
 ## [1.6.93] - 2026-10-09
 
 "Update ClickUp" for Unit Groups and Template Tagger runs, and a "Last Synced Project" log on the facility's ClickUp section. Needs `unitprep-api` 1.9.118 (the `run-tasks` / `run-results` routes and the sync log).
