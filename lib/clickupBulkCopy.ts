@@ -8,9 +8,9 @@ import type {
 } from "@/lib/clickupCopy";
 
 /**
- * ClickUp Copy on the client page: one comment copied from a task in a
+ * ClickUp Copy on the client page: a comment copied from a task in a
  * source facility's list to the counterpart task in several other
- * facilities' lists (`unitprep-api`'s `clickup_copy::bulk`). A copy that
+ * facilities' lists, one request per source task (`unitprep-api`'s `clickup_copy::bulk`). A copy that
  * fits in ClickUp's rate limit finishes inside the request; a bigger one
  * runs as a background job that is polled (`getCopyJob`). Needs the
  * per-user `integrations.clickup` permission; runs on the signed-in
@@ -154,6 +154,10 @@ export async function bulkCopy(
     destinations: { facility_id: string; target_task_id: string }[];
     /** Also set each task to its list's complete status. Off by default. */
     completeTasks?: boolean;
+    /** Run it as a background job even if it is small, because it is one of
+     * several tasks copied together that are too much for one rate-limit
+     * window. */
+    background?: boolean;
   }
 ): Promise<ClientsResult<BulkCopyResult>> {
   return clientsPost(`${base(companyId)}/bulk-copy`, {
@@ -163,6 +167,7 @@ export async function bulkCopy(
     comment: request.comment,
     destinations: request.destinations,
     complete_tasks: request.completeTasks ?? false,
+    background: request.background ?? false,
   });
 }
 

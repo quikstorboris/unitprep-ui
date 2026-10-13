@@ -16,20 +16,22 @@ function asRows(tasks: BulkTask[]) {
   }));
 }
 
+const linkButton = "text-xs text-slate-400 transition-colors hover:text-slate-200 hover:underline";
+
 function TaskNode({
   node,
   depth,
-  selectedId,
+  selected,
   expanded,
-  onToggle,
-  onSelect,
+  onToggleExpanded,
+  onToggleTask,
 }: {
   node: CopyNode;
   depth: number;
-  selectedId: string | null;
+  selected: Set<string>;
   expanded: Set<string>;
-  onToggle: (key: string) => void;
-  onSelect: (taskId: string) => void;
+  onToggleExpanded: (key: string) => void;
+  onToggleTask: (taskId: string) => void;
 }) {
   const task = node.row.source;
   const open = expanded.has(task.task_id);
@@ -43,7 +45,7 @@ function TaskNode({
         {node.children.length > 0 ? (
           <button
             type="button"
-            onClick={() => onToggle(task.task_id)}
+            onClick={() => onToggleExpanded(task.task_id)}
             aria-expanded={open}
             aria-label={`${open ? "Collapse" : "Expand"} ${task.name}`}
             className="mt-0.5 w-5 shrink-0 text-slate-400 hover:text-slate-200"
@@ -56,10 +58,9 @@ function TaskNode({
 
         <label className="flex min-w-0 cursor-pointer items-start gap-2 text-sm text-slate-200">
           <input
-            type="radio"
-            name="bulk-source-task"
-            checked={selectedId === task.task_id}
-            onChange={() => onSelect(task.task_id)}
+            type="checkbox"
+            checked={selected.has(task.task_id)}
+            onChange={() => onToggleTask(task.task_id)}
             aria-label={`Copy from ${task.name}`}
             className="mt-1"
           />
@@ -80,10 +81,10 @@ function TaskNode({
             key={child.row.source.task_id}
             node={child}
             depth={depth + 1}
-            selectedId={selectedId}
+            selected={selected}
             expanded={expanded}
-            onToggle={onToggle}
-            onSelect={onSelect}
+            onToggleExpanded={onToggleExpanded}
+            onToggleTask={onToggleTask}
           />
         ))}
     </>
@@ -91,20 +92,24 @@ function TaskNode({
 }
 
 /**
- * The source facility's Set Up and Migration tasks to pick one from:
- * grouped by phase (collapsible), mid-level tasks only, with subtasks
- * collapsed until expanded -- the same shape as the facility dialog.
+ * The source facility's tasks to pick from -- any number of them: grouped
+ * by phase (collapsible), mid-level tasks only, with subtasks collapsed
+ * until expanded -- the same shape as the facility dialog. Each phase can
+ * select or clear all of its tasks at once.
  */
 export default function BulkTaskPicker({
   tasks,
-  selectedId,
-  onSelect,
+  selectedIds,
+  onToggle,
+  onSetMany,
 }: {
   tasks: BulkTask[];
-  selectedId: string | null;
-  onSelect: (taskId: string) => void;
+  selectedIds: string[];
+  onToggle: (taskId: string) => void;
+  onSetMany: (taskIds: string[], selected: boolean) => void;
 }) {
   const groups = useMemo(() => buildCopyGroups(asRows(tasks)), [tasks]);
+  const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -119,21 +124,40 @@ export default function BulkTaskPicker({
   }
 
   return (
-    <div role="radiogroup" aria-label="Task to copy" className="rounded border border-slate-800">
+    <div role="group" aria-label="Tasks to copy" className="rounded border border-slate-800">
       {groups.map((group) => {
         const collapsed = collapsedPhases.has(group.phase);
+        const ids = group.nodes.map((node) => node.row.source.task_id);
         return (
           <section key={group.phase} className="border-b border-slate-800 last:border-b-0">
-            <button
-              type="button"
-              onClick={() => setCollapsedPhases((current) => flip(current, group.phase))}
-              aria-expanded={!collapsed}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-200 hover:bg-slate-800/50"
-            >
-              <span className="w-4 text-slate-400">{collapsed ? "▸" : "▾"}</span>
-              {group.phase}
-              <span className="text-xs font-normal text-slate-500">({group.nodes.length})</span>
-            </button>
+            <div className="flex items-center gap-3 pr-3 hover:bg-slate-800/50">
+              <button
+                type="button"
+                onClick={() => setCollapsedPhases((current) => flip(current, group.phase))}
+                aria-expanded={!collapsed}
+                className="flex flex-1 items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-slate-200"
+              >
+                <span className="w-4 text-slate-400">{collapsed ? "▸" : "▾"}</span>
+                {group.phase}
+                <span className="text-xs font-normal text-slate-500">({group.nodes.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetMany(ids, true)}
+                aria-label={`Select all in ${group.phase}`}
+                className={linkButton}
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetMany(ids, false)}
+                aria-label={`Select none in ${group.phase}`}
+                className={linkButton}
+              >
+                Select none
+              </button>
+            </div>
 
             {!collapsed && (
               <div className="px-3 pb-2">
@@ -142,10 +166,10 @@ export default function BulkTaskPicker({
                     key={node.row.source.task_id}
                     node={node}
                     depth={0}
-                    selectedId={selectedId}
+                    selected={selected}
                     expanded={expanded}
-                    onToggle={(key) => setExpanded((current) => flip(current, key))}
-                    onSelect={onSelect}
+                    onToggleExpanded={(key) => setExpanded((current) => flip(current, key))}
+                    onToggleTask={onToggle}
                   />
                 ))}
               </div>

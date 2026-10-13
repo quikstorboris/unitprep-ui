@@ -3,10 +3,11 @@
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
 import type { CopyScope } from "@/lib/clickupCopy";
 import BulkDestinations from "./BulkDestinations";
+import BulkTaskCard from "./BulkTaskCard";
 import BulkTaskPicker from "./BulkTaskPicker";
 import CopyJobsList from "./CopyJobsList";
 import CopyResults from "./CopyResults";
-import { useBulkCopy } from "./useBulkCopy";
+import { useBulkCopy, type TaskOutcome } from "./useBulkCopy";
 import { useCopyJobs } from "./useCopyJobs";
 
 const selectClass = "rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200";
@@ -14,6 +15,45 @@ const selectClass = "rounded border border-slate-700 bg-slate-900 px-2 py-1.5 te
 interface Source {
   id: string;
   name: string;
+}
+
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+/** What happened to one task's copy: how many landed, or that it went to
+ * the background, or why the request itself failed. */
+function Outcome({ outcome, showName }: { outcome: TaskOutcome; showName: boolean }) {
+  const { result } = outcome;
+  const name = showName ? <span className="font-medium text-slate-200">{outcome.taskName}: </span> : null;
+
+  if (!result) {
+    return (
+      <p role="alert" className="text-sm text-red-400">
+        {name}
+        {outcome.error}
+      </p>
+    );
+  }
+
+  if (result.mode === "job") {
+    return (
+      <p className="text-sm text-slate-200">
+        {name}
+        running in the background.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className={`text-sm font-medium ${result.failed === 0 ? "text-green-400" : "text-amber-300"}`}>
+        {name}
+        {result.failed === 0
+          ? `Copied to ${plural(result.copied, "facility", "facilities")}.`
+          : `${result.copied} copied, ${result.failed} failed.`}
+      </p>
+      <CopyResults results={result.results} />
+    </div>
+  );
 }
 
 function Inner({
@@ -28,7 +68,8 @@ function Inner({
   const jobs = useCopyJobs(companyId);
   const copy = useBulkCopy(companyId, defaultSourceId, () => void jobs.refresh());
 
-  const started = copy.result?.mode === "job";
+  const started = copy.outcomes?.some((outcome) => outcome.result?.mode === "job") ?? false;
+  const taskCount = copy.plan.entries.length;
 
   return (
     <div className="space-y-6">
@@ -86,60 +127,46 @@ function Inner({
             </p>
           )}
 
-          <section aria-label="Task to copy" className="space-y-2">
-            <h2 className="text-sm font-semibold text-slate-200">1. Choose the task</h2>
+          <section aria-label="Tasks to copy" className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-200">1. Choose the tasks</h2>
+            <p className="text-xs text-slate-500">Tick as many as you like; each keeps its own comment.</p>
             <BulkTaskPicker
               tasks={copy.tasks.tasks}
-              selectedId={copy.selectedTaskId}
-              onSelect={(id) => void copy.chooseTask(id)}
+              selectedIds={copy.selectedIds}
+              onToggle={copy.toggleTask}
+              onSetMany={copy.setTasksSelected}
             />
           </section>
 
-          {copy.selectedTask && (
-            <section aria-label="Where to copy it" className="space-y-3">
+          {copy.selectedTasks.length > 0 && (
+            <section aria-label="Where to copy" className="space-y-3">
               <h2 className="text-sm font-semibold text-slate-200">2. Choose the facilities</h2>
-              {copy.pairsError && (
-                <p role="alert" className="text-sm text-red-400">
-                  {copy.pairsError}
-                </p>
-              )}
-              {!copy.pairs && !copy.pairsError && (
-                <p className="text-sm text-slate-400">Finding each facility&apos;s matching task…</p>
-              )}
-              {copy.pairs && (
-                <BulkDestinations
-                  pairs={copy.pairs}
-                  destinations={copy.destinations}
-                  unlinked={copy.tasks.unlinked}
-                  onToggle={copy.toggle}
-                  onSetAll={copy.setAll}
-                  onChooseTarget={copy.chooseTarget}
-                />
-              )}
-
-              <h2 className="pt-2 text-sm font-semibold text-slate-200">3. Write the comment</h2>
-              <textarea
-                aria-label="Comment to post"
-                value={copy.comment}
-                rows={4}
-                autoFocus
-                onChange={(event) => copy.editComment(event.target.value)}
-                placeholder={
-                  copy.commentLoading
-                    ? "Loading the source comment…"
-                    : copy.noSourceComment
-                      ? "The source task has no comment — type one."
-                      : ""
-                }
-                className="w-full resize-y rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+              <BulkDestinations
+                destinations={copy.tasks.destinations}
+                ticked={copy.ticked}
+                blocked={copy.blocked}
+                unlinked={copy.tasks.unlinked}
+                onToggle={copy.toggleFacility}
+                onSetAll={copy.setAllFacilities}
               />
+
+              <h2 className="pt-2 text-sm font-semibold text-slate-200">
+                3. Check the tasks and write the {copy.selectedTasks.length === 1 ? "comment" : "comments"}
+              </h2>
+              {copy.selectedTasks.map((task) => (
+                <BulkTaskCard
+                  key={task.task_id}
+                  task={task}
+                  state={copy.perTask[task.task_id]}
+                  ticked={copy.ticked}
+                  blocked={copy.blocked}
+                  focus={copy.selectedTasks.length === 1}
+                  onEditComment={(text) => copy.editComment(task.task_id, text)}
+                  onChooseTarget={(facilityId, target) => copy.chooseTarget(task.task_id, facilityId, target)}
+                />
+              ))}
               <p className="text-xs text-slate-500">
-                Plain text, posted under your name on every selected task. The same comment goes to all.
-                A link to the source task is added at the bottom automatically:{" "}
-                <span className="text-slate-400">
-                  Main tracker task - {copy.selectedTask.name}
-                </span>
-                .
+                Plain text, posted under your name on each selected facility&apos;s task.
               </p>
 
               <label className="flex items-start gap-2 text-sm text-slate-200">
@@ -157,17 +184,11 @@ function Inner({
                 </span>
               </label>
 
-              {copy.missingTargets > 0 && (
+              {copy.plan.skipped > 0 && (
                 <p role="status" className="text-xs text-amber-300">
-                  {copy.missingTargets === 1
-                    ? "One selected facility still needs a task."
-                    : `${copy.missingTargets} selected facilities still need a task.`}
-                </p>
-              )}
-
-              {copy.copyError && (
-                <p role="alert" className="text-sm text-red-400">
-                  {copy.copyError}
+                  {copy.plan.skipped === 1
+                    ? "One chosen facility has no task for one of the tasks and will be skipped there."
+                    : `${copy.plan.skipped} facility and task combinations have no task chosen and will be skipped.`}
                 </p>
               )}
 
@@ -179,7 +200,9 @@ function Inner({
               >
                 {copy.copying
                   ? "Copying…"
-                  : `Confirm — copy to ${copy.chosenCount} ${copy.chosenCount === 1 ? "facility" : "facilities"}`}
+                  : taskCount > 1
+                    ? `Confirm — copy ${taskCount} tasks to ${plural(copy.plan.facilities, "facility", "facilities")}`
+                    : `Confirm — copy to ${plural(copy.plan.facilities, "facility", "facilities")}`}
               </button>
 
               {started && (
@@ -188,16 +211,13 @@ function Inner({
                   We&apos;ll notify you when copying is complete — you can leave this page.
                 </p>
               )}
-              {copy.result?.mode === "inline" && (
-                <div role="status" className="space-y-2">
-                  <p
-                    className={`text-sm font-medium ${copy.result.failed === 0 ? "text-green-400" : "text-amber-300"}`}
-                  >
-                    {copy.result.failed === 0
-                      ? `Copied to ${copy.result.copied} ${copy.result.copied === 1 ? "facility" : "facilities"}.`
-                      : `${copy.result.copied} copied, ${copy.result.failed} failed.`}
-                  </p>
-                  <CopyResults results={copy.result.results} />
+              {copy.outcomes && copy.outcomes.length > 0 && (
+                <div role="status" className="space-y-3">
+                  {copy.outcomes
+                    .filter((outcome) => outcome.result?.mode !== "job" || copy.outcomes!.length > 1)
+                    .map((outcome) => (
+                      <Outcome key={outcome.taskId} outcome={outcome} showName={copy.outcomes!.length > 1} />
+                    ))}
                 </div>
               )}
             </section>
@@ -209,14 +229,13 @@ function Inner({
 }
 
 /**
- * The client page's ClickUp Copy tab: copy one comment from a task in one
- * facility's ClickUp list (the parent by default) to the counterpart task
- * in any of the client's other facilities. Choose the task, pick the
- * facilities from the dropdown (none is picked to begin with), edit the
- * comment, Confirm. Every copied comment ends with a link to the source
- * task. A copy
- * too big for one request runs in the background and ends with a browser
- * notification.
+ * The client page's ClickUp Copy tab: copy comments from any number of
+ * tasks in one facility's ClickUp list (the parent by default) to their
+ * counterparts in the client's other facilities. Choose the tasks, pick
+ * the facilities from the dropdown (none is picked to begin with), check
+ * each task's counterparts and edit its comment, Confirm. Every copied
+ * comment ends with a link to its source task. A copy too big for one
+ * request runs in the background and ends with a browser notification.
  */
 export default function BulkCopyPanel({ companyId }: { companyId: string }) {
   const { company } = useCompanyDetail();
