@@ -44,6 +44,7 @@ function company(overrides: Partial<CompanyDetail> = {}): CompanyDetail {
     archived_at: null,
     implementation_completed_at: null,
     clickup_parent_facility_id: null,
+    implementation_manager: null,
     clickup_waived_at: null,
     clickup_parent_history: [],
     elavon_active: false,

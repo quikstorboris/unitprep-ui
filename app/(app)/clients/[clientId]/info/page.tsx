@@ -1,5 +1,6 @@
 "use client";
 
+import ImplementationManagerLine from "@/components/clients/ImplementationManagerLine";
 import { useParams } from "next/navigation";
 
 import ClickUpCompanySection from "@/components/clickup/ClickUpCompanySection";
@@ -71,6 +72,8 @@ export default function ClientInfoPage() {
               <ManualLinkDialog companyId={clientId} />
             </div>
           </div>
+
+          <ImplementationManagerLine manager={company.implementation_manager} />
 
           {company.archived_at && (
             <p className="text-sm text-amber-400">

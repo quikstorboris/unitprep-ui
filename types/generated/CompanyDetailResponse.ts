@@ -2,6 +2,7 @@
 import type { ClickUpParentChange } from "./ClickUpParentChange";
 import type { FacilitySummary } from "./FacilitySummary";
 import type { OwnerInfo } from "./OwnerInfo";
+import type { StaffRef } from "./StaffRef";
 
 export type CompanyDetailResponse = { id: string, legal_name: string, corporate_email: string | null, corporate_phone: string | null, corporate_address_street: string | null, corporate_address_city: string | null, corporate_address_state: string | null, corporate_address_zip: string | null, subdomain: string | null, accepted_payment_methods: string | null, accounting_basis: string | null, payment_scheme: string | null, offers_tenant_insurance_raw: string | null, insurance_provider: string | null, website_url: string | null, archived_at: string | null, 
 /**
@@ -14,6 +15,11 @@ implementation_completed_at: string | null,
  * (see `clients_clickup_parent`); `None` until one is designated.
  */
 clickup_parent_facility_id: string | null, 
+/**
+ * The company's Implementation Manager (PS Intake conductor), when
+ * one is assigned.
+ */
+implementation_manager: StaffRef | null, 
 /**
  * Set when the company was deliberately created without a ClickUp
  * project, which silences the "no ClickUp link" warning.
