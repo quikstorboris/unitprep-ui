@@ -1,6 +1,6 @@
 {
   "name": "unitprep-ui",
-  "version": "1.6.95",
+  "version": "1.6.96",
   "author": "Boris Maksimov <bmaksimov@quikstor.com>",
   "private": true,
   "scripts": {

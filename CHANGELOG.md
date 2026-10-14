@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.96] - 2026-10-14
+
+CI only; no app change.
+
+### Tests and CI
+- Both CI jobs now run `scripts/check_workflow_secrets.sh` (no secrets, no real-database variables, least-privilege `permissions`), matching `unitprep-api`'s workflow. It already ran in `scripts/preflight.sh`.
+
 ## [1.6.95] - 2026-10-13
 
 The company page shows its Implementation Manager. Needs `unitprep-api` 1.9.121 (which also fills the manager and the specific Previous PMS, so the Clients page's two filters have options).
