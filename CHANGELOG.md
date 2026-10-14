@@ -8,6 +8,18 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.97] - 2026-10-14
+
+Template Tagger review and save flow. Pairs with `unitprep-api` 1.9.124 (no dependency in either direction).
+
+### Changed
+- **Dropbox first.** With a facility folder, "Save to Facility Folder" is the main button and the local copy is a quiet secondary one ("Download a copy (N substitutions)"), only on demand. Without a facility folder the download stays the main button. Nothing downloads or saves on its own.
+- **Ignoring a row is explicit.** Each row's checkbox reads Apply / Ignore, and each section says an unchecked row is left exactly as it is.
+- **Nothing checked is still a valid result.** Apply/Save are no longer disabled when no row is checked ("Download Without Changes"), and the Preserve/Replace dialog is skipped, since there is no tag to place.
+
+### Tests and CI
+- Component tests for the button order, the no-folder case, and the nothing-checked download; the Playwright spec follows the new button label.
+
 ## [1.6.96] - 2026-10-14
 
 CI only; no app change.
