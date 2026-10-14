@@ -38,8 +38,13 @@ export function usePreserveBlanksGate({
     null
   );
 
+  // With nothing checked there is no substitution to preserve a blank
+  // for, so the question would be meaningless.
+  const needsPreserveQuestion = () =>
+    hasBlankCandidates && confirmedSubstitutions().length > 0;
+
   function handleApplyClick() {
-    if (hasBlankCandidates) {
+    if (needsPreserveQuestion()) {
       setPendingAction("download");
       setShowPreserveDialog(true);
       return;
@@ -49,7 +54,7 @@ export function usePreserveBlanksGate({
 
   function handleSaveClick() {
     if (!defaultFolderPath) return;
-    if (hasBlankCandidates) {
+    if (needsPreserveQuestion()) {
       setPendingAction("save");
       setShowPreserveDialog(true);
       return;

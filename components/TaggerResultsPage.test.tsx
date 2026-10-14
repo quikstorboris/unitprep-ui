@@ -140,16 +140,16 @@ describe("TaggerResultsPage", () => {
     expect(screen.getByText("Needs Review (1)")).toBeInTheDocument();
     expect(screen.getByLabelText("candidate 0")).toBeChecked();
     expect(screen.getByLabelText("candidate 1")).not.toBeChecked();
-    expect(screen.getByRole("button", { name: "Apply 1 Substitution" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Download a copy (1 substitution)" })).toBeEnabled();
   });
 
   it("applies only the checked candidates, with edited tag keys, and no dialog when nothing is blank", async () => {
     setup();
     await userEvent.click(screen.getByLabelText("candidate 1"));
     await userEvent.click(screen.getByRole("button", { name: "retag 1" }));
-    expect(screen.getByRole("button", { name: "Apply 2 Substitutions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download a copy (2 substitutions)" })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Apply 2 Substitutions" }));
+    await userEvent.click(screen.getByRole("button", { name: "Download a copy (2 substitutions)" }));
 
     expect(m.handleApply).toHaveBeenCalledWith(
       [
@@ -160,15 +160,18 @@ describe("TaggerResultsPage", () => {
     );
   });
 
-  it("disables Apply when nothing is checked", async () => {
+  it("still allows downloading the document unchanged when nothing is checked", async () => {
     setup();
     await userEvent.click(screen.getByLabelText("candidate 0"));
-    expect(screen.getByRole("button", { name: "Apply 0 Substitutions" })).toBeDisabled();
+    const button = screen.getByRole("button", { name: "Download Without Changes" });
+    expect(button).toBeEnabled();
+    await userEvent.click(button);
+    expect(m.handleApply).toHaveBeenCalledWith([], false);
   });
 
   it("asks about preserving blanks before applying, and passes the answer through", async () => {
     setup({ candidates: [candidate(0, "auto", "________")] });
-    await userEvent.click(screen.getByRole("button", { name: /^Apply/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Download a copy/ }));
     expect(m.handleApply).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: "preserve" }));
@@ -178,7 +181,7 @@ describe("TaggerResultsPage", () => {
 
   it("cancelling the dialog runs nothing", async () => {
     setup({ candidates: [candidate(0, "auto", "___")] });
-    await userEvent.click(screen.getByRole("button", { name: /^Apply/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Download a copy/ }));
     await userEvent.click(screen.getByRole("button", { name: "dialog cancel" }));
     expect(m.handleApply).not.toHaveBeenCalled();
     expect(m.handleSave).not.toHaveBeenCalled();
@@ -197,6 +200,24 @@ describe("TaggerResultsPage", () => {
     setup({ defaultFolderPath: "/QMS/Acme" });
     await userEvent.click(screen.getByRole("button", { name: "Save to Facility Folder" }));
     expect(m.handleSave).toHaveBeenCalledWith([{ candidate_index: 0, tag_key: "tag0" }], false, "/QMS/Acme");
+  });
+
+  it("puts Dropbox first and the local download second, and fires neither on load", () => {
+    setup({ defaultFolderPath: "/QMS/Acme" });
+    const buttons = screen.getAllByRole("button").map((b) => b.textContent);
+    const save = buttons.findIndex((t) => t?.includes("Save to Facility Folder"));
+    const download = buttons.findIndex((t) => t?.startsWith("Download a copy"));
+    expect(save).toBeGreaterThanOrEqual(0);
+    expect(download).toBeGreaterThan(save);
+    expect(screen.getByText(/Save the tagged document to this facility/)).toBeInTheDocument();
+    expect(m.handleApply).not.toHaveBeenCalled();
+    expect(m.handleSave).not.toHaveBeenCalled();
+  });
+
+  it("makes the download the main button when the facility has no Dropbox folder", () => {
+    setup();
+    expect(screen.getByRole("button", { name: /^Download a copy/ })).toHaveClass("bg-blue-600");
+    expect(screen.queryByText(/Save the tagged document to this facility/)).not.toBeInTheDocument();
   });
 
   it("hides the save button when there is no default folder", () => {
@@ -237,7 +258,7 @@ describe("TaggerResultsPage", () => {
   it("shows the empty-candidates message and no actions", () => {
     setup({ candidates: [] });
     expect(screen.getByText(/No candidates found/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Apply/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Download a copy/ })).not.toBeInTheDocument();
   });
 
   it("surfaces a tag-catalog load failure", async () => {

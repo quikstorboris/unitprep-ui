@@ -68,7 +68,7 @@ test("reviewing candidates by tier and applying confirmed substitutions", async 
   });
   await expect(autoCheckbox.first()).toBeChecked();
 
-  await expect(page.getByRole("button", { name: /Apply 1 Substitution/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Download a copy \(1 substitution\)/ })).toBeVisible();
 
   // Check the second competing candidate (l.ptd) for the ambiguous blank.
   const needsReviewCheckbox = page.getByRole("checkbox", {
@@ -76,7 +76,7 @@ test("reviewing candidates by tier and applying confirmed substitutions", async 
   });
   await needsReviewCheckbox.check();
 
-  await expect(page.getByRole("button", { name: /Apply 2 Substitutions/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Download a copy \(2 substitutions\)/ })).toBeVisible();
 
   await mockBinaryPost(page, "http://localhost:8080/tagger/apply", {
     body: Buffer.from("fake docx bytes"),
@@ -88,7 +88,7 @@ test("reviewing candidates by tier and applying confirmed substitutions", async 
   // preserve-underscores dialog first; this test isn't about that
   // choice, so just pick "replace outright" (the previous default) and
   // move on.
-  await page.getByRole("button", { name: /Apply 2 Substitutions/ }).click();
+  await page.getByRole("button", { name: /Download a copy \(2 substitutions\)/ }).click();
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /Replace outright/ }).click();
@@ -173,7 +173,7 @@ test("the preserve-underscores dialog choice is sent through to /tagger/apply", 
 
   // Every candidate in `taggerReport` is an underscore blank, so Apply
   // opens the preserve-underscores dialog instead of applying directly.
-  await page.getByRole("button", { name: /Apply 1 Substitution/ }).click();
+  await page.getByRole("button", { name: /Download a copy \(1 substitution\)/ }).click();
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /Preserve underscores/ }).click();

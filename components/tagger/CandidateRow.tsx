@@ -56,13 +56,15 @@ export default function CandidateRow({
       data-testid={`candidate-row-${candidate.index}`}
       className="flex items-start gap-3 rounded border border-slate-800 p-3"
     >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onToggle(event.target.checked)}
-        className="mt-1"
-        aria-label={`Apply this substitution for ${candidate.tag_key}`}
-      />
+      <label className="mt-0.5 flex shrink-0 flex-col items-center gap-0.5 text-xs text-slate-400">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onToggle(event.target.checked)}
+          aria-label={`Apply this substitution for ${candidate.tag_key}`}
+        />
+        {checked ? "Apply" : "Ignore"}
+      </label>
 
       <div className="flex-1 space-y-2">
         <div className="text-sm text-slate-300">

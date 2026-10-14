@@ -29,6 +29,10 @@ export default function CandidateSection({
       <h2 className={`text-lg font-semibold ${titleClassName}`}>
         {title} ({candidates.length})
       </h2>
+      <p className="text-sm text-slate-400">
+        Only checked rows are applied. Leave a row unchecked to ignore it —
+        that text stays exactly as it is in the document.
+      </p>
       {candidates.map((candidate) => {
         const state = review.get(candidate.index);
         if (!state) return null;

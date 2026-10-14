@@ -172,15 +172,38 @@ export default function TaggerResultsPage({
 
       {!downloadComplete && candidates && candidates.length > 0 && (
         <div className="mt-8 rounded border border-slate-700 p-4">
+          {defaultFolderPath && !savedPath && (
+            <p className="mb-3 text-sm text-slate-400">
+              Save the tagged document to this facility&apos;s Dropbox folder.
+              A copy for this computer is available below if you need one.
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-3">
+            <SaveToFolderControl
+              savedPath={savedPath}
+              defaultFolderPath={defaultFolderPath}
+              saving={saving}
+              disabled={false}
+              onSave={handleSaveClick}
+              sizeClassName="px-5 py-3"
+            />
+
+            {/* Dropbox is the main path. Where a facility has a Dropbox
+                folder, the local download is a quiet, on-demand option. */}
             <button
               onClick={handleApplyClick}
-              disabled={applying || confirmedCount === 0}
-              className="rounded bg-blue-600 px-5 py-3 disabled:opacity-50"
+              disabled={applying}
+              className={
+                defaultFolderPath
+                  ? "rounded border border-slate-600 px-4 py-3 text-sm text-slate-200 transition-colors hover:bg-slate-800 disabled:opacity-50"
+                  : "rounded bg-blue-600 px-5 py-3 disabled:opacity-50"
+              }
             >
               {applying
-                ? "Applying..."
-                : `Apply ${confirmedCount} Substitution${confirmedCount === 1 ? "" : "s"}`}
+                ? "Preparing download..."
+                : confirmedCount === 0
+                  ? "Download Without Changes"
+                  : `Download a copy (${confirmedCount} substitution${confirmedCount === 1 ? "" : "s"})`}
             </button>
 
             {applying && (
@@ -195,15 +218,6 @@ export default function TaggerResultsPage({
                 </button>
               </span>
             )}
-
-            <SaveToFolderControl
-              savedPath={savedPath}
-              defaultFolderPath={defaultFolderPath}
-              saving={saving}
-              disabled={confirmedCount === 0}
-              onSave={handleSaveClick}
-              sizeClassName="px-5 py-3"
-            />
           </div>
         </div>
       )}
@@ -224,7 +238,7 @@ export default function TaggerResultsPage({
               savedPath={savedPath}
               defaultFolderPath={defaultFolderPath}
               saving={saving}
-              disabled={confirmedCount === 0}
+              disabled={false}
               onSave={handleSaveClick}
               sizeClassName="px-4 py-2"
             />
