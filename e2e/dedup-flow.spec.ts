@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import { mockBinaryPost, mockJsonPost, seedClient } from "./helpers";
 
 const CLIENT_ID = "e2e-client-dedup";
+const FACILITY_ID = "e2e-facility";
 const SESSION_ID = "session-dedup-1";
 
 const dedupReport = {
@@ -35,17 +36,17 @@ test("reviewing flagged groups and downloading a CSV export", async ({
 }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonPost(page, "http://localhost:8080/dedup/report", () => ({
+  await mockJsonPost(page, "/dedup/report", () => ({
     json: dedupReport,
   }));
 
-  await mockBinaryPost(page, "http://localhost:8080/dedup/export", {
+  await mockBinaryPost(page, "/dedup/export", {
     body: Buffer.from("name,units\nSmith Family,101;102"),
     contentType: "text/csv",
     filename: "duplicate_tenant_check.csv",
   });
 
-  await page.goto(`/clients/${CLIENT_ID}/dedup/${SESSION_ID}`);
+  await page.goto(`/clients/${CLIENT_ID}/facilities/${FACILITY_ID}/dedup/${SESSION_ID}`);
 
   await expect(page.getByText("Flagged Groups (1)")).toBeVisible();
   await expect(page.getByText("Smith Family")).toBeVisible();
@@ -63,7 +64,7 @@ test("no flagged groups, typo variants, or related tenants shows the all-clear m
 }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonPost(page, "http://localhost:8080/dedup/report", () => ({
+  await mockJsonPost(page, "/dedup/report", () => ({
     json: {
       total_rows: 10,
       unique_tenants: 10,
@@ -74,7 +75,7 @@ test("no flagged groups, typo variants, or related tenants shows the all-clear m
     },
   }));
 
-  await page.goto(`/clients/${CLIENT_ID}/dedup/${SESSION_ID}`);
+  await page.goto(`/clients/${CLIENT_ID}/facilities/${FACILITY_ID}/dedup/${SESSION_ID}`);
 
   await expect(
     page.getByText(/No duplicate tenants or name variants found/)

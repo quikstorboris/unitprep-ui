@@ -8,6 +8,15 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.98] - 2026-10-15
+
+Browser tests repaired and added to tag CI; no app change.
+
+### Tests and CI
+- **The Playwright suite works again.** All 11 specs had been failing for weeks: they still used the old `/clients/{id}/unit-groups` URLs (routes now sit under `/facilities/{facilityId}`), seeded a client in `sessionStorage` (clients now come from `GET /clients`), and mocked `localhost:8080` while the app calls `127.0.0.1:8080`. `e2e/helpers.ts` is now one API router per page (`mockApi`) that answers CORS preflights for every verb, 404s anything unmocked, and remembers it (`E2E_DEBUG=1` prints each one). The preserve-underscores tagger spec's `/tagger/apply` mock had never matched; fixed.
+- New `e2e/auth-flow.spec.ts`: signed-out redirect to the sign-in form with a refused sign-in's message, a signed-in page inside the shell, and the TOTP step-up gate (wrong code, then the right one).
+- CI runs the whole suite in a new `e2e` job on version tags (Chromium installed in the job; no backend or secrets).
+
 ## [1.6.97] - 2026-10-14
 
 Template Tagger review and save flow. Pairs with `unitprep-api` 1.9.124 (no dependency in either direction).

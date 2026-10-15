@@ -62,3 +62,29 @@ jobs:
 
       - name: vitest run
         run: npx vitest run
+
+  e2e:
+    name: Browser tests (tag push only)
+    # Playwright against `next dev` with every API call mocked (see
+    # e2e/helpers.ts) -- no backend, database or secret needed. Tag push
+    # only, like full-tests: it is the slowest job and not a push gate.
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Workflow secret/permissions guard
+        run: ./scripts/check_workflow_secrets.sh
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright e2e
+        run: npm run test:e2e

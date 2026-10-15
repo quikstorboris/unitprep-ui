@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import { mockBinaryPost, mockJsonPost, seedClient } from "./helpers";
 
 const CLIENT_ID = "e2e-client-export";
+const FACILITY_ID = "e2e-facility";
 const SESSION_ID = "session-export-1";
 
 const analyzeResponse = {
@@ -19,18 +20,18 @@ const analyzeResponse = {
 test("reviewing analysis and downloading the export ZIP", async ({ page }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonPost(page, "http://localhost:8080/analyze", () => ({
+  await mockJsonPost(page, "/analyze", () => ({
     json: analyzeResponse,
   }));
 
-  await mockBinaryPost(page, "http://localhost:8080/export", {
+  await mockBinaryPost(page, "/export", {
     body: Buffer.from("fake zip bytes"),
     contentType: "application/zip",
     filename: "UnitPrep_Output.zip",
   });
 
   await page.goto(
-    `/clients/${CLIENT_ID}/unit-groups/${SESSION_ID}/export`
+    `/clients/${CLIENT_ID}/facilities/${FACILITY_ID}/unit-groups/${SESSION_ID}/export`
   );
 
   await expect(page.getByText("Net New Groups (1)")).toBeVisible();
@@ -49,13 +50,13 @@ test("an analysis failure shows an error instead of the review screen", async ({
 }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonPost(page, "http://localhost:8080/analyze", () => ({
+  await mockJsonPost(page, "/analyze", () => ({
     status: 500,
     json: { message: "analysis engine unavailable" },
   }));
 
   await page.goto(
-    `/clients/${CLIENT_ID}/unit-groups/${SESSION_ID}/export`
+    `/clients/${CLIENT_ID}/facilities/${FACILITY_ID}/unit-groups/${SESSION_ID}/export`
   );
 
   await expect(page.getByText("analysis engine unavailable")).toBeVisible();

@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-import { mockBinaryPost, mockJsonGet, mockJsonPost, seedClient } from "./helpers";
+import { mockApi, mockBinaryPost, mockJsonGet, mockJsonPost, seedClient } from "./helpers";
 
 const CLIENT_ID = "e2e-client-tagger";
+const FACILITY_ID = "e2e-facility";
 const SESSION_ID = "session-tagger-1";
 
 const tagCatalog = {
@@ -51,12 +52,12 @@ test("reviewing candidates by tier and applying confirmed substitutions", async 
 }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonGet(page, "http://localhost:8080/client-ops/qms-tags", tagCatalog);
-  await mockJsonPost(page, "http://localhost:8080/tagger/report", () => ({
+  await mockJsonGet(page, "/client-ops/qms-tags", tagCatalog);
+  await mockJsonPost(page, "/tagger/report", () => ({
     json: taggerReport,
   }));
 
-  await page.goto(`/clients/${CLIENT_ID}/template-tagger/${SESSION_ID}`);
+  await page.goto(`/clients/${CLIENT_ID}/facilities/${FACILITY_ID}/template-tagger/${SESSION_ID}`);
 
   await expect(page.getByText("Auto-Apply (1)")).toBeVisible();
   await expect(page.getByText("Needs Review (2)")).toBeVisible();
@@ -78,7 +79,7 @@ test("reviewing candidates by tier and applying confirmed substitutions", async 
 
   await expect(page.getByRole("button", { name: /Download a copy \(2 substitutions\)/ })).toBeVisible();
 
-  await mockBinaryPost(page, "http://localhost:8080/tagger/apply", {
+  await mockBinaryPost(page, "/tagger/apply", {
     body: Buffer.from("fake docx bytes"),
     contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     filename: "lease-tagged.docx",
@@ -103,12 +104,12 @@ test("the tag picker lets a reviewer override a candidate's guessed tag", async 
 }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonGet(page, "http://localhost:8080/client-ops/qms-tags", tagCatalog);
-  await mockJsonPost(page, "http://localhost:8080/tagger/report", () => ({
+  await mockJsonGet(page, "/client-ops/qms-tags", tagCatalog);
+  await mockJsonPost(page, "/tagger/report", () => ({
     json: taggerReport,
   }));
 
-  await page.goto(`/clients/${CLIENT_ID}/template-tagger/${SESSION_ID}`);
+  await page.goto(`/clients/${CLIENT_ID}/facilities/${FACILITY_ID}/template-tagger/${SESSION_ID}`);
 
   // Candidate index 1 (m.indate, needs review) -- open its picker and
   // switch it to the other competing tag, l.ptd. Scoped by data-testid,
@@ -137,39 +138,24 @@ test("the preserve-underscores dialog choice is sent through to /tagger/apply", 
 }) => {
   await seedClient(page, CLIENT_ID);
 
-  await mockJsonGet(page, "http://localhost:8080/client-ops/qms-tags", tagCatalog);
-  await mockJsonPost(page, "http://localhost:8080/tagger/report", () => ({
+  await mockJsonGet(page, "/client-ops/qms-tags", tagCatalog);
+  await mockJsonPost(page, "/tagger/report", () => ({
     json: taggerReport,
   }));
 
   const captured: { body: { preserve_blanks?: boolean } | null } = { body: null };
-  await page.route("http://localhost:8080/tagger/apply", async (route) => {
-    if (route.request().method() === "OPTIONS") {
-      await route.fulfill({
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "http://127.0.0.1:3100",
-          "Access-Control-Allow-Credentials": "true",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-      });
-      return;
-    }
-    captured.body = route.request().postDataJSON();
-    await route.fulfill({
-      status: 200,
+  await mockApi(page, "POST /tagger/apply", ({ body }) => {
+    captured.body = body as { preserve_blanks?: boolean };
+    return {
       body: Buffer.from("fake docx bytes"),
       headers: {
-        "Access-Control-Allow-Origin": "http://127.0.0.1:3100",
-        "Access-Control-Allow-Credentials": "true",
         "Content-Type": "application/octet-stream",
         "Content-Disposition": 'attachment; filename="tagged.docx"',
       },
-    });
+    };
   });
 
-  await page.goto(`/clients/${CLIENT_ID}/template-tagger/${SESSION_ID}`);
+  await page.goto(`/clients/${CLIENT_ID}/facilities/${FACILITY_ID}/template-tagger/${SESSION_ID}`);
 
   // Every candidate in `taggerReport` is an underscore blank, so Apply
   // opens the preserve-underscores dialog instead of applying directly.

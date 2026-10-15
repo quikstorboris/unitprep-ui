@@ -1,6 +1,6 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-import { seedAuthenticatedSession } from "./helpers";
+import { mockApi, seedClient } from "./helpers";
 
 /**
  * Regression coverage for the state-scoping bug class this app has now
@@ -18,6 +18,7 @@ import { seedAuthenticatedSession } from "./helpers";
  */
 
 const CLIENT_ID = "e2e-client";
+const FACILITY_ID = "e2e-facility";
 
 function validateResponse(filesChecked: number) {
   return {
@@ -31,86 +32,31 @@ function validateResponse(filesChecked: number) {
   };
 }
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "http://127.0.0.1:3100",
-  "Access-Control-Allow-Credentials": "true",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Expose-Headers": "Content-Disposition",
-};
-
-async function mockValidateBySession(
-  page: Page,
-  responsesBySessionId: Record<string, unknown>
-) {
-  await page.route("**/validate", async (route: Route) => {
-    // /validate is cross-origin from the app's own dev server
-    // (127.0.0.1:8080 vs. 127.0.0.1:3100), and its JSON body makes it a
-    // non-simple request per the CORS spec -- the real browser sends an
-    // OPTIONS preflight with no body before the POST itself. Answering
-    // only the POST and never the preflight leaves the preflight (and
-    // so the whole fetch) hanging forever, which is exactly what a stuck
-    // "Loading…" state without a request-method check looks like.
-    if (route.request().method() === "OPTIONS") {
-      await route.fulfill({ status: 204, headers: CORS_HEADERS });
-      return;
-    }
-
-    const body = route.request().postDataJSON() as { session_id: string };
-    const response = responsesBySessionId[body.session_id];
-
-    await route.fulfill({
-      json: response ?? { error: "unmocked session" },
-      headers: CORS_HEADERS,
-    });
-  });
-}
-
 test("switching sessions via browser back/forward does not leak stale results", async ({
   page,
 }) => {
   const sessionA = "session-a";
   const sessionB = "session-b";
 
-  await seedAuthenticatedSession(page);
+  await seedClient(page, CLIENT_ID);
 
-  // Clients are frontend-only state, scoped per tab in sessionStorage
-  // (see lib/clients.tsx) -- no backend entity exists yet. addInitScript
-  // re-runs before every navigation in this test, so the seeded client
-  // survives page.goto() to a new route, not just the first load.
-  await page.addInitScript(
-    ([clientId]) => {
-      sessionStorage.setItem(
-        "unitprep:clients",
-        JSON.stringify([
-          {
-            id: clientId,
-            name: "E2E Test Client",
-            contactName: "",
-            contactEmail: "",
-            contactPhone: "",
-            signerName: "",
-            bankAccount: "",
-            address: "",
-            dropboxPath: "",
-            createdAt: Date.now(),
-          },
-        ])
-      );
-    },
-    [CLIENT_ID]
-  );
-
-  await mockValidateBySession(page, {
+  // /validate is mocked per session_id so this verifies frontend
+  // remount/state-scoping in isolation from backend correctness.
+  const responsesBySessionId: Record<string, unknown> = {
     [sessionA]: validateResponse(111),
     [sessionB]: validateResponse(222),
-  });
+  };
+  await mockApi(page, "POST /validate", ({ body }) => ({
+    json:
+      responsesBySessionId[(body as { session_id: string }).session_id] ??
+      { error: "unmocked session" },
+  }));
 
-  await page.goto(`/clients/${CLIENT_ID}/unit-groups/${sessionA}`);
+  await page.goto(`/clients/${CLIENT_ID}/facilities/${FACILITY_ID}/unit-groups/${sessionA}`);
   await expect(page.getByText("111")).toBeVisible();
   await expect(page.getByText("222")).not.toBeVisible();
 
-  await page.goto(`/clients/${CLIENT_ID}/unit-groups/${sessionB}`);
+  await page.goto(`/clients/${CLIENT_ID}/facilities/${FACILITY_ID}/unit-groups/${sessionB}`);
   await expect(page.getByText("222")).toBeVisible();
   await expect(page.getByText("111")).not.toBeVisible();
 

@@ -2,9 +2,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { CORS_HEADERS, mockJsonPost, seedClient } from "./helpers";
+import { mockApi, mockJsonPost, seedClient } from "./helpers";
 
 // The folder picker is a real `<input webkitdirectory>` -- Playwright
 // requires setInputFiles on one of these to be given an actual directory
@@ -38,31 +38,21 @@ function makeUploadFolder(): string {
  */
 
 const CLIENT_ID = "e2e-client-discovery";
+const FACILITY_ID = "e2e-facility";
 
 async function mockUpload(
   page: Page,
   sessionId: string
 ) {
-  await page.route(
-    "http://localhost:8080/upload",
-    async (route: Route) => {
-      if (route.request().method() === "OPTIONS") {
-        await route.fulfill({ status: 204, headers: CORS_HEADERS });
-        return;
-      }
+  await mockApi(page, "POST /upload", () => ({
+    json: {
+      session_id: sessionId,
+      files_uploaded: 1,
+      files_failed: 0,
+      multipart_errors: 0,
+    },
+  }));
 
-      await route.fulfill({
-        status: 200,
-        json: {
-          session_id: sessionId,
-          files_uploaded: 1,
-          files_failed: 0,
-          multipart_errors: 0,
-        },
-        headers: CORS_HEADERS,
-      });
-    }
-  );
 }
 
 function baseDiscovery() {
@@ -106,11 +96,11 @@ test("upload through discover, confirm unit files, confirm format, and reach sca
   await seedClient(page, CLIENT_ID);
   await mockUpload(page, sessionId);
 
-  await mockJsonPost(page, "http://localhost:8080/discover", () => ({
+  await mockJsonPost(page, "/discover", () => ({
     json: baseDiscovery(),
   }));
 
-  await page.goto(`/clients/${CLIENT_ID}/unit-groups`);
+  await page.goto(`/clients/${CLIENT_ID}/facilities/${FACILITY_ID}/unit-groups`);
 
   await page
     .locator("#unitprep-folder-picker")
@@ -126,7 +116,7 @@ test("upload through discover, confirm unit files, confirm format, and reach sca
 
   // Now that unit-file selection is showing, re-mock /discover's
   // successor endpoints for the rest of the pipeline.
-  await mockJsonPost(page, "http://localhost:8080/unit-file/select", () => ({
+  await mockJsonPost(page, "/unit-file/select", () => ({
     json: {
       ...baseDiscovery(),
       requires_unit_file_selection: false,
@@ -146,7 +136,7 @@ test("upload through discover, confirm unit files, confirm format, and reach sca
 
   await mockJsonPost(
     page,
-    "http://localhost:8080/unit-file/resolve-format",
+    "/unit-file/resolve-format",
     () => ({
       json: {
         ...baseDiscovery(),
@@ -171,7 +161,7 @@ test("upload through discover, confirm unit files, confirm format, and reach sca
   // no request involved).
   await page.getByRole("button", { name: "Net New Client" }).click();
 
-  await mockJsonPost(page, "http://localhost:8080/validate", () => ({
+  await mockJsonPost(page, "/validate", () => ({
     json: {
       files_checked: 1,
       issue_count: 0,
@@ -202,11 +192,11 @@ test("reopening unit file selection and clicking Cancel returns to the confirmed
   await seedClient(page, CLIENT_ID);
   await mockUpload(page, sessionId);
 
-  await mockJsonPost(page, "http://localhost:8080/discover", () => ({
+  await mockJsonPost(page, "/discover", () => ({
     json: baseDiscovery(),
   }));
 
-  await page.goto(`/clients/${CLIENT_ID}/unit-groups`);
+  await page.goto(`/clients/${CLIENT_ID}/facilities/${FACILITY_ID}/unit-groups`);
 
   await page
     .locator("#unitprep-folder-picker")
@@ -216,7 +206,7 @@ test("reopening unit file selection and clicking Cancel returns to the confirmed
 
   await expect(page.getByText("Select Unit Files")).toBeVisible();
 
-  await mockJsonPost(page, "http://localhost:8080/unit-file/select", () => ({
+  await mockJsonPost(page, "/unit-file/select", () => ({
     json: {
       ...baseDiscovery(),
       requires_unit_file_selection: false,
