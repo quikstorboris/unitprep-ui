@@ -8,6 +8,15 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.99] - 2026-10-16
+
+Company page editing. Needs `unitprep-api` 1.9.129 or later (the three endpoints it calls).
+
+### Added
+- **Edit a company's information by hand.** The company Info page has an Edit button that opens a form for the 14 editable fields (legal name, email, phone, address, subdomain, website, payment and insurance details); a blank legal name is refused before saving. Saved through `PUT /clients/{id}/info`; fields you change are protected from the next Process Street sync.
+- **Change the Implementation Manager.** The "Implementation manager" line has a Change control with a staff picker and a "Not assigned" option (`GET /clients/staff`, `PUT /clients/{id}/implementation-manager`). A manager chosen by hand sticks; clearing it hands it back to sync. API errors show inline.
+- Generated types `CompanyInfoFields`, `StaffListResponse` and `SetImplementationManagerRequest`, and component tests for both new pieces.
+
 ## [1.6.98] - 2026-10-15
 
 Browser tests repaired and added to tag CI; no app change.
