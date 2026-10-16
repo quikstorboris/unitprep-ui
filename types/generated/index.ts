@@ -107,3 +107,7 @@ export type { GrantablePermission } from "./GrantablePermission";
 export type { UserPermissionsResponse } from "./UserPermissionsResponse";
 export type { CreateInviteResponse } from "./CreateInviteResponse";
 export type { ConfigSource } from "./ConfigSource";
+export type { UserSummary } from "./UserSummary";
+export type { ListUsersResponse } from "./ListUsersResponse";
+export type { CreateInviteRequest } from "./CreateInviteRequest";
+export type { SyncStatusResponse } from "./SyncStatusResponse";
