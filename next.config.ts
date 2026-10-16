@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 import packageJson from "./package.json";
 
@@ -16,4 +17,12 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
 };
 
-export default nextConfig;
+// Wraps the build for Sentry. Source-map upload only happens when
+// SENTRY_AUTH_TOKEN is set (a build-time secret, never committed); without
+// it the build is unchanged apart from Sentry's own hooks.
+export default withSentryConfig(nextConfig, {
+  org: "quikstor-wf",
+  project: "orchestrator-ui",
+  silent: !process.env.CI,
+  release: { name: `unitprep-ui@${packageJson.version}` },
+});

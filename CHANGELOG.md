@@ -8,6 +8,11 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.100] - 2026-10-16
+
+### Added
+- Sentry error reporting (project `orchestrator-ui` in org `quikstor-wf`), off unless `NEXT_PUBLIC_SENTRY_DSN` is set. Browser, server and edge errors, plus the two error boundaries, are reported with release `unitprep-ui@<version>`; `NEXT_PUBLIC_SENTRY_ENVIRONMENT` (default `development`) and `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` (default off) are optional. Session Replay is not enabled; `lib/sentryOptions.ts` strips request bodies, cookies, query strings and the `/invites/<token>` path segment from every event. Source maps upload only when `SENTRY_AUTH_TOKEN` is set at build time. New dependency: `@sentry/nextjs`.
+
 ## [1.6.99] - 2026-10-16
 
 Company page editing. Needs `unitprep-api` 1.9.129 or later (the three endpoints it calls).
