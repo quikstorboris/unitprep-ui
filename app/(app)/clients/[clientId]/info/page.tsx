@@ -2,7 +2,9 @@
 
 import ImplementationManagerLine from "@/components/clients/ImplementationManagerLine";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 
+import CompanyInfoForm from "@/components/clients/CompanyInfoForm";
 import ClickUpCompanySection from "@/components/clickup/ClickUpCompanySection";
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
 import DetailSection from "@/components/clients/DetailSection";
@@ -34,6 +36,7 @@ import { formatPhone } from "@/lib/format";
 export default function ClientInfoPage() {
   const { clientId } = useParams<{ clientId: string }>();
   const { company, loadError, refetch } = useCompanyDetail();
+  const [editing, setEditing] = useState(false);
 
   if (loadError) {
     return (
@@ -56,24 +59,43 @@ export default function ClientInfoPage() {
   return (
     <main className="p-8">
       <div className="mx-auto flex max-w-5xl gap-8">
-        <FacilityRail companyId={clientId} facilities={company.facilities} activeFacilityId={null} />
+        <FacilityRail
+          companyId={clientId}
+          facilities={company.facilities}
+          activeFacilityId={null}
+        />
 
         <div className="flex flex-1 flex-col gap-6">
           <div className="flex items-start justify-between gap-4">
-            <h1 className="min-w-0 break-words text-2xl font-bold">{company.legal_name}</h1>
+            <h1 className="min-w-0 break-words text-2xl font-bold">
+              {company.legal_name}
+            </h1>
             <div className="flex shrink-0 items-center gap-2">
               <ImplementationCompletedToggle
                 companyId={clientId}
                 completed={company.implementation_completed_at !== null}
                 onChanged={refetch}
               />
+              {!editing && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="rounded border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800"
+                >
+                  Edit
+                </button>
+              )}
               <FieldReferenceHelp />
               <ResyncButton companyId={clientId} />
               <ManualLinkDialog companyId={clientId} />
             </div>
           </div>
 
-          <ImplementationManagerLine manager={company.implementation_manager} />
+          <ImplementationManagerLine
+            companyId={clientId}
+            manager={company.implementation_manager}
+            onChanged={refetch}
+          />
 
           {company.archived_at && (
             <p className="text-sm text-amber-400">
@@ -81,32 +103,83 @@ export default function ClientInfoPage() {
             </p>
           )}
 
-          <DetailSection
-            title="Company Information"
-            fields={[
-              { label: "Legal Name", value: company.legal_name },
-              { label: "Email", value: company.corporate_email },
-              { label: "Phone", value: formatPhone(company.corporate_phone) },
-              { label: "Street Address", value: company.corporate_address_street },
-              { label: "City", value: company.corporate_address_city },
-              { label: "State", value: company.corporate_address_state },
-              { label: "ZIP", value: company.corporate_address_zip },
-              { label: "Subdomain", value: company.subdomain },
-              { label: "Website", value: company.website_url },
-            ]}
-          />
+          {editing ? (
+            <CompanyInfoForm
+              companyId={clientId}
+              initial={{
+                legal_name: company.legal_name,
+                corporate_email: company.corporate_email,
+                corporate_phone: company.corporate_phone,
+                corporate_address_street: company.corporate_address_street,
+                corporate_address_city: company.corporate_address_city,
+                corporate_address_state: company.corporate_address_state,
+                corporate_address_zip: company.corporate_address_zip,
+                subdomain: company.subdomain,
+                website_url: company.website_url,
+                accepted_payment_methods: company.accepted_payment_methods,
+                accounting_basis: company.accounting_basis,
+                payment_scheme: company.payment_scheme,
+                offers_tenant_insurance_raw:
+                  company.offers_tenant_insurance_raw,
+                insurance_provider: company.insurance_provider,
+              }}
+              onSaved={() => {
+                setEditing(false);
+                refetch();
+              }}
+              onCancel={() => setEditing(false)}
+            />
+          ) : (
+            <>
+              <DetailSection
+                title="Company Information"
+                fields={[
+                  { label: "Legal Name", value: company.legal_name },
+                  { label: "Email", value: company.corporate_email },
+                  {
+                    label: "Phone",
+                    value: formatPhone(company.corporate_phone),
+                  },
+                  {
+                    label: "Street Address",
+                    value: company.corporate_address_street,
+                  },
+                  { label: "City", value: company.corporate_address_city },
+                  { label: "State", value: company.corporate_address_state },
+                  { label: "ZIP", value: company.corporate_address_zip },
+                  { label: "Subdomain", value: company.subdomain },
+                  { label: "Website", value: company.website_url },
+                ]}
+              />
 
-          <DetailSection
-            title="Financial Information"
-            fields={[
-              { label: "Elavon (Merchant Account)", value: company.elavon_active ? "Yes" : "No" },
-              { label: "Accepted Payment Methods", value: company.accepted_payment_methods },
-              { label: "Accounting Basis", value: company.accounting_basis },
-              { label: "Payment Scheme", value: company.payment_scheme },
-              { label: "Offers Tenant Insurance", value: company.offers_tenant_insurance_raw },
-              { label: "Insurance Provider", value: company.insurance_provider },
-            ]}
-          />
+              <DetailSection
+                title="Financial Information"
+                fields={[
+                  {
+                    label: "Elavon (Merchant Account)",
+                    value: company.elavon_active ? "Yes" : "No",
+                  },
+                  {
+                    label: "Accepted Payment Methods",
+                    value: company.accepted_payment_methods,
+                  },
+                  {
+                    label: "Accounting Basis",
+                    value: company.accounting_basis,
+                  },
+                  { label: "Payment Scheme", value: company.payment_scheme },
+                  {
+                    label: "Offers Tenant Insurance",
+                    value: company.offers_tenant_insurance_raw,
+                  },
+                  {
+                    label: "Insurance Provider",
+                    value: company.insurance_provider,
+                  },
+                ]}
+              />
+            </>
+          )}
 
           <section className="rounded border border-slate-800 p-5">
             <h2 className="mb-4 text-lg font-semibold">Dropbox</h2>
@@ -114,20 +187,30 @@ export default function ClientInfoPage() {
                 Intake only ever captures this per facility -- so this is
                 a list of each facility's own link, same pattern as
                 Owner(s) Information below. */}
-            {company.facilities.filter((f) => f.dropbox_folder_url).length === 0 ? (
-              <p className="text-sm text-slate-500">No Dropbox folders on file for this company&apos;s facilities.</p>
+            {company.facilities.filter((f) => f.dropbox_folder_url).length ===
+            0 ? (
+              <p className="text-sm text-slate-500">
+                No Dropbox folders on file for this company&apos;s facilities.
+              </p>
             ) : (
               <div className="flex flex-col gap-2">
                 {company.facilities
-                  .filter((f): f is typeof f & { dropbox_folder_url: string } => Boolean(f.dropbox_folder_url))
+                  .filter((f): f is typeof f & { dropbox_folder_url: string } =>
+                    Boolean(f.dropbox_folder_url),
+                  )
                   .map((facility) => (
-                    <div key={facility.id} className="flex items-center justify-between gap-3">
+                    <div
+                      key={facility.id}
+                      className="flex items-center justify-between gap-3"
+                    >
                       {/* `min-w-0` is load-bearing here -- a flex child's
                           default min-width is its content's natural width,
                           not 0, so `truncate` alone silently does nothing
                           under a squeezed row and the name pushes into (or
                           past) the button instead of clipping. */}
-                      <span className="min-w-0 flex-1 truncate text-sm text-slate-400">{facility.name}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm text-slate-400">
+                        {facility.name}
+                      </span>
                       <a
                         href={facility.dropbox_folder_url}
                         target="_blank"
@@ -143,7 +226,10 @@ export default function ClientInfoPage() {
             )}
           </section>
 
-          <ClickUpCompanySection companyId={clientId} companyName={company.legal_name} />
+          <ClickUpCompanySection
+            companyId={clientId}
+            companyName={company.legal_name}
+          />
 
           <section className="rounded border border-slate-800 p-5">
             <h2 className="mb-4 text-lg font-semibold">Owner(s) Information</h2>
