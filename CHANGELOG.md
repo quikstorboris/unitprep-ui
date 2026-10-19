@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.103] - 2026-10-19
+
+New Client: the primary facility is now chosen, not guessed. No API change.
+
+### Changed
+- When more than one facility is selected, Review & Create shows a **Primary facility** picker and nothing is preselected. The chosen facility's corporate information fills the Company section and its Process Street run is recorded as the company's source; Create stays disabled until one is chosen. The facility Process Street's own data points at is marked "suggested". A lone facility is its own primary and is not asked.
+
 ## [1.6.102] - 2026-10-19
 
 Company page: "Add facility". Needs `unitprep-api` 1.9.133.

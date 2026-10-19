@@ -51,6 +51,12 @@ function selectionParams(
   return new URLSearchParams({ selection: JSON.stringify(runs) });
 }
 
+// With several facilities selected, nothing is the primary until the
+// person picks one (see PrimaryFacilityPicker).
+async function choosePrimary(facilityName: string) {
+  await userEvent.click(await screen.findByRole("radio", { name: new RegExp(`^${facilityName}`) }));
+}
+
 function mappedFacility(overrides: Record<string, unknown> = {}) {
   return {
     name: "Highway 20 Self Storage",
@@ -425,6 +431,7 @@ describe("ClientsNewPage", () => {
     });
 
     render(<ClientsNewPage />);
+    await choosePrimary("Highway 20 Self Storage");
 
     // One Company section...
     expect(await screen.findByRole("heading", { name: "Prairie Enterprises LLC" })).toBeInTheDocument();
@@ -468,6 +475,7 @@ describe("ClientsNewPage", () => {
 
     const user = userEvent.setup();
     render(<ClientsNewPage />);
+    await choosePrimary("Highway 20 Self Storage");
     await screen.findByRole("heading", { name: "Prairie Enterprises LLC" });
 
     await user.click(screen.getByRole("button", { name: "Create" }));
@@ -539,6 +547,7 @@ describe("ClientsNewPage", () => {
 
     const user = userEvent.setup();
     render(<ClientsNewPage />);
+    await choosePrimary("Highway 20 Self Storage");
     await screen.findByRole("heading", { name: "Prairie Enterprises LLC" });
 
     await user.click(screen.getByRole("button", { name: "Create" }));
@@ -560,7 +569,7 @@ describe("ClientsNewPage", () => {
   // earlier in this list -- leaving the Company section almost entirely
   // blank even though Westpark's real data was right there in the same
   // batch.
-  it("prefers the run PS marks as the real first-time facility over one that merely resolved a legal name", async () => {
+  it("seeds the Company from the chosen primary facility's own corporate data", async () => {
     useSearchParams.mockReturnValue(
       selectionParams([
         { run_id: "run-tanner", run_name: "Affordable Storage Tanner - BEAU RYAN" },
@@ -597,6 +606,7 @@ describe("ClientsNewPage", () => {
     });
 
     render(<ClientsNewPage />);
+    await choosePrimary("Affordable Storage Westpark");
 
     await screen.findByRole("heading", { name: "Affordable Storage" });
     expect(screen.getByText("beau@rockspring.com")).toBeInTheDocument();
@@ -606,7 +616,7 @@ describe("ClientsNewPage", () => {
 
   // No selected run answered "Yes" -- falls back to whichever has the
   // most complete company data, not just whichever comes first.
-  it("prefers the most complete company data when no selected run answered yes to first-time", async () => {
+  it("seeds the Company from whichever facility was chosen, even one with no first-time answer", async () => {
     useSearchParams.mockReturnValue(
       selectionParams([
         { run_id: "run-sparse", run_name: "Sparse Run" },
@@ -638,10 +648,105 @@ describe("ClientsNewPage", () => {
     });
 
     render(<ClientsNewPage />);
+    await choosePrimary("Full Facility");
 
     await screen.findByRole("heading", { name: "Some Company" });
     expect(screen.getByText("office@somecompany.com")).toBeInTheDocument();
     expect(screen.getByText("555-123-4567")).toBeInTheDocument();
+  });
+
+  describe("primary facility", () => {
+    function twoRuns() {
+      useSearchParams.mockReturnValue(
+        selectionParams([
+          { run_id: "run-a", run_name: "Woodland - QMS Onboarding" },
+          { run_id: "run-b", run_name: "Longview - QMS Onboarding" },
+        ])
+      );
+      previewClients.mockResolvedValue({
+        kind: "ok",
+        data: {
+          runs: [
+            {
+              run_id: "run-a",
+              is_first_time: false,
+              company: mappedCompany(),
+              facility: mappedFacility({ name: "Woodland" }),
+            },
+            {
+              run_id: "run-b",
+              is_first_time: true,
+              company: mappedCompany({ legal_name: "KH Moss, LLC", corporate_email: "office@khmoss.com" }),
+              facility: mappedFacility({ name: "Longview" }),
+            },
+          ],
+        },
+      });
+    }
+
+    it("preselects nothing, hints at the suggested facility, and blocks Create until one is chosen", async () => {
+      twoRuns();
+      render(<ClientsNewPage />);
+
+      expect(await screen.findByRole("radio", { name: /^Woodland/ })).not.toBeChecked();
+      expect(screen.getByRole("radio", { name: /^Longview/ })).not.toBeChecked();
+      expect(screen.getByRole("radio", { name: /^Longview/ }).closest("label")).toHaveTextContent("suggested");
+      expect(screen.getByText("Select a primary facility to continue.")).toBeInTheDocument();
+      expect(screen.queryByText("Company")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+    });
+
+    it("seeds the Company from the chosen facility and sends it as the company source run", async () => {
+      twoRuns();
+      createClient.mockResolvedValue({
+        kind: "ok",
+        data: { company_id: "company-1", facility_ids: ["f1", "f2"] },
+      });
+      const user = userEvent.setup();
+      render(<ClientsNewPage />);
+
+      await choosePrimary("Longview");
+
+      expect(await screen.findByRole("heading", { name: "KH Moss, LLC" })).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Create" }));
+      await waitFor(() => expect(createClient).toHaveBeenCalledTimes(1));
+      expect(createClient.mock.calls[0][0].company_intake_run_id).toBe("run-b");
+    });
+
+    it("re-seeds the Company when a different primary facility is chosen", async () => {
+      twoRuns();
+      render(<ClientsNewPage />);
+
+      await choosePrimary("Longview");
+      await screen.findByRole("heading", { name: "KH Moss, LLC" });
+      await choosePrimary("Woodland");
+
+      expect(await screen.findByRole("heading", { name: "Company" })).toBeInTheDocument();
+      expect(screen.queryByText("office@khmoss.com")).not.toBeInTheDocument();
+    });
+
+    it("does not ask when only one facility is selected", async () => {
+      useSearchParams.mockReturnValue(
+        selectionParams([{ run_id: "run-a", run_name: "Woodland - QMS Onboarding" }])
+      );
+      previewClients.mockResolvedValue({
+        kind: "ok",
+        data: {
+          runs: [
+            {
+              run_id: "run-a",
+              company: mappedCompany({ legal_name: "Woodland Storage" }),
+              facility: mappedFacility({ name: "Woodland" }),
+            },
+          ],
+        },
+      });
+      render(<ClientsNewPage />);
+
+      expect(await screen.findByRole("heading", { name: "Woodland Storage" })).toBeInTheDocument();
+      expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Create" })).toBeEnabled();
+    });
   });
 
   it("lets edited values override the previewed ones before submitting", async () => {
@@ -901,6 +1006,7 @@ describe("ClientsNewPage", () => {
 
       const user = userEvent.setup();
       render(<ClientsNewPage />);
+      await choosePrimary("Highway 20 Self Storage");
       await screen.findByRole("heading", { name: "Prairie Enterprises LLC" });
 
       // Judy only came from Carpentersville's own run, but Highway 20's
@@ -963,6 +1069,7 @@ describe("ClientsNewPage", () => {
 
       const user = userEvent.setup();
       render(<ClientsNewPage />);
+      await choosePrimary("Highway 20 Self Storage");
       await screen.findByRole("heading", { name: "Prairie Enterprises LLC" });
 
       const highway20Section = facilitySection("Highway 20 Self Storage");

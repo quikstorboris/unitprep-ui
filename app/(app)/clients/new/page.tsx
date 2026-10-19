@@ -10,6 +10,7 @@ import { ClickUpChoice } from "@/components/clients-new/ClickUpChoice";
 import { CompanyFallbackBanner } from "@/components/clients-new/CompanyFallbackBanner";
 import { CompanySection } from "@/components/clients-new/CompanySection";
 import { FacilitySection } from "@/components/clients-new/FacilitySection";
+import { PrimaryFacilityPicker } from "@/components/clients-new/PrimaryFacilityPicker";
 import { hasAnyContactInfo } from "@/components/clients-new/clientsNewHelpers";
 import { useClientsNewPreview } from "@/components/clients-new/useClientsNewPreview";
 import type { PreviewRunSelection } from "@/lib/clientsImport";
@@ -63,6 +64,9 @@ function ClientsNewPageInner() {
     submitting,
     submitError,
     companySourceRun,
+    companySourceRunId,
+    suggestedPrimaryRunId,
+    selectPrimaryFacility,
     peoplePool,
     updateCompanyField,
     updateFacilityField,
@@ -126,9 +130,18 @@ function ClientsNewPageInner() {
           </p>
         )}
 
-        {runs && editedCompany && (
+        {runs && (
           <div className="flex flex-col gap-6">
-            {!companyFallbackHandled &&
+            {runs.length > 1 && suggestedPrimaryRunId && (
+              <PrimaryFacilityPicker
+                runs={runs}
+                selectedRunId={companySourceRunId}
+                suggestedRunId={suggestedPrimaryRunId}
+                onSelect={(runId) => selectPrimaryFacility(runId)}
+              />
+            )}
+
+            {editedCompany && !companyFallbackHandled &&
               companySourceRun &&
               companySourceRun.is_first_time === true &&
               !hasAnyContactInfo(editedCompany) && (
@@ -139,7 +152,9 @@ function ClientsNewPageInner() {
                 />
               )}
 
-            <CompanySection company={editedCompany} editing={editing} onFieldChange={updateCompanyField} />
+            {editedCompany && (
+              <CompanySection company={editedCompany} editing={editing} onFieldChange={updateCompanyField} />
+            )}
 
             {runs.map((run) => (
               <FacilitySection
@@ -160,7 +175,7 @@ function ClientsNewPageInner() {
               <button
                 type="button"
                 onClick={handleCreate}
-                disabled={submitting}
+                disabled={submitting || !editedCompany}
                 className="flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-700"
               >
                 {submitting && <Spinner className="h-4 w-4" />}

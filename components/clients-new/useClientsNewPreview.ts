@@ -45,6 +45,7 @@ export function useClientsNewPreview(selection: PreviewRunSelection[]) {
   // into -- `companySourceRunId` only tracks which run's data seeded it
   // and gets sent as `company_intake_run_id` on Create.
   const [companySourceRunId, setCompanySourceRunId] = useState<string | null>(null);
+  const [suggestedPrimaryRunId, setSuggestedPrimaryRunId] = useState<string | null>(null);
   const [editedCompany, setEditedCompany] = useState<MappedCompany | null>(null);
   const [editedFacilities, setEditedFacilities] = useState<Record<string, EditableFacilityFields>>({});
   const [editing, setEditing] = useState(false);
@@ -86,9 +87,25 @@ export function useClientsNewPreview(selection: PreviewRunSelection[]) {
     }
     setEditedFacilities(facilities);
 
-    const companySource = pickCompanySourceRun(result.data.runs);
-    setCompanySourceRunId(companySource.run_id);
-    setEditedCompany(companySource.company);
+    // A lone facility is its own primary. With several, nothing is chosen
+    // until the person picks one (`selectPrimaryFacility`); the pick the
+    // data suggests is only shown as a hint.
+    setSuggestedPrimaryRunId(pickCompanySourceRun(result.data.runs).run_id);
+    if (result.data.runs.length === 1) {
+      selectPrimaryFacility(result.data.runs[0].run_id, result.data.runs);
+    } else {
+      setCompanySourceRunId(null);
+      setEditedCompany(null);
+    }
+  }
+
+  /** Seeds the Company section from the chosen run (replacing anything
+   * already edited there) and records it as the company's source run. */
+  function selectPrimaryFacility(runId: string, available: PreviewedRun[] | null = runs) {
+    const run = available?.find((r) => r.run_id === runId);
+    if (!run) return;
+    setCompanySourceRunId(run.run_id);
+    setEditedCompany(run.company);
     setCompanyFallbackHandled(false);
   }
 
@@ -226,6 +243,9 @@ export function useClientsNewPreview(selection: PreviewRunSelection[]) {
     submitting,
     submitError,
     companySourceRun,
+    companySourceRunId,
+    suggestedPrimaryRunId,
+    selectPrimaryFacility,
     peoplePool,
     updateCompanyField,
     updateFacilityField,
