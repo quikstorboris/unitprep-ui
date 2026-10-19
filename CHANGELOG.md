@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.102] - 2026-10-19
+
+Company page: "Add facility". Needs `unitprep-api` 1.9.133.
+
+### Added
+- An **Add facility** button on the company page opens a search over Process Street Intake runs (by facility name, or an owner's or manager's name or email) and adds the chosen run to the company as a facility. A pasted Process Street run link adds that run directly. Runs already in OO are shown with the company they belong to and cannot be added again. Results come from OO's synced copy of Process Street, so they are only as fresh as the last sync.
+
 ## [1.6.101] - 2026-10-16
 
 Three hand-written API types are now generated from the Rust structs. Needs `unitprep-api` 1.9.132 (the `ts-rs` derives; no runtime change on either side).

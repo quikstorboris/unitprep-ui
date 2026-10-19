@@ -7,6 +7,9 @@ import {
 } from "@/lib/clientsApi";
 
 import type {
+  AddFacilityRequest,
+  AddFacilityResponse,
+  PsRunSearchResponse,
   CompanyInfoFields,
   StaffListResponse,
   CompanySummary,
@@ -32,6 +35,9 @@ export type {
   ManualLinkResponse,
   CompanyInfoFields,
   StaffListResponse,
+  AddFacilityRequest,
+  AddFacilityResponse,
+  PsRunSearchResponse,
 };
 
 /**
@@ -139,4 +145,23 @@ export async function setImplementationManager(
 /** Every active staff member -- the Implementation Manager picker's options. */
 export async function listStaff(): Promise<ClientsResult<StaffListResponse>> {
   return clientsGet("/clients/staff");
+}
+
+/**
+ * Typeahead over Process Street Intake runs for "Add facility" -- answered
+ * from OO's synced copy (instant, as fresh as the last sync), never a live
+ * Process Street call. Any authenticated caller.
+ */
+export async function searchPsRuns(
+  q: string,
+): Promise<ClientsResult<PsRunSearchResponse>> {
+  return clientsGet(`/clients/ps-runs?q=${encodeURIComponent(q)}`);
+}
+
+/** Attaches one Process Street Intake run to the company as a facility. */
+export async function addFacility(
+  companyId: string,
+  request: AddFacilityRequest,
+): Promise<ClientsResult<AddFacilityResponse>> {
+  return clientsPost(`/clients/${companyId}/facilities`, request);
 }

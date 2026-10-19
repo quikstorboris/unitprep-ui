@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 
 import CompanyInfoForm from "@/components/clients/CompanyInfoForm";
+import AddFacilityDialog from "@/components/clients/AddFacilityDialog";
 import ClickUpCompanySection from "@/components/clickup/ClickUpCompanySection";
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
 import DetailSection from "@/components/clients/DetailSection";
@@ -87,6 +88,7 @@ export default function ClientInfoPage() {
               )}
               <FieldReferenceHelp />
               <ResyncButton companyId={clientId} />
+              <AddFacilityDialog companyId={clientId} onAdded={refetch} />
               <ManualLinkDialog companyId={clientId} />
             </div>
           </div>
