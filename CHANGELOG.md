@@ -8,6 +8,18 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.104] - 2026-10-23
+
+Security update; no app change.
+
+### Security
+- **Next.js 16.4.0 -> 16.4.3.** Next flagged 16.0.0-16.4.0 as critical: GHSA-2464-fhr4-w9xw (unauthenticated remote code execution in the image optimization API when SVG files are used), GHSA-673q-mjm6-r5xr (unauthenticated RCE in `use cache` functions returning typed arrays) and GHSA-p3m5-59mp-jv5r (denial of service in the App Router with Server Actions). This app is a client-side UI in front of a separate API and does not use `use cache` or Server Actions, but the fix is a patch release, so it is taken anyway. `eslint-config-next` moved to 16.4.3 with it.
+- **Dev tooling advisories cleared:** `vite` 8.1.x -> 8.3.5 (one high: cross-origin script execution through custom middleware, `server.fs.allow` bypass, and the `launch-editor` command-injection chain) and `vitest` / `@vitest/coverage-v8` ^5.0.2 -> ^5.0.5 (moderate: code injection via manual mock registration). `npm audit`: 0 vulnerabilities.
+- **The `braces` allowance is gone.** GHSA-vfj7-8cjw-p6xm (no patch existed, dev-only lint chain) is no longer reported after the upgrade, so the dated allowance block in `scripts/preflight.sh` step 4 was deleted, as its own comment said to do; the step is a plain `npm audit` again.
+
+### Changed
+- `app/login/page.tsx`: the deliberate `window.location.assign("/clients")` carries an `eslint-disable-next-line` with the reason (the newer `eslint-config-next` warns about it; the hard navigation is intentional, see the comment above it).
+
 ## [1.6.103] - 2026-10-19
 
 New Client: the primary facility is now chosen, not guessed. No API change.

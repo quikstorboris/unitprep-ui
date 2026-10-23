@@ -66,6 +66,7 @@ export default function LoginPage() {
     // URL/content just don't update; only a hard reload recovers). Login
     // success is rare enough that trading an instant client transition
     // for a guaranteed-fresh full page load here is a good trade.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- deliberate hard navigation, see the comment above
     window.location.assign("/clients");
   }
 
