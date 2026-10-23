@@ -13,7 +13,14 @@ import { inputClass, primaryButtonClass } from "./styles";
  * field, every piece of validation, and the create request itself are
  * self-contained.
  */
-export default function CreateTagForm({ onCreated }: { onCreated: () => void }) {
+export default function CreateTagForm({
+  categories,
+  onCreated,
+}: {
+  /** Existing categories; new ones are deliberately not creatable here. */
+  categories: string[];
+  onCreated: () => void;
+}) {
   const [tagKey, setTagKey] = useState("");
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState("");
@@ -67,13 +74,21 @@ export default function CreateTagForm({ onCreated }: { onCreated: () => void }) 
         </label>
         <label className="flex flex-col gap-1 text-sm text-slate-300">
           Category
-          <input
+          <select
             required
             value={category}
             onChange={(event) => setCategory(event.target.value)}
-            placeholder="e.g. Tenant"
             className={inputClass}
-          />
+          >
+            <option value="" disabled>
+              Select a category
+            </option>
+            {categories.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 

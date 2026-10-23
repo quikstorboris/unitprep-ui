@@ -8,6 +8,11 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.106] - 2026-10-23
+
+### Changed
+- **QMS Tags > Add tag: Category is now a dropdown of the existing categories** (one selectable, required) instead of free text. New categories can no longer be created from this form.
+
 ## [1.6.105] - 2026-10-23
 
 ### Fixed

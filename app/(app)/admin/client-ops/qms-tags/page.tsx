@@ -153,6 +153,7 @@ export default function AdminQmsTagsPage() {
         {showCreateForm && (
           <div className="mb-6">
             <CreateTagForm
+              categories={categories}
               onCreated={() => {
                 setShowCreateForm(false);
                 loadTags();
