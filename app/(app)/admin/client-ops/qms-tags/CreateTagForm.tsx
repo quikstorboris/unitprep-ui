@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 
 import { createQmsTag } from "@/lib/clientOps";
+import { sanitizeQmsTagKey } from "@/lib/qmsTagKey";
 import { inputClass, primaryButtonClass } from "./styles";
 
 /**
@@ -49,7 +50,7 @@ export default function CreateTagForm({ onCreated }: { onCreated: () => void }) 
           <input
             required
             value={tagKey}
-            onChange={(event) => setTagKey(event.target.value)}
+            onChange={(event) => setTagKey(sanitizeQmsTagKey(event.target.value))}
             placeholder="e.g. e.fname"
             className={`${inputClass} font-mono`}
           />

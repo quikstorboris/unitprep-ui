@@ -8,6 +8,14 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.105] - 2026-10-23
+
+### Fixed
+- **QMS Tags > Add tag: the Tag key field no longer accepts braces.** The editor wraps every key in `{{ }}` itself, so a typed `{{` allowed keys like `{{{{example}}}}`. The field now accepts only letters, digits, `.`, `+` and `-` (e.g. `e.fname`, `d.now+15`); anything else, including pasted text, is silently dropped.
+
+### Security
+- **`zod` 4.4.3 -> 4.6.x** (transitive, via `eslint-config-next`; dev tooling only): GHSA-mrhx-c7xc-m3w5, memory exhaustion validating oversized constrained collections. Lockfile-only change via `npm audit fix`.
+
 ## [1.6.104] - 2026-10-23
 
 Security update; no app change.
