@@ -8,6 +8,9 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+### Security
+- Test tooling only: bumped devDependency  30.0.0 -> 30.1.3, which moves its transitive  to 8.12.3 and clears three high-severity advisories (GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c). Never shipped in the app bundle. found 0 vulnerabilities reports 0; 1072 unit tests pass.
+
 ## [1.6.106] - 2026-10-23
 
 ### Changed
