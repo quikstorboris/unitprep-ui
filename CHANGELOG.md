@@ -8,6 +8,11 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.108] - 2026-10-29
+
+### Changed
+- **Opening a client page no longer waits for the whole client list.** The client layout used to fetch `GET /clients` (every company) just to look up the client's name before it would start loading the client's own detail, so a client page was a four-step chain: sign-in check, full list, company detail, then ClickUp warm-up. The layout now takes the name from the company detail (which already carries it), starts that request immediately, and shows the tabs and the page at once. Measured on a warm production build: last response about 410 ms instead of about 1.2-1.5 s. A company that cannot be loaded now shows the API's own message with a "Back to Clients" link, replacing the old "isn't in the current browser session" notice. Three new tests; the E2E `seedClient` helper now also mocks `GET /clients/<id>`. (The Playwright suite could not be run on this machine: its Chromium is missing system libraries in WSL.)
+
 ## [1.6.107] - 2026-10-29
 
 ### Changed

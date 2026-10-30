@@ -149,8 +149,10 @@ export async function seedAuthenticatedSession(
   await mockApi(page, "/health/whoami", () => ({ json: user }));
 }
 
-/** An authenticated session plus one real-shaped company in `GET /clients`
- * (the left nav and client layout read it). */
+/** An authenticated session plus one real-shaped company: in `GET /clients`
+ * (the full list some tool pages still read) and as `GET /clients/<id>` (the
+ * company detail the client layout shows its name from, and fails on if it
+ * is missing). */
 export async function seedClient(
   page: Page,
   clientId: string,
@@ -171,6 +173,22 @@ export async function seedClient(
         sales_rep: null,
       },
     ],
+  }));
+
+  await mockApi(page, `GET /clients/${clientId}`, () => ({
+    json: {
+      id: clientId,
+      legal_name: name,
+      archived_at: null,
+      implementation_completed_at: null,
+      implementation_manager: null,
+      clickup_parent_facility_id: null,
+      clickup_waived_at: null,
+      clickup_parent_history: [],
+      elavon_active: false,
+      facilities: [],
+      owners: [],
+    },
   }));
 }
 

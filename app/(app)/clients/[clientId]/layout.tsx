@@ -4,11 +4,22 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { CompanyDetailProvider } from "@/components/clients/CompanyDetailContext";
+import {
+  CompanyDetailProvider,
+  useCompanyDetail,
+} from "@/components/clients/CompanyDetailContext";
 import ClientTabs from "@/components/nav/ClientTabs";
 import CompanyTabs from "@/components/nav/CompanyTabs";
-import { useClients } from "@/lib/clients";
 
+// The company's detail (name, facilities, ...) is fetched once here and
+// shared with every page below. This layout used to wait for the *full*
+// client list (`useClients`, `GET /clients`) just to look up the client's
+// name before it would mount the detail fetch, so opening a client was a
+// serial chain: whoami, then the whole list, then the detail. The name is
+// already in the detail, so the list is no longer on this path: the detail
+// request starts as soon as the route is known, and the tabs and page
+// render at once (each page handles its own loading state, as it always
+// did -- it was mounted in the same render as the detail fetch before too).
 export default function ClientLayout({
   children,
 }: {
@@ -17,30 +28,31 @@ export default function ClientLayout({
   const { clientId, facilityId } =
     useParams<{ clientId: string; facilityId?: string }>();
 
-  const { getClient, hydrated } = useClients();
+  return (
+    <CompanyDetailProvider companyId={clientId}>
+      <ClientShell clientId={clientId} facilityId={facilityId}>
+        {children}
+      </ClientShell>
+    </CompanyDetailProvider>
+  );
+}
 
-  const client = getClient(clientId);
+function ClientShell({
+  clientId,
+  facilityId,
+  children,
+}: {
+  clientId: string;
+  facilityId?: string;
+  children: ReactNode;
+}) {
+  const { company, loadError } = useCompanyDetail();
 
-  // Before hydration, `clients` is still the empty initial cache — a
-  // lookup miss here just means sessionStorage hasn't been read yet, not
-  // that the client is actually missing. Wait rather than flashing the
-  // "not in session" message on every refresh.
-  if (!hydrated) {
-    return (
-      <div className="p-8 text-slate-400">
-        Loading…
-      </div>
-    );
-  }
-
-  if (!client) {
+  if (loadError) {
     return (
       <div className="p-8">
-        <p className="mb-4 text-slate-300">
-          This client isn&apos;t in the current
-          browser session — clients aren&apos;t
-          saved yet, so they only exist in the tab
-          that created them.
+        <p role="alert" className="mb-4 text-slate-300">
+          {loadError}
         </p>
 
         <Link
@@ -56,17 +68,16 @@ export default function ClientLayout({
   return (
     <div className="flex flex-col">
       <div className="px-8 pt-6">
+        {/* A non-breaking space keeps the title's height while the name loads. */}
         <h1 className="text-2xl font-bold">
-          {client.name}
+          {company?.legal_name ?? " "}
         </h1>
       </div>
 
       <CompanyTabs clientId={clientId} facilityId={facilityId} />
       <ClientTabs clientId={clientId} facilityId={facilityId} />
 
-      <CompanyDetailProvider companyId={clientId}>
-        <div>{children}</div>
-      </CompanyDetailProvider>
+      <div>{children}</div>
     </div>
   );
 }
