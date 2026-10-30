@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
 import { hasPermission } from "@/lib/auth-session";
@@ -38,11 +38,18 @@ export default function ClickUpCompanySection({
   const { company, refetch } = useCompanyDetail();
   const access = useClickUpAccess();
 
-  // Start loading ClickUp's folder/list hierarchy now, so the Link ClickUp
-  // dialog opens without waiting for it.
+  // Start loading ClickUp's folder/list hierarchy when the person reaches
+  // for the Link ClickUp button (pointer over it, or keyboard focus), so
+  // the dialog usually opens without waiting for it. Not on page load: the
+  // warm-up costs the API a few database statements plus ClickUp reads
+  // against the shared rate limit, and most views of a company never open
+  // the dialog. Once per mount is enough, the server caches it.
   const clickUpAllowed = access.allowed;
-  useEffect(() => {
-    if (clickUpAllowed) void prefetchClickUpHierarchy();
+  const hierarchyRequested = useRef(false);
+  const warmUpHierarchy = useCallback(() => {
+    if (!clickUpAllowed || hierarchyRequested.current) return;
+    hierarchyRequested.current = true;
+    void prefetchClickUpHierarchy();
   }, [clickUpAllowed]);
 
   const { user } = useCurrentUser();
@@ -118,6 +125,8 @@ export default function ClickUpCompanySection({
                 setNotice(null);
                 setDialogOpen(true);
               }}
+              onPointerEnter={warmUpHierarchy}
+              onFocus={warmUpHierarchy}
               disabled={facilities.length === 0}
               className={buttonClass}
             >

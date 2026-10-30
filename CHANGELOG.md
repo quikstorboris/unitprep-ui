@@ -8,6 +8,11 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.107] - 2026-10-29
+
+### Changed
+- **The company page no longer asks the API to warm up ClickUp on every view.** `ClickUpCompanySection` used to fire `POST /integrations/clickup/prefetch` on load for anyone with ClickUp access, even when the Link ClickUp dialog was never opened; on the server that is three database statements plus, when its 5-minute cache is stale, ClickUp reads against the shared rate limit. It now warms up once per page view, when the pointer reaches or keyboard focus lands on the **Link ClickUp** button. A very fast click gets the dialog's own loading state instead of a pre-warmed list. Two new tests.
+
 ### Security
 - Test tooling only: bumped devDependency  30.0.0 -> 30.1.3, which moves its transitive  to 8.12.3 and clears three high-severity advisories (GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c). Never shipped in the app bundle. found 0 vulnerabilities reports 0; 1072 unit tests pass.
 

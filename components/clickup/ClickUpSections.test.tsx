@@ -4,15 +4,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { FacilityDetail, FacilitySummary } from "@/lib/clientsDetail";
 
-const { useCurrentUser, useCompanyDetail, refetch, unlinkCompanyClickUp, unlinkFacilityClickUp } = vi.hoisted(
-  () => ({
-    useCurrentUser: vi.fn(),
-    useCompanyDetail: vi.fn(),
-    refetch: vi.fn(),
-    unlinkCompanyClickUp: vi.fn(),
-    unlinkFacilityClickUp: vi.fn(),
-  })
-);
+const {
+  useCurrentUser,
+  useCompanyDetail,
+  refetch,
+  unlinkCompanyClickUp,
+  unlinkFacilityClickUp,
+  prefetchClickUpHierarchy,
+} = vi.hoisted(() => ({
+  useCurrentUser: vi.fn(),
+  useCompanyDetail: vi.fn(),
+  refetch: vi.fn(),
+  unlinkCompanyClickUp: vi.fn(),
+  unlinkFacilityClickUp: vi.fn(),
+  prefetchClickUpHierarchy: vi.fn(),
+}));
 
 vi.mock("@/lib/currentUser", () => ({ useCurrentUser }));
 vi.mock("@/components/clients/CompanyDetailContext", () => ({ useCompanyDetail }));
@@ -23,7 +29,7 @@ vi.mock("@/lib/clickupLinks", () => ({
   getClickUpSuggestions: vi.fn().mockReturnValue(new Promise(() => {})),
   listClickUpLists: vi.fn().mockReturnValue(new Promise(() => {})),
   resolveClickUpUrl: vi.fn(),
-  prefetchClickUpHierarchy: vi.fn().mockResolvedValue(undefined),
+  prefetchClickUpHierarchy,
   saveClickUpLinks: vi.fn(),
 }));
 
@@ -76,7 +82,8 @@ function signedInWith(permissions: string[]) {
 }
 
 beforeEach(() => {
-  for (const fn of [refetch, unlinkCompanyClickUp, unlinkFacilityClickUp]) fn.mockReset();
+  for (const fn of [refetch, unlinkCompanyClickUp, unlinkFacilityClickUp, prefetchClickUpHierarchy]) fn.mockReset();
+  prefetchClickUpHierarchy.mockResolvedValue(undefined);
 });
 
 describe("ClickUpCompanySection", () => {
@@ -118,6 +125,25 @@ describe("ClickUpCompanySection", () => {
     await user.click(screen.getByRole("button", { name: "Link ClickUp" }));
 
     expect(screen.getByRole("dialog", { name: "Link ClickUp" })).toBeInTheDocument();
+  });
+
+  it("does not warm up ClickUp's hierarchy just because the page loaded", () => {
+    signedInWith(["integrations.clickup"]);
+    renderCompany([summary()]);
+
+    expect(prefetchClickUpHierarchy).not.toHaveBeenCalled();
+  });
+
+  it("warms up the hierarchy once when the person reaches for Link ClickUp", async () => {
+    const user = userEvent.setup();
+    signedInWith(["integrations.clickup"]);
+    renderCompany([summary()]);
+
+    await user.hover(screen.getByRole("button", { name: "Link ClickUp" }));
+    await user.unhover(screen.getByRole("button", { name: "Link ClickUp" }));
+    await user.hover(screen.getByRole("button", { name: "Link ClickUp" }));
+
+    expect(prefetchClickUpHierarchy).toHaveBeenCalledTimes(1);
   });
 
   it("disables Link ClickUp for a company with no facilities", () => {
