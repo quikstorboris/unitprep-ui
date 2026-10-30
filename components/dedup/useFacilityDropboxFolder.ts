@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { useCompanyDetail } from "@/components/clients/CompanyDetailContext";
-import { useClients } from "@/lib/clients";
+import { useCompanyDetail, useFacilityNames } from "@/components/clients/CompanyDetailContext";
 import { getFacilityDropboxFolder } from "@/lib/dropbox";
 
 /**
@@ -15,9 +14,8 @@ import { getFacilityDropboxFolder } from "@/lib/dropbox";
  * facility has no folder findable by name in Dropbox.
  */
 export function useFacilityDropboxFolder(clientId: string, facilityId: string) {
-  const { getClient } = useClients();
-  const client = getClient(clientId);
   const { company } = useCompanyDetail();
+  const facilityNames = useFacilityNames();
 
   const [selectedFacility, setSelectedFacility] = useState<string | null>(null);
   const [facilityDropboxPath, setFacilityDropboxPath] = useState<string | null | undefined>(undefined);
@@ -51,8 +49,7 @@ export function useFacilityDropboxFolder(clientId: string, facilityId: string) {
   }, [company, facilityId]);
 
   return {
-    client,
-    facilityNames: client?.facilityNames ?? [],
+    facilityNames,
     selectedFacility,
     facilityDropboxPath,
     selectFacility,

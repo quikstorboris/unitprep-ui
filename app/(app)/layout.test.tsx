@@ -14,12 +14,6 @@ vi.mock("@/lib/currentUser", () => ({
   useCurrentUser,
 }));
 
-vi.mock("@/lib/clients", () => ({
-  ClientsProvider: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-}));
-
 vi.mock("@/components/auth/StepUpPrompt", () => ({
   default: ({ onVerified, onSignOut }: { onVerified: () => void; onSignOut: () => void }) => (
     <div data-testid="step-up">

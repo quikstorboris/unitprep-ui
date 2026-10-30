@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useClickUpAccess } from "@/components/clickup/useClickUpAccess";
-import { useClients } from "@/lib/clients";
 import {
   createClient,
   previewClients,
@@ -27,7 +26,6 @@ import { buildPeoplePool, personKey, pickCompanySourceRun, stripGoLiveDate } fro
  */
 export function useClientsNewPreview(selection: PreviewRunSelection[]) {
   const router = useRouter();
-  const { refresh } = useClients();
 
   // `runs === null` doubles as "still loading" -- same idiom as
   // `AdminQmsTagsPage`'s `tags === null`, rather than a separate
@@ -226,7 +224,8 @@ export function useClientsNewPreview(selection: PreviewRunSelection[]) {
       return;
     }
 
-    await refresh();
+    // The Clients directory refetches itself the next time it is shown (its
+    // cached list is always treated as stale), so nothing to refresh here.
     // The company page opens the Link ClickUp dialog itself when asked to.
     const needsLink = clickUpAccess.allowed && !clickUpWaived;
     router.push(`/clients/${result.data.company_id}${needsLink ? "?linkClickUp=1" : ""}`);

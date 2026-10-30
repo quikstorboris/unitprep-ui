@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
+import { useFacilityNames } from "@/components/clients/CompanyDetailContext";
 import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
-import { useClients } from "@/lib/clients";
 import { getFacilityDropboxFolder } from "@/lib/dropbox";
 import { formatElapsed } from "@/lib/useAbortableOperation";
 import { useFileUploadAction } from "@/lib/useFileUploadAction";
@@ -35,8 +35,7 @@ export default function TaggerUploadPage({
   facilityId,
   onChecked,
 }: TaggerUploadPageProps) {
-  const { getClient } = useClients();
-  const client = getClient(clientId);
+  const facilityNames = useFacilityNames();
 
   // Mutually exclusive with `dropboxPath` below -- selecting one source
   // clears the other, same convention `DedupUploadPage` already uses.
@@ -213,7 +212,7 @@ export default function TaggerUploadPage({
             Or import from Dropbox
           </div>
 
-          {client && client.facilityNames.length > 0 && (
+          {facilityNames.length > 0 && (
             <div className="mb-3">
               <label className="mb-1 block text-xs text-slate-400">
                 Which facility?
@@ -224,7 +223,7 @@ export default function TaggerUploadPage({
                 className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
               >
                 <option value="">Select a facility…</option>
-                {client.facilityNames.map((name) => (
+                {facilityNames.map((name) => (
                   <option key={name} value={name}>
                     {name}
                   </option>
@@ -246,7 +245,7 @@ export default function TaggerUploadPage({
             <DropboxFolderPicker
               value={dropboxPath ?? ""}
               mode="select-file"
-              initialPath={facilityDropboxPath ?? client?.dropboxPath}
+              initialPath={facilityDropboxPath ?? undefined}
               onChange={handleDropboxPathSelected}
             />
           )}

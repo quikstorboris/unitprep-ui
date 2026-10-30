@@ -95,8 +95,8 @@ export interface FacilityDropboxFolderResult {
  * one real seed point for "default this tool's Dropbox picker to the
  * client folder that was pulled in with the PS client record."
  *
- * Takes `facilityName`, not a facility id: `Client.facilityNames`
- * (`lib/clients.tsx`) carries names only, and the underlying Dropbox
+ * Takes `facilityName`, not a facility id: the "Which facility?" pickers
+ * (`useFacilityNames`) carry names only, and the underlying Dropbox
  * lookup is itself name-based, so there's no id to plumb through in the
  * first place.
  */

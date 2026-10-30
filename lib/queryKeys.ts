@@ -6,6 +6,17 @@
  * refresh one facility only.
  */
 export const queryKeys = {
+  /** The Clients page's four filter dropdowns' options (staff, states,
+   * previous PMs): change rarely, so cached for minutes. */
+  clientsFilterOptions: () => ["clients", "filter-options"] as const,
+
+  /** Every cached answer of the Clients directory, whatever its filters;
+   * invalidate this after anything that changes the list. */
+  clientsDirectoryAll: () => ["clients", "directory"] as const,
+
+  /** The directory for one search/filter combination. */
+  clientsDirectory: (filters: unknown) => ["clients", "directory", filters] as const,
+
   /** Company detail (name, facilities, ClickUp parent, owners, ...). */
   company: (companyId: string) => ["company", companyId] as const,
 

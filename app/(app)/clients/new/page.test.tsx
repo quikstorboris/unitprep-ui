@@ -2,13 +2,12 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { useRouter, useSearchParams, previewClients, createClient, useClients, useCurrentUser } =
+const { useRouter, useSearchParams, previewClients, createClient, useCurrentUser } =
   vi.hoisted(() => ({
     useRouter: vi.fn(),
     useSearchParams: vi.fn(),
     previewClients: vi.fn(),
     createClient: vi.fn(),
-    useClients: vi.fn(),
     useCurrentUser: vi.fn(),
   }));
 
@@ -22,10 +21,6 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/clientsImport", () => ({
   previewClients,
   createClient,
-}));
-
-vi.mock("@/lib/clients", () => ({
-  useClients,
 }));
 
 import ClientsNewPage from "./page";
@@ -82,13 +77,10 @@ function mappedFacility(overrides: Record<string, unknown> = {}) {
 
 describe("ClientsNewPage", () => {
   const push = vi.fn();
-  const refresh = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     useRouter.mockReturnValue({ push });
-    useClients.mockReturnValue({ refresh });
-    refresh.mockResolvedValue(undefined);
     // No ClickUp access unless a test grants it.
     useCurrentUser.mockReturnValue({ user: { user_id: "u1", permissions: [], roles: [] } });
   });
@@ -498,8 +490,7 @@ describe("ClientsNewPage", () => {
     // go_live_date must never be part of the submitted facility fields.
     expect(carpentersville.fields).not.toHaveProperty("go_live_date");
 
-    await waitFor(() => expect(refresh).toHaveBeenCalled());
-    expect(push).toHaveBeenCalledWith("/clients/company-1");
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/clients/company-1"));
   });
 
   // Regression test for the real gap found 2026-09-03: previewClients

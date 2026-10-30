@@ -8,7 +8,6 @@ import DedupUploadPage from "./DedupUploadPage";
 
 vi.mock("@/components/dedup/useFacilityDropboxFolder", () => ({
   useFacilityDropboxFolder: () => ({
-    client: undefined,
     facilityNames: [],
     selectedFacility: null,
     facilityDropboxPath: null,

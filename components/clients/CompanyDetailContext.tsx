@@ -58,3 +58,11 @@ export function useCompanyDetail(): CompanyDetailContextValue {
   }
   return value;
 }
+
+/** The company's facility names, empty until the detail has loaded. For the
+ * "Which facility?" pickers on the tool pages, which used to read them from
+ * the full client list. */
+export function useFacilityNames(): string[] {
+  const { company } = useCompanyDetail();
+  return useMemo(() => company?.facilities.map((facility) => facility.name) ?? [], [company]);
+}

@@ -14,9 +14,9 @@ export const metadata: Metadata = {
   },
 };
 
-// Deliberately minimal -- CurrentUserProvider is the only thing every
-// route needs, including auth pages (login, invite redemption) that
-// must NOT get the app shell (LeftNav, ClientsProvider) built for the
+// Deliberately minimal -- CurrentUserProvider (and the query cache that
+// hangs off it) is all every route needs, including auth pages (login,
+// invite redemption) that must NOT get the app shell (LeftNav) built for the
 // signed-in product experience. That shell now lives in
 // app/(app)/layout.tsx, wrapping only the routes that actually need it.
 export default function RootLayout({

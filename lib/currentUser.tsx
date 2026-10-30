@@ -25,8 +25,8 @@ import { onUnauthorized } from "@/lib/sessionExpiry";
 // that word here would make every future "session" reference in this
 // codebase ambiguous.
 //
-// Module-level cache + listener set, exactly like lib/clients.tsx's
-// ClientsProvider, and for the same reason: an effect that calls
+// Module-level cache + listener set (the shape the retired
+// ClientsProvider used too), and for the same reason: an effect that calls
 // `setState` directly triggers this codebase's `react-hooks/
 // set-state-in-effect` lint rule ("calling setState synchronously
 // within an effect can trigger cascading renders"). Routing the update
@@ -36,13 +36,12 @@ import { onUnauthorized } from "@/lib/sessionExpiry";
 // the naive useState+useEffect version failed lint with exactly that
 // rule; this version passes.
 //
-// Unlike ClientsProvider's sessionStorage (a synchronous external
-// system), the "external system" here is a network round trip
-// (`whoAmI()`), so there is no synchronous `getSnapshot` read to fall
-// back on the way `sessionStorage.getItem` provides -- `checked` exists
-// specifically to let a consumer distinguish "haven't asked the server
-// yet" from "asked, and nobody is signed in", same distinction
-// ClientsProvider's own `hydrated` flag makes for its synchronous case.
+// Unlike a synchronous external system such as sessionStorage, the
+// "external system" here is a network round trip (`whoAmI()`), so there
+// is no synchronous `getSnapshot` read to fall back on the way
+// `sessionStorage.getItem` provides -- `checked` exists specifically to
+// let a consumer distinguish "haven't asked the server yet" from "asked,
+// and nobody is signed in".
 let cache: WhoAmI | null = null;
 let checked = false;
 
@@ -111,8 +110,8 @@ const CurrentUserContext =
   createContext<CurrentUserContextValue | null>(null);
 
 // Mounted exactly once, wrapping everything in app/layout.tsx -- same
-// single-mount convention ClientsProvider documents and for the same
-// reason: the module-level cache/listeners above are only ever driven
+// single-mount convention the retired ClientsProvider documented, and
+// for the same reason: the module-level cache/listeners above are only ever driven
 // by one provider. If a second mount ever becomes necessary, this
 // module needs a real per-instance store, not just a comment.
 export function CurrentUserProvider({

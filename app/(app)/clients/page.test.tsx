@@ -33,6 +33,8 @@ vi.mock("next/navigation", () => ({
   useRouter,
 }));
 
+import { createQueryWrapper, createTestQueryClient } from "@/lib/testUtils/queryWrapper";
+
 import ClientsPage from "./page";
 
 function company(overrides: Record<string, unknown> = {}) {
@@ -63,13 +65,13 @@ describe("ClientsPage", () => {
   it("shows a loading state before the directory query has resolved", () => {
     listClientsDirectory.mockReturnValue(new Promise(() => {}));
 
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
 
     expect(screen.getByText("Loading…")).toBeInTheDocument();
   });
 
   it("shows an empty state distinct from loading once resolved with no clients", async () => {
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
 
     expect(await screen.findByText(/No clients yet/)).toBeInTheDocument();
     expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
@@ -88,7 +90,7 @@ describe("ClientsPage", () => {
       ],
     });
 
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
 
     expect(await screen.findByText("Prairie Enterprises LLC")).toBeInTheDocument();
     expect(screen.getByText("Implementation Manager: Sarah McDougal")).toBeInTheDocument();
@@ -103,7 +105,7 @@ describe("ClientsPage", () => {
   });
 
   it("links Add from Process Street to the PS search page", async () => {
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
     await screen.findByText(/No clients yet/);
 
     expect(screen.getByRole("link", { name: "Add from Process Street" })).toHaveAttribute(
@@ -121,7 +123,7 @@ describe("ClientsPage", () => {
       ],
     });
 
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
 
     await screen.findByText("Prairie Enterprises LLC");
     expect(screen.getByText("Archived (1)")).toBeInTheDocument();
@@ -144,7 +146,7 @@ describe("ClientsPage", () => {
       ],
     });
 
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
 
     await screen.findByText("Prairie Enterprises LLC");
     expect(screen.getByRole("heading", { name: "Implementations in Flight" })).toBeInTheDocument();
@@ -162,7 +164,7 @@ describe("ClientsPage", () => {
   it("omits the Completed Implementations section when nothing is completed", async () => {
     listClientsDirectory.mockResolvedValue({ kind: "ok", data: [company()] });
 
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
 
     await screen.findByText("Prairie Enterprises LLC");
     expect(screen.queryByText(/Completed Implementations/)).not.toBeInTheDocument();
@@ -174,7 +176,7 @@ describe("ClientsPage", () => {
       data: [company({ implementation_completed_at: "2026-09-01T00:00:00Z" })],
     });
 
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
 
     expect(await screen.findByText("No implementations in flight.")).toBeInTheDocument();
     expect(screen.getByText("Completed Implementations (1)")).toBeInTheDocument();
@@ -194,7 +196,7 @@ describe("ClientsPage", () => {
       ],
     });
 
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
 
     await screen.findByText("Prairie Enterprises LLC");
     expect(screen.queryByText(/Completed Implementations/)).not.toBeInTheDocument();
@@ -208,7 +210,7 @@ describe("ClientsPage", () => {
     archiveCompany.mockResolvedValue({ kind: "ok", data: undefined });
 
     const user = userEvent.setup();
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
     await screen.findByText("Prairie Enterprises LLC");
 
     listClientsDirectory.mockClear();
@@ -227,7 +229,7 @@ describe("ClientsPage", () => {
     unarchiveCompany.mockResolvedValue({ kind: "ok", data: undefined });
 
     const user = userEvent.setup();
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
     await user.click(await screen.findByText("Archived (1)"));
 
     listClientsDirectory.mockClear();
@@ -243,7 +245,7 @@ describe("ClientsPage", () => {
     archiveCompany.mockResolvedValue({ kind: "error", message: "Could not update this client" });
 
     const user = userEvent.setup();
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
     await screen.findByText("Prairie Enterprises LLC");
 
     listClientsDirectory.mockClear();
@@ -259,7 +261,7 @@ describe("ClientsPage", () => {
     deleteCompany.mockResolvedValue({ kind: "ok", data: undefined });
 
     const user = userEvent.setup();
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
     await screen.findByText("Prairie Enterprises LLC");
 
     listClientsDirectory.mockClear();
@@ -278,7 +280,7 @@ describe("ClientsPage", () => {
     listClientsDirectory.mockResolvedValue({ kind: "ok", data: [company()] });
 
     const user = userEvent.setup();
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
     await screen.findByText("Prairie Enterprises LLC");
 
     await user.click(screen.getByRole("button", { name: "More actions for Prairie Enterprises LLC" }));
@@ -288,7 +290,7 @@ describe("ClientsPage", () => {
   });
 
   it("does not query below the 3-character search minimum, but does at 3+", async () => {
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(listClientsDirectory).toHaveBeenCalledTimes(1));
     listClientsDirectory.mockClear();
 
@@ -313,7 +315,7 @@ describe("ClientsPage", () => {
   });
 
   it("ignores an older directory answer that arrives after a newer one", async () => {
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(listClientsDirectory).toHaveBeenCalledTimes(1));
     listClientsDirectory.mockClear();
 
@@ -355,7 +357,7 @@ describe("ClientsPage", () => {
     });
 
     const user = userEvent.setup();
-    render(<ClientsPage />);
+    render(<ClientsPage />, { wrapper: createQueryWrapper() });
     await waitFor(() => expect(listClientsDirectory).toHaveBeenCalledTimes(1));
     listClientsDirectory.mockClear();
 
@@ -370,5 +372,42 @@ describe("ClientsPage", () => {
         expect.anything()
       )
     );
+  });
+
+  it("shows the last list at once when you come back, and refreshes it in the background", async () => {
+    listClientsDirectory.mockResolvedValue({ kind: "ok", data: [company()] });
+    const client = createTestQueryClient();
+
+    const first = render(<ClientsPage />, { wrapper: createQueryWrapper(client) });
+    expect(await screen.findByText("Prairie Enterprises LLC")).toBeInTheDocument();
+    first.unmount();
+
+    // Coming back: a company was added meanwhile, but the old list is up
+    // immediately (no "Loading…") and the new one replaces it.
+    let release!: (value: unknown) => void;
+    listClientsDirectory.mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
+    render(<ClientsPage />, { wrapper: createQueryWrapper(client) });
+
+    expect(screen.getByText("Prairie Enterprises LLC")).toBeInTheDocument();
+    expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    expect(listClientsDirectory).toHaveBeenCalledTimes(2);
+
+    await act(async () =>
+      release({ kind: "ok", data: [company(), company({ id: "company-2", legal_name: "Westpark Storage" })] })
+    );
+    expect(await screen.findByText("Westpark Storage")).toBeInTheDocument();
+  });
+
+  it("fetches the filter dropdowns' options once, however often the page is visited", async () => {
+    const client = createTestQueryClient();
+
+    const first = render(<ClientsPage />, { wrapper: createQueryWrapper(client) });
+    await waitFor(() => expect(getClientsFilterOptions).toHaveBeenCalledTimes(1));
+    first.unmount();
+
+    render(<ClientsPage />, { wrapper: createQueryWrapper(client) });
+    await waitFor(() => expect(listClientsDirectory).toHaveBeenCalledTimes(2));
+
+    expect(getClientsFilterOptions).toHaveBeenCalledTimes(1);
   });
 });

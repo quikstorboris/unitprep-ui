@@ -4,13 +4,13 @@ import { useState } from "react";
 
 import { DropboxFolderPicker } from "@/components/clients/DropboxFolderPicker";
 import { DropboxLogo } from "@/components/icons/DropboxLogo";
-import type { Client } from "@/lib/clients";
 import { getFacilityDropboxFolder } from "@/lib/dropbox";
 import { formatElapsed } from "@/lib/useAbortableOperation";
 
 interface SourceFolderSectionProps {
   clientId: string;
-  client: Client | undefined;
+  /** The client's facility names, for the "Which facility?" picker. */
+  facilityNames: string[];
   selectedFiles: FileList | null;
   dropboxPath: string | null;
   sessionId: string;
@@ -36,7 +36,7 @@ interface SourceFolderSectionProps {
  */
 export function SourceFolderSection({
   clientId,
-  client,
+  facilityNames,
   selectedFiles,
   dropboxPath,
   sessionId,
@@ -102,7 +102,7 @@ export function SourceFolderSection({
           Or import a folder from Dropbox
         </div>
 
-        {client && client.facilityNames.length > 0 && (
+        {facilityNames.length > 0 && (
           <div className="mb-3">
             <label className="mb-1 block text-xs text-slate-400">Which facility?</label>
             <select
@@ -111,7 +111,7 @@ export function SourceFolderSection({
               className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
             >
               <option value="">Select a facility…</option>
-              {client.facilityNames.map((name) => (
+              {facilityNames.map((name) => (
                 <option key={name} value={name}>
                   {name}
                 </option>
@@ -138,7 +138,7 @@ export function SourceFolderSection({
             // actually see them to confirm they're in the right
             // place, not just navigate blind past folders.
             showFiles
-            initialPath={facilityDropboxPath ?? client?.dropboxPath}
+            initialPath={facilityDropboxPath ?? undefined}
             onChange={onDropboxPathSelected}
           />
         )}

@@ -5,7 +5,7 @@ import SessionExpiredPage from "@/components/SessionExpiredPage";
 import { DiscoveryResultsSection } from "@/components/discovery/DiscoveryResultsSection";
 import { SourceFolderSection } from "@/components/discovery/SourceFolderSection";
 import { UploadIntegritySummary } from "@/components/discovery/UploadIntegritySummary";
-import { useClients } from "@/lib/clients";
+import { useFacilityNames } from "@/components/clients/CompanyDetailContext";
 import type {
   DiscoverResponse,
   UploadSummary,
@@ -69,8 +69,7 @@ export default function DiscoveryPage({
   onBack,
   onSessionExpired,
 }: DiscoveryPageProps) {
-  const { getClient } = useClients();
-  const client = getClient(clientId);
+  const facilityNames = useFacilityNames();
 
   const [
     sessionExpired,
@@ -109,7 +108,7 @@ export default function DiscoveryPage({
 
       <SourceFolderSection
         clientId={clientId}
-        client={client}
+        facilityNames={facilityNames}
         selectedFiles={selectedFiles}
         dropboxPath={dropboxPath}
         sessionId={sessionId}

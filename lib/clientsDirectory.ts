@@ -62,10 +62,8 @@ function setCommaSeparated(params: URLSearchParams, key: string, values: string[
 
 /**
  * The directory-page query -- `GET /clients` extended with `q` and the
- * four repeatable checkbox-filter params. Any authenticated caller, same
- * as the plain `listCompanies()` this supersedes for the Clients page
- * (see that function's own doc comment in `clientsCompanies.ts`, which
- * other, non-directory consumers of the unfiltered list still use).
+ * four repeatable checkbox-filter params. Any authenticated caller. (The
+ * plain unfiltered `listCompanies()` it superseded has no callers left.)
  */
 export async function listClientsDirectory(
   query: ClientsDirectoryQuery = {},

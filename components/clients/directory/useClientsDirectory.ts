@@ -1,38 +1,44 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { archiveCompany, deleteCompany, unarchiveCompany } from "@/lib/clientsCompanies";
-import {
-  getClientsFilterOptions,
-  listClientsDirectory,
-  type ClientsFilterOptions,
-  type CompanyDirectoryEntry,
-} from "@/lib/clientsDirectory";
+import { getClientsFilterOptions, listClientsDirectory, type CompanyDirectoryEntry } from "@/lib/clientsDirectory";
 import { groupByImplementationManager } from "@/lib/groupCompaniesByManager";
+import { queryKeys } from "@/lib/queryKeys";
+import { queryErrorMessage, unwrap } from "@/lib/queryResult";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
-import { useLatestRequest } from "@/lib/useLatestRequest";
 
 // The directory page deliberately does NOT use `useClients()`
 // (`lib/clients.tsx`) -- that hook backs the unfiltered full-list cache
-// several other consumers (`ClientLayout`, `DiscoveryPage`,
-// `DedupUploadPage`, `TaggerUploadPage`, the client-creation flow) still
-// rely on, and none of them need search/filtering. Rather than bolt
-// query params onto a `useSyncExternalStore` cache built around "one
-// full list, fetched once," this hook owns its own fetch/state against
-// the directory endpoint. See the approved plan
-// (`sparkling-finding-rossum.md`) Frontend section, item 5.
+// several other consumers (`DiscoveryPage`, `DedupUploadPage`,
+// `TaggerUploadPage`, the client-creation flow) still rely on, and none of
+// them need search/filtering. This hook owns its own cached reads against
+// the directory endpoint, keyed by the active search and filters.
 
 const SEARCH_MIN_CHARS = 3;
 const SEARCH_DEBOUNCE_MS = 300;
+
+/** The four dropdowns' options (who the staff are, which states and
+ * previous PMs exist) change rarely: fine to reuse for minutes. */
+const FILTER_OPTIONS_STALE_MS = 5 * 60_000;
 
 /**
  * Everything the Clients directory page needs: the search box and four
  * multi-select filters, the filtered company list (split into the
  * in-flight / completed / archived sections, grouped by implementation
  * manager), and the archive / unarchive / delete actions.
+ *
+ * The list is cached per search/filter combination and is always treated as
+ * stale (`staleTime: 0`): coming back to the page shows the last answer at
+ * once and refreshes it in the background, so a company created, completed
+ * or reassigned elsewhere never lingers. While a new filter's answer is on
+ * its way the previous list stays up instead of blanking.
  */
 export function useClientsDirectory() {
+  const queryClient = useQueryClient();
+
   const [rawSearch, setRawSearch] = useState("");
   const debouncedSearch = useDebouncedValue(rawSearch, SEARCH_DEBOUNCE_MS);
   const trimmedSearch = debouncedSearch.trim();
@@ -45,61 +51,39 @@ export function useClientsDirectory() {
   const [selectedStates, setSelectedStates] = useState<string[]>([]);
   const [selectedPreviousPms, setSelectedPreviousPms] = useState<string[]>([]);
 
-  const [filterOptions, setFilterOptions] = useState<ClientsFilterOptions | null>(null);
-  const [filterOptionsError, setFilterOptionsError] = useState<string | null>(null);
-
-  const [companies, setCompanies] = useState<CompanyDirectoryEntry[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  const beginDirectoryRequest = useLatestRequest();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  useEffect(() => {
-    queueMicrotask(async () => {
-      const result = await getClientsFilterOptions();
-      if (result.kind !== "ok") {
-        setFilterOptionsError(result.message);
-        return;
-      }
-      setFilterOptionsError(null);
-      setFilterOptions(result.data);
-    });
-  }, []);
+  const filterOptionsQuery = useQuery({
+    queryKey: queryKeys.clientsFilterOptions(),
+    queryFn: async () => unwrap(await getClientsFilterOptions()),
+    staleTime: FILTER_OPTIONS_STALE_MS,
+  });
+  const filterOptions = filterOptionsQuery.data ?? null;
+  const filterOptionsError = queryErrorMessage(filterOptionsQuery.error);
 
-  const loadDirectory = useCallback(async () => {
-    // A newer filter/search aborts this request; its answer must not land.
-    const signal = beginDirectoryRequest();
-    const result = await listClientsDirectory({
-      q: effectiveQuery || undefined,
-      implementationManagerUserIds: selectedManagerIds,
-      salesRepUserIds: selectedRepIds,
-      states: selectedStates,
-      previousPms: selectedPreviousPms,
-    }, { signal });
-    if (signal.aborted) return;
+  const directoryParams = {
+    q: effectiveQuery || undefined,
+    implementationManagerUserIds: selectedManagerIds,
+    salesRepUserIds: selectedRepIds,
+    states: selectedStates,
+    previousPms: selectedPreviousPms,
+  };
+  const directoryQuery = useQuery({
+    queryKey: queryKeys.clientsDirectory(directoryParams),
+    // A newer filter/search cancels this request (the query layer drops its
+    // answer), so an older answer can never land over a newer one.
+    queryFn: async ({ signal }) => unwrap(await listClientsDirectory(directoryParams, { signal })),
+    staleTime: 0,
+    placeholderData: keepPreviousData,
+  });
+  const companies: CompanyDirectoryEntry[] = directoryQuery.data ?? [];
+  // True once the first answer (or failure) is in; never goes back to false
+  // while a new filter loads, because the previous list stays up.
+  const hydrated = !directoryQuery.isPending;
+  const loadError = queryErrorMessage(directoryQuery.error);
 
-    if (result.kind !== "ok") {
-      setLoadError(result.message);
-      setHydrated(true);
-      return;
-    }
-
-    setLoadError(null);
-    setCompanies(result.data);
-    setHydrated(true);
-  }, [beginDirectoryRequest, effectiveQuery, selectedManagerIds, selectedRepIds, selectedStates, selectedPreviousPms]);
-
-  useEffect(() => {
-    // queueMicrotask, not a direct call -- otherwise
-    // `react-hooks/set-state-in-effect` flags loadDirectory (a
-    // useCallback whose body sets state after its own await) as
-    // setState-synchronously-in-an-effect. Same fix
-    // `lib/useAuditLogFilterData.ts` already applies to its own
-    // effect-triggered fetches.
-    queueMicrotask(loadDirectory);
-  }, [loadDirectory]);
+  const reloadDirectory = () => queryClient.invalidateQueries({ queryKey: queryKeys.clientsDirectoryAll() });
 
   const active = companies.filter((company) => !company.archived_at);
   const archived = companies.filter((company) => company.archived_at);
@@ -146,7 +130,7 @@ export function useClientsDirectory() {
       return;
     }
 
-    await loadDirectory();
+    await reloadDirectory();
   }
 
   /** Permanent, not reversible like archive -- confirms in-page first
@@ -170,7 +154,9 @@ export function useClientsDirectory() {
       return;
     }
 
-    await loadDirectory();
+    // The deleted company's own cached pages must not linger either.
+    queryClient.removeQueries({ queryKey: queryKeys.company(id) });
+    await reloadDirectory();
   }
 
   return {

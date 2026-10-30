@@ -5,12 +5,10 @@ import { useRouter } from "next/navigation";
 
 import StepUpPrompt from "@/components/auth/StepUpPrompt";
 import LeftNav from "@/components/nav/LeftNav";
-import { ClientsProvider } from "@/lib/clients";
 import { useCurrentUser } from "@/lib/currentUser";
 
 // The signed-in product shell -- everything under this route group gets
-// the left nav and the (session-scoped, not-yet-persisted) client
-// registry. Auth pages (app/login, app/invites/[token],
+// the left nav. Auth pages (app/login, app/invites/[token],
 // app/onboarding/totp) sit outside this group deliberately, so they
 // render with only the root layout's bare CurrentUserProvider and none
 // of this chrome.
@@ -80,9 +78,9 @@ export default function AppLayout({
   }
 
   return (
-    <ClientsProvider>
+    <>
       <LeftNav />
       <div className="flex-1 overflow-y-auto">{children}</div>
-    </ClientsProvider>
+    </>
   );
 }

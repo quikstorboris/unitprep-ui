@@ -9,6 +9,7 @@ const { notifyUnauthorized } = vi.hoisted(() => ({
 vi.mock("@/lib/sessionExpiry", () => ({ notifyUnauthorized }));
 
 import { apiFetch, apiRequest } from "./http";
+import { onWriteSucceeded } from "./writeEvents";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -73,6 +74,25 @@ describe("apiRequest", () => {
     stubFetch(new Response(null, { status: 204 }));
 
     expect(await apiRequest("POST", "/clients/c1/archive")).toEqual({ kind: "ok", data: undefined });
+  });
+
+  it("announces a successful write, with its path, and nothing else", async () => {
+    const heard: string[] = [];
+    const stop = onWriteSucceeded((path) => heard.push(path));
+
+    stubFetch(new Response(null, { status: 204 }));
+    await apiRequest("POST", "/clients/c1/archive");
+    await apiRequest("PUT", "/clients/c1/info", { a: 1 });
+    await apiRequest("DELETE", "/clients/c1/facilities/f1/clickup-link");
+
+    stubFetch(new Response(JSON.stringify({ id: "c1" }), { status: 200 }));
+    await apiRequest("GET", "/clients/c1");
+
+    stubFetch(new Response(JSON.stringify({ message: "no" }), { status: 400 }));
+    await apiRequest("POST", "/clients/c1/archive");
+
+    stop();
+    expect(heard).toEqual(["/clients/c1/archive", "/clients/c1/info", "/clients/c1/facilities/f1/clickup-link"]);
   });
 
   it("tells the session-expiry listener about a 401 and keeps the server's message", async () => {

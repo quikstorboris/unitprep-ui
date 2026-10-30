@@ -5,6 +5,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useCurrentUser } from "@/lib/currentUser";
 import { makeQueryClient } from "@/lib/queryClient";
+import { queryKeys } from "@/lib/queryKeys";
+import { onWriteSucceeded } from "@/lib/writeEvents";
 
 /**
  * Mounts the shared query cache. Must sit inside `CurrentUserProvider`,
@@ -35,6 +37,23 @@ export default function QueryProvider({ children }: { children: ReactNode }) {
       lastUserId.current = userId;
     }
   }, [client, user, checked]);
+
+  // After any successful write under /clients/<id>, mark that company's
+  // cached reads (detail, facilities, policies) stale -- WITHOUT refetching
+  // them here: whatever is on screen is refreshed by its own screen's
+  // explicit invalidation (one request), and everything else simply
+  // refetches the next time it is shown, instead of serving a pre-write
+  // answer as fresh for up to the freshness window.
+  useEffect(
+    () =>
+      onWriteSucceeded((path) => {
+        const companyId = /^\/clients\/([^/?#]+)/.exec(path)?.[1];
+        if (companyId) {
+          void client.invalidateQueries({ queryKey: queryKeys.company(companyId), refetchType: "none" });
+        }
+      }),
+    [client],
+  );
 
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }

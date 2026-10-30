@@ -40,17 +40,10 @@ export type {
   PsRunSearchResponse,
 };
 
-/**
- * The real `clients.companies` list -- backs the unified `/clients`
- * page and `lib/clients.tsx`'s `useClients()` hook.
- */
-
-/** Any authenticated caller -- see the backend module's own doc comment. */
-export async function listCompanies(): Promise<
-  ClientsResult<CompanySummary[]>
-> {
-  return clientsGet("/clients");
-}
+// The plain unfiltered company list (`GET /clients`, `listCompanies`) was
+// retired with the last page that read it; the Clients page uses the
+// filtered directory query in `lib/clientsDirectory.ts`, and every other
+// page reads the company it is scoped to from the company detail.
 
 export async function archiveCompany(
   companyId: string,

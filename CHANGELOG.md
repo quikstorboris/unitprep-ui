@@ -8,6 +8,14 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.110] - 2026-10-29
+
+### Changed
+- **The Clients page is cached too, and the whole-list request is gone.** The directory (the list you filter and search) and its filter dropdowns' options now live in the query cache: coming back to the page shows the last list at once and refreshes it in the background (the list is always treated as stale, so a company created, completed or reassigned elsewhere never lingers), the dropdown options are fetched once per five minutes, and typing in the search box keeps the previous list on screen instead of blanking while the next answer loads.
+- **Nothing fetches the unfiltered company list any more.** The Discovery, Template Tagger and Dedup tool pages read their "Which facility?" names from the company detail the client layout already loaded (one fewer request on each), the create-client flow no longer refreshes a list that does not exist, and `lib/clients.tsx` (`ClientsProvider`, `useClients`) and `listCompanies` are deleted along with their tests. The never-populated `client.dropboxPath` default is gone with them (it was always empty).
+- **A write can no longer leave a stale answer in the cache.** After any successful write under `/clients/<id>/...`, that company's cached detail, facilities and policies are marked stale (not refetched: the screen you are on refreshes itself, everything else refetches the next time it is shown). New `lib/writeEvents.ts`, announced from `apiRequest`; tests in `lib/http.test.ts` and `components/QueryProvider.test.tsx`. Deleting a company also drops its cached pages.
+- Measured on a production build: Clients list to a client page is one request (company detail); to a facility, two (facility and policies); the dedup page asks for the company once and fills its facility picker and auto-selection from it. 1082 unit tests (up from 1074).
+
 ## [1.6.109] - 2026-10-29
 
 Adds one dependency, `@tanstack/react-query` 5.104.3 (exact pin; published 2026-10-15; `npm audit` clean). Run `npm install` in a native checkout; the Docker `ui-dev` container installs on start.

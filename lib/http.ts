@@ -1,5 +1,6 @@
 import { API_URL, describeFetchError, errorMessageFrom } from "@/lib/api";
 import { notifyUnauthorized } from "@/lib/sessionExpiry";
+import { notifyWriteSucceeded } from "@/lib/writeEvents";
 
 /**
  * The one HTTP client for the backend API. Every `lib/*` module that talks
@@ -84,7 +85,9 @@ export async function apiRequest<T>(
   options: RequestOptions = {},
 ): Promise<ApiResult<T>> {
   try {
-    return await parseApiResult<T>(await apiFetch(method, path, body, options));
+    const result = await parseApiResult<T>(await apiFetch(method, path, body, options));
+    if (method !== "GET" && result.kind === "ok") notifyWriteSucceeded(path);
+    return result;
   } catch (err) {
     return { kind: "error", message: describeFetchError(err) };
   }

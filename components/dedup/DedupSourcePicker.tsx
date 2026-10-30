@@ -35,7 +35,7 @@ export function DedupSourcePicker({
   onLocalPick,
   onDropboxFolderPick,
 }: DedupSourcePickerProps) {
-  const { client, facilityNames, selectedFacility, facilityDropboxPath, selectFacility } =
+  const { facilityNames, selectedFacility, facilityDropboxPath, selectFacility } =
     useFacilityDropboxFolder(clientId, facilityId);
 
   return (
@@ -119,7 +119,7 @@ export function DedupSourcePicker({
             // whole folder blind is error-prone; show its files so the
             // user can confirm it's the right place.
             showFiles
-            initialPath={facilityDropboxPath ?? client?.dropboxPath}
+            initialPath={facilityDropboxPath ?? undefined}
             onChange={onDropboxFolderPick}
           />
         )}
