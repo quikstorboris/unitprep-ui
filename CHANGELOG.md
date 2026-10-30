@@ -8,6 +8,13 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.111] - 2026-10-29
+
+### Changed
+- **Company cards on the Clients page are real links.** They were buttons that navigated on click, so the page could not be prefetched and "open in new tab" and middle-click did nothing. They now point at `/clients/<id>/info`; the kebab menu stays a sibling so it never follows the link.
+- **A failing page no longer takes the whole screen with it.** New `app/(app)/error.tsx` shows the failure (reported to Sentry, with its reference) inside the app shell, with "Try again" and "Back to Clients", instead of replacing the left nav too. New `app/(app)/loading.tsx` shows "Loading…" in the page area while a screen's code is still arriving, instead of an empty pane.
+- **The ClickUp Copy progress poll slows down in a hidden tab** (every 15 s instead of 3 s) and catches up at once when the tab is shown again. It is deliberately not paused: leaving the tab during a big copy and still getting the browser notification when it finishes is the point of the feature. Two new tests.
+
 ## [1.6.110] - 2026-10-29
 
 ### Changed

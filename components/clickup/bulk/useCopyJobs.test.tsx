@@ -7,7 +7,7 @@ const { listCopyJobs } = vi.hoisted(() => ({ listCopyJobs: vi.fn() }));
 
 vi.mock("@/lib/clickupBulkCopy", () => ({ listCopyJobs }));
 
-import { askForNotifications, notificationFor, POLL_MS, useCopyJobs } from "./useCopyJobs";
+import { askForNotifications, notificationFor, POLL_HIDDEN_MS, POLL_MS, useCopyJobs } from "./useCopyJobs";
 
 function job(overrides: Partial<CopyJob> = {}): CopyJob {
   return {
@@ -97,6 +97,44 @@ describe("useCopyJobs", () => {
     await advance(POLL_MS * 3);
     expect(listCopyJobs.mock.calls.length).toBe(calls);
     expect(shown).toHaveLength(1);
+  });
+
+  it("keeps watching a hidden tab, but slowly, and still notifies when the job finishes", async () => {
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    listCopyJobs
+      .mockResolvedValueOnce(ok([job({ copied: 5 })]))
+      .mockResolvedValue(ok([job({ status: "done", copied: 20, finished_at: "2026-10-07T12:03:00Z" })]));
+
+    renderHook(() => useCopyJobs("c1"));
+    await advance(0);
+    const afterLoad = listCopyJobs.mock.calls.length;
+
+    // Not at the foreground pace...
+    await advance(POLL_MS * 3);
+    expect(listCopyJobs.mock.calls.length).toBe(afterLoad);
+
+    // ...but at the hidden pace, which is enough to notice the end.
+    await advance(POLL_HIDDEN_MS);
+    expect(listCopyJobs.mock.calls.length).toBe(afterLoad + 1);
+    expect(shown).toHaveLength(1);
+    hidden.mockRestore();
+  });
+
+  it("catches up at once when the tab becomes visible again", async () => {
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    listCopyJobs.mockResolvedValue(ok([job({ copied: 5 })]));
+
+    renderHook(() => useCopyJobs("c1"));
+    await advance(0);
+    const before = listCopyJobs.mock.calls.length;
+
+    hidden.mockReturnValue(false);
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(listCopyJobs.mock.calls.length).toBe(before + 1);
+    hidden.mockRestore();
   });
 
   it("does not notify about a job that was already finished when the page loaded", async () => {

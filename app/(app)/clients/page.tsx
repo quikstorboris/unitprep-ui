@@ -1,7 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
 import Link from "next/link";
 
 import ClientsFilterBar from "@/components/clients/directory/ClientsFilterBar";
@@ -11,7 +9,6 @@ import CompanyDirectoryGrid from "@/components/clients/CompanyDirectoryGrid";
 import type { CompanyDirectoryEntry } from "@/lib/clientsDirectory";
 
 export default function ClientsPage() {
-  const router = useRouter();
   const directory = useClientsDirectory();
   const { active, archived, inFlight, completed, hydrated } = directory;
 
@@ -20,7 +17,6 @@ export default function ClientsPage() {
       <CompanyDirectoryGrid
         companies={list}
         pendingId={directory.pendingId}
-        onNavigate={(id) => router.push(`/clients/${id}/info`)}
         onArchive={(id) => directory.toggleArchived(id, true)}
         onUnarchive={(id) => directory.toggleArchived(id, false)}
         onDelete={directory.handleDelete}

@@ -1,11 +1,15 @@
 "use client";
 
+import Link from "next/link";
+
 import CompanyCardMenu from "@/components/clients/CompanyCardMenu";
 import type { CompanyDirectoryEntry } from "@/lib/clientsDirectory";
 
 /**
- * The 5-column grid of company buttons (legal name only, per the
- * approved plan) plus each one's archive/unarchive/delete kebab menu --
+ * The 5-column grid of company links (legal name only, per the approved
+ * plan) plus each one's archive/unarchive/delete kebab menu -- real links,
+ * not click handlers, so the browser can prefetch the page, "open in new
+ * tab" and middle-click work, and the status bar shows where it goes --
  * split out of `app/(app)/clients/page.tsx` so that page stays scoped
  * to search/filter state and data-fetching, not also owning this
  * rendering. Used both for a single Implementation Manager section and
@@ -14,7 +18,6 @@ import type { CompanyDirectoryEntry } from "@/lib/clientsDirectory";
 export interface CompanyDirectoryGridProps {
   companies: CompanyDirectoryEntry[];
   pendingId: string | null;
-  onNavigate: (id: string) => void;
   onArchive: (id: string) => void;
   onUnarchive: (id: string) => void;
   onDelete: (id: string, name: string) => void;
@@ -28,7 +31,6 @@ const companyButtonClass =
 export default function CompanyDirectoryGrid({
   companies,
   pendingId,
-  onNavigate,
   onArchive,
   onUnarchive,
   onDelete,
@@ -38,16 +40,16 @@ export default function CompanyDirectoryGrid({
       {companies.map((company) => (
         // `relative` so the kebab menu below can overlay this card's
         // corner instead of sitting in its own separate box next to the
-        // button -- a sibling of the button, not nested inside it, so a
-        // click on the dots never also triggers the button's onNavigate.
+        // link -- a sibling of the link, not nested inside it, so a click
+        // on the dots never also follows the link.
         <div key={company.id} className="relative">
-          <button
-            onClick={() => onNavigate(company.id)}
+          <Link
+            href={`/clients/${company.id}/info`}
             title={company.legal_name}
-            className={companyButtonClass}
+            className={`block ${companyButtonClass}`}
           >
             {company.legal_name}
-          </button>
+          </Link>
 
           {/* `top-1.5` (a fixed offset), not `top-1/2 -translate-y-1/2`:
               a `transform` establishes a new stacking context, which

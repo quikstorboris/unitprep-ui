@@ -4,8 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { listCopyJobs, type CopyJob } from "@/lib/clickupBulkCopy";
 
-/** How often a running job is checked. */
+/** How often a running job is checked while the tab is in front. */
 export const POLL_MS = 3000;
+
+/** How often it is checked while the tab is hidden (only the finish matters then). */
+export const POLL_HIDDEN_MS = 15_000;
 
 /** What the browser notification says about a finished job. */
 export function notificationFor(job: CopyJob): { title: string; body: string } {
@@ -93,8 +96,31 @@ export function useCopyJobs(companyId: string) {
   const anyRunning = jobs.some((job) => job.status === "running");
   useEffect(() => {
     if (!anyRunning) return;
-    const timer = setInterval(() => void refresh(), POLL_MS);
-    return () => clearInterval(timer);
+
+    // Not paused in a hidden tab -- the whole point is that the person can
+    // leave while a big copy runs and still get the "finished" notification
+    // -- but slowed right down: nobody is looking at the progress, so one
+    // check every POLL_HIDDEN_MS is plenty to notice the end.
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      timer = setTimeout(() => {
+        void refresh();
+        schedule();
+      }, document.hidden ? POLL_HIDDEN_MS : POLL_MS);
+    };
+    schedule();
+
+    // Coming back to the tab: catch up at once instead of waiting out a
+    // slow hidden-tab interval.
+    const onVisible = () => {
+      if (!document.hidden) void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [anyRunning, refresh]);
 
   return { jobs, loadError, refresh };
