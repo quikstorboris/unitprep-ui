@@ -8,6 +8,16 @@ cadences and are not required to share a version number.
 
 ## [Unreleased]
 
+## [1.6.109] - 2026-10-29
+
+Adds one dependency, `@tanstack/react-query` 5.104.3 (exact pin; published 2026-10-15; `npm audit` clean). Run `npm install` in a native checkout; the Docker `ui-dev` container installs on start.
+
+### Changed
+- **Company and facility data now live in a shared query cache.** A company or facility seen in the last 30 seconds shows at once and costs the API nothing when you come back to it; older cached data shows at once and refreshes in the background. Measured in a production build: opening a facility from the company page requests only the facility and its policies (the company is reused), and going back to the company page makes no API request at all. After a save, the affected read is refreshed in place (the old values stay on screen until the new arrive) instead of the page blanking to "Loading…". A failed background refresh of the company header keeps the page; on the facility edit forms a failed refresh still shows the error, so stale values are never edited by mistake.
+- Cache policy, set once in `lib/queryClient.ts` to conserve database compute: no refetch on window focus or reconnect, no automatic retries. Cache keys are in `lib/queryKeys.ts`.
+- **Security:** the cache is emptied when the user signs out, when the session ends, and when a different user is found signed in on the same tab (`components/QueryProvider.tsx`), so one person's company data is never shown to the next. Four tests.
+- `CompanyDetailProvider` and `useFacilityPageData` are rebuilt on the cache with the same interfaces; their tests were rewritten, with new ones for revisiting within the freshness window, in-place refresh and a failed background refresh.
+
 ## [1.6.108] - 2026-10-29
 
 ### Changed

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 import GlobalErrorListeners from "@/components/GlobalErrorListeners";
+import QueryProvider from "@/components/QueryProvider";
 import { CurrentUserProvider } from "@/lib/currentUser";
 
 export const metadata: Metadata = {
@@ -27,7 +28,9 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased">
       <body className="flex min-h-full bg-slate-900 text-slate-100">
         <GlobalErrorListeners />
-        <CurrentUserProvider>{children}</CurrentUserProvider>
+        <CurrentUserProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </CurrentUserProvider>
       </body>
     </html>
   );

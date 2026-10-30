@@ -41,6 +41,8 @@ vi.mock("@/components/facility/DropboxTab", () => ({
   ),
 }));
 
+import { createQueryWrapper } from "@/lib/testUtils/queryWrapper";
+
 import FacilityDetailPage from "./page";
 
 const ok = (data: unknown) => ({ kind: "ok", data });
@@ -57,7 +59,7 @@ beforeEach(() => {
 
 describe("FacilityDetailPage", () => {
   it("loads the facility and policies and lands on General", async () => {
-    render(<FacilityDetailPage />);
+    render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     expect(screen.getByText("Loading…")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Highway 20" })).toBeInTheDocument();
     expect(screen.getByText("general-tab")).toBeInTheDocument();
@@ -67,7 +69,7 @@ describe("FacilityDetailPage", () => {
 
   it("waits for the company before showing anything", () => {
     m.company = null;
-    render(<FacilityDetailPage />);
+    render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     expect(screen.getByText("Loading…")).toBeInTheDocument();
     expect(screen.queryByText("rail")).not.toBeInTheDocument();
   });
@@ -75,25 +77,25 @@ describe("FacilityDetailPage", () => {
   it("shows the company load error ahead of the facility's", async () => {
     m.companyLoadError = "company down";
     m.getFacilityDetail.mockResolvedValue({ kind: "error", message: "facility down" });
-    render(<FacilityDetailPage />);
+    render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     expect(await screen.findByRole("alert")).toHaveTextContent("company down");
   });
 
   it("shows a facility error, and a policies error", async () => {
     m.getFacilityDetail.mockResolvedValue({ kind: "error", message: "facility down" });
-    const { unmount } = render(<FacilityDetailPage />);
+    const { unmount } = render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     expect(await screen.findByRole("alert")).toHaveTextContent("facility down");
     unmount();
 
     m.getFacilityDetail.mockResolvedValue(ok({ name: "X", dropbox_folder_url: null }));
     m.getFacilityPolicies.mockResolvedValue({ kind: "error", message: "policies down" });
-    render(<FacilityDetailPage />);
+    render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     expect(await screen.findByRole("alert")).toHaveTextContent("policies down");
   });
 
   it("opens the tab named in ?tab= and switches with the tab buttons", async () => {
     m.search = new URLSearchParams("tab=fees");
-    render(<FacilityDetailPage />);
+    render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText("fees-tab p1")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Elavon" }));
@@ -103,13 +105,13 @@ describe("FacilityDetailPage", () => {
 
   it("ignores an unknown ?tab= value", async () => {
     m.search = new URLSearchParams("tab=bogus");
-    render(<FacilityDetailPage />);
+    render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     expect(await screen.findByText("general-tab")).toBeInTheDocument();
   });
 
   it("a policies save refetches only the policies, without blanking the page", async () => {
     m.search = new URLSearchParams("tab=fees");
-    render(<FacilityDetailPage />);
+    render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     await userEvent.click(await screen.findByText("fees-tab p1"));
 
     await waitFor(() => expect(m.getFacilityPolicies).toHaveBeenCalledTimes(2));
@@ -118,7 +120,7 @@ describe("FacilityDetailPage", () => {
   });
 
   it("a facility save (General or DropBox tab) refetches only the facility", async () => {
-    render(<FacilityDetailPage />);
+    render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     await userEvent.click(await screen.findByText("general-tab"));
 
     await waitFor(() => expect(m.getFacilityDetail).toHaveBeenCalledTimes(2));
@@ -126,7 +128,7 @@ describe("FacilityDetailPage", () => {
   });
 
   it("a failed refresh shows the error", async () => {
-    render(<FacilityDetailPage />);
+    render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     await screen.findByText("general-tab");
     m.getFacilityDetail.mockResolvedValue({ kind: "error", message: "refresh failed" });
     await userEvent.click(screen.getByText("general-tab"));
@@ -134,7 +136,7 @@ describe("FacilityDetailPage", () => {
   });
 
   it("ignores a refresh answer that arrives after the facility changed", async () => {
-    const { rerender } = render(<FacilityDetailPage />);
+    const { rerender } = render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     await screen.findByRole("heading", { name: "Highway 20" });
 
     let release!: (value: unknown) => void;
@@ -156,7 +158,7 @@ describe("FacilityDetailPage", () => {
   });
 
   it("reloads when the facility changes, going back to Loading in between", async () => {
-    const { rerender } = render(<FacilityDetailPage />);
+    const { rerender } = render(<FacilityDetailPage />, { wrapper: createQueryWrapper() });
     await screen.findByRole("heading", { name: "Highway 20" });
 
     m.params = { clientId: "c1", facilityId: "f2" };

@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createQueryWrapper } from "@/lib/testUtils/queryWrapper";
+
 const { getCompanyDetail, listCompanies } = vi.hoisted(() => ({
   getCompanyDetail: vi.fn(),
   listCompanies: vi.fn(),
@@ -36,6 +38,7 @@ describe("ClientLayout", () => {
       <ClientLayout>
         <p>page body</p>
       </ClientLayout>,
+      { wrapper: createQueryWrapper() },
     );
 
     expect(screen.getByText("page body")).toBeInTheDocument();
@@ -50,6 +53,7 @@ describe("ClientLayout", () => {
       <ClientLayout>
         <p>page body</p>
       </ClientLayout>,
+      { wrapper: createQueryWrapper() },
     );
 
     expect(await screen.findByRole("heading", { name: "Affordable Storage" })).toBeInTheDocument();
@@ -65,6 +69,7 @@ describe("ClientLayout", () => {
       <ClientLayout>
         <p>page body</p>
       </ClientLayout>,
+      { wrapper: createQueryWrapper() },
     );
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Company not found"));

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 
 import {
   getFacilityDetail,
@@ -8,95 +9,60 @@ import {
   type FacilityDetail,
   type FacilityPolicies,
 } from "@/lib/clientsDetail";
+import { queryKeys } from "@/lib/queryKeys";
+import { queryErrorMessage, unwrap } from "@/lib/queryResult";
 
 /**
- * The facility page's two facility-scoped reads. Company data comes from
- * the shared `CompanyDetailProvider` (fetched once per company, not per
- * facility -- see that module's own doc comment); only these re-fetch,
- * on `facilityId` alone.
+ * The facility page's two facility-scoped reads, kept in the query cache.
+ * Company data comes from the shared `CompanyDetailProvider` (fetched once
+ * per company, not per facility -- see that module's own doc comment); only
+ * these two are per facility, so switching facilities loads just them, and
+ * coming back to a facility seen moments ago shows it at once.
  *
  * `loadPolicies` / `loadFacility` are in-place refreshes (the old data
- * stays on screen until the new arrives), passed to the tabs as
- * `onSaved` -- unlike a plain `useAsyncResource` refetch, which drops
- * back to "loading" and would blank the whole page after every save.
+ * stays on screen until the new arrives), passed to the tabs as `onSaved`
+ * -- they resolve once the refreshed data has landed.
+ *
+ * A failed read is reported even when an older copy is cached: these
+ * screens are edit forms, and showing stale values after a save looked
+ * successful would invite overwriting a colleague's change with them.
  */
 export function useFacilityPageData(clientId: string, facilityId: string) {
-  const [facility, setFacility] = useState<FacilityDetail | null>(null);
-  const [policies, setPolicies] = useState<FacilityPolicies | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const facilityKey = queryKeys.facility(clientId, facilityId);
+  const policiesKey = queryKeys.facilityPolicies(clientId, facilityId);
 
-  // Which facility the page is showing right now, readable from an
-  // in-flight refresh after an `await` (state would be stale in its closure).
-  const activeKey = useRef(`${clientId}/${facilityId}`);
-  useEffect(() => {
-    activeKey.current = `${clientId}/${facilityId}`;
-  }, [clientId, facilityId]);
+  const facilityQuery = useQuery({
+    queryKey: facilityKey,
+    queryFn: async (): Promise<FacilityDetail> => unwrap(await getFacilityDetail(clientId, facilityId)),
+  });
+  const policiesQuery = useQuery({
+    queryKey: policiesKey,
+    queryFn: async (): Promise<FacilityPolicies> => unwrap(await getFacilityPolicies(clientId, facilityId)),
+  });
 
   // Re-fetches just the policies -- passed to each split Fees/Taxes/
   // Delinquency/Coverage/Specials tab as `onSaved`, so a save reflects
   // its own (possibly just-flagged-exempt) fresh state immediately
   // without a full page reload.
-  async function loadPolicies() {
-    const key = `${clientId}/${facilityId}`;
-    const result = await getFacilityPolicies(clientId, facilityId);
-    // The reviewer may have switched facilities while this was in flight:
-    // an answer for the old one must not land on the new one's page.
-    if (activeKey.current !== key) return;
-    if (result.kind !== "ok") {
-      setLoadError(result.message);
-      return;
-    }
-    setPolicies(result.data);
-  }
+  const loadPolicies = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: policiesKey, exact: true }),
+    [queryClient, policiesKey],
+  );
 
   // Same idea as `loadPolicies` above, for the General/DropBox tabs' own save.
-  async function loadFacility() {
-    const key = `${clientId}/${facilityId}`;
-    const result = await getFacilityDetail(clientId, facilityId);
-    if (activeKey.current !== key) return;
-    if (result.kind !== "ok") {
-      setLoadError(result.message);
-      return;
-    }
-    setFacility(result.data);
-  }
+  const loadFacility = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: facilityKey, exact: true }),
+    [queryClient, facilityKey],
+  );
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadError = queryErrorMessage(facilityQuery.error) ?? queryErrorMessage(policiesQuery.error);
 
-    queueMicrotask(async () => {
-      // Reset here (inside the effect's async callback, not
-      // synchronously in the effect body) per the
-      // `react-hooks/set-state-in-effect` rule.
-      if (cancelled) return;
-      setFacility(null);
-      setPolicies(null);
-      setLoadError(null);
-
-      const [facilityResult, policiesResult] = await Promise.all([
-        getFacilityDetail(clientId, facilityId),
-        getFacilityPolicies(clientId, facilityId),
-      ]);
-
-      if (cancelled) return;
-      if (facilityResult.kind !== "ok") {
-        setLoadError(facilityResult.message);
-        return;
-      }
-      if (policiesResult.kind !== "ok") {
-        setLoadError(policiesResult.message);
-        return;
-      }
-
-      setLoadError(null);
-      setFacility(facilityResult.data);
-      setPolicies(policiesResult.data);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [clientId, facilityId]);
-
-  return { facility, policies, loadError, loadFacility, loadPolicies };
+  return {
+    facility: facilityQuery.data ?? null,
+    policies: policiesQuery.data ?? null,
+    loadError,
+    loadFacility,
+    loadPolicies,
+  };
 }

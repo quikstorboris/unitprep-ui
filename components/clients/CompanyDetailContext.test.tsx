@@ -1,11 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CompanyDetail } from "@/lib/clientsDetail";
-import type {
-  CompanyDetailProvider as CompanyDetailProviderType,
-  useCompanyDetail as useCompanyDetailType,
-} from "./CompanyDetailContext";
+import { createQueryWrapper, createTestQueryClient } from "@/lib/testUtils/queryWrapper";
 
 const { getCompanyDetail } = vi.hoisted(() => ({
   getCompanyDetail: vi.fn(),
@@ -15,14 +13,7 @@ vi.mock("@/lib/clientsDetail", () => ({
   getCompanyDetail,
 }));
 
-async function freshModule() {
-  vi.resetModules();
-  const mod = await import("./CompanyDetailContext");
-  return mod as {
-    CompanyDetailProvider: typeof CompanyDetailProviderType;
-    useCompanyDetail: typeof useCompanyDetailType;
-  };
-}
+import { CompanyDetailProvider, useCompanyDetail } from "./CompanyDetailContext";
 
 function company(overrides: Partial<CompanyDetail> = {}): CompanyDetail {
   return {
@@ -55,11 +46,8 @@ function company(overrides: Partial<CompanyDetail> = {}): CompanyDetail {
 }
 
 /** Renders `company`/`loadError` from the context as plain text, so
- * assertions can just read the DOM instead of poking at hook internals.
- * Takes `useCompanyDetail` as a prop rather than importing it statically,
- * since each test gets its own fresh module instance (and therefore its
- * own Context object) via `freshModule()`. */
-function Consumer({ useCompanyDetail }: { useCompanyDetail: typeof useCompanyDetailType }) {
+ * assertions can just read the DOM instead of poking at hook internals. */
+function Consumer() {
   const { company, loadError } = useCompanyDetail();
   if (loadError) return <p>error: {loadError}</p>;
   if (!company) return <p>loading</p>;
@@ -73,12 +61,12 @@ describe("CompanyDetailProvider / useCompanyDetail", () => {
 
   it("fetches once for a given companyId and provides the result to consumers", async () => {
     getCompanyDetail.mockResolvedValue({ kind: "ok", data: company() });
-    const { CompanyDetailProvider, useCompanyDetail } = await freshModule();
 
     render(
       <CompanyDetailProvider companyId="company-1">
-        <Consumer useCompanyDetail={useCompanyDetail} />
-      </CompanyDetailProvider>
+        <Consumer />
+      </CompanyDetailProvider>,
+      { wrapper: createQueryWrapper() },
     );
 
     expect(screen.getByText("loading")).toBeInTheDocument();
@@ -89,12 +77,12 @@ describe("CompanyDetailProvider / useCompanyDetail", () => {
 
   it("does not refetch when the provider re-renders with the same companyId", async () => {
     getCompanyDetail.mockResolvedValue({ kind: "ok", data: company() });
-    const { CompanyDetailProvider, useCompanyDetail } = await freshModule();
 
     const { rerender } = render(
       <CompanyDetailProvider companyId="company-1">
-        <Consumer useCompanyDetail={useCompanyDetail} />
-      </CompanyDetailProvider>
+        <Consumer />
+      </CompanyDetailProvider>,
+      { wrapper: createQueryWrapper() },
     );
     await waitFor(() => expect(getCompanyDetail).toHaveBeenCalledTimes(1));
 
@@ -103,9 +91,9 @@ describe("CompanyDetailProvider / useCompanyDetail", () => {
     // does NOT trigger a second fetch.
     rerender(
       <CompanyDetailProvider companyId="company-1">
-        <Consumer useCompanyDetail={useCompanyDetail} />
+        <Consumer />
         <span>extra render</span>
-      </CompanyDetailProvider>
+      </CompanyDetailProvider>,
     );
 
     expect(screen.getByText("extra render")).toBeInTheDocument();
@@ -114,7 +102,6 @@ describe("CompanyDetailProvider / useCompanyDetail", () => {
 
   it("hands consumers the same context value across a re-render that changes nothing", async () => {
     getCompanyDetail.mockResolvedValue({ kind: "ok", data: company() });
-    const { CompanyDetailProvider, useCompanyDetail } = await freshModule();
     const seen: unknown[] = [];
     function Probe() {
       seen.push(useCompanyDetail());
@@ -124,7 +111,8 @@ describe("CompanyDetailProvider / useCompanyDetail", () => {
     const { rerender } = render(
       <CompanyDetailProvider companyId="company-1">
         <Probe />
-      </CompanyDetailProvider>
+      </CompanyDetailProvider>,
+      { wrapper: createQueryWrapper() },
     );
     await waitFor(() => expect(getCompanyDetail).toHaveBeenCalledTimes(1));
     await waitFor(() => expect((seen.at(-1) as { company: unknown }).company).not.toBeNull());
@@ -135,7 +123,7 @@ describe("CompanyDetailProvider / useCompanyDetail", () => {
     rerender(
       <CompanyDetailProvider companyId="company-1">
         <Probe />
-      </CompanyDetailProvider>
+      </CompanyDetailProvider>,
     );
 
     expect(seen.at(-1)).toBe(settled);
@@ -143,12 +131,12 @@ describe("CompanyDetailProvider / useCompanyDetail", () => {
 
   it("refetches when companyId changes", async () => {
     getCompanyDetail.mockResolvedValueOnce({ kind: "ok", data: company({ legal_name: "Prairie Enterprises LLC" }) });
-    const { CompanyDetailProvider, useCompanyDetail } = await freshModule();
 
     const { rerender } = render(
       <CompanyDetailProvider companyId="company-1">
-        <Consumer useCompanyDetail={useCompanyDetail} />
-      </CompanyDetailProvider>
+        <Consumer />
+      </CompanyDetailProvider>,
+      { wrapper: createQueryWrapper() },
     );
     await waitFor(() => expect(screen.getByText("loaded: Prairie Enterprises LLC")).toBeInTheDocument());
 
@@ -158,10 +146,12 @@ describe("CompanyDetailProvider / useCompanyDetail", () => {
     });
     rerender(
       <CompanyDetailProvider companyId="company-2">
-        <Consumer useCompanyDetail={useCompanyDetail} />
-      </CompanyDetailProvider>
+        <Consumer />
+      </CompanyDetailProvider>,
     );
 
+    // The previous company's data must not show under the new id.
+    expect(screen.queryByText("loaded: Prairie Enterprises LLC")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("loaded: Westpark Storage")).toBeInTheDocument());
     expect(getCompanyDetail).toHaveBeenCalledTimes(2);
     expect(getCompanyDetail).toHaveBeenNthCalledWith(2, "company-2");
@@ -169,20 +159,101 @@ describe("CompanyDetailProvider / useCompanyDetail", () => {
 
   it("surfaces a failed fetch as loadError rather than hanging on loading", async () => {
     getCompanyDetail.mockResolvedValue({ kind: "error", message: "Could not load this company" });
-    const { CompanyDetailProvider, useCompanyDetail } = await freshModule();
 
     render(
       <CompanyDetailProvider companyId="company-1">
-        <Consumer useCompanyDetail={useCompanyDetail} />
-      </CompanyDetailProvider>
+        <Consumer />
+      </CompanyDetailProvider>,
+      { wrapper: createQueryWrapper() },
     );
 
     await waitFor(() => expect(screen.getByText("error: Could not load this company")).toBeInTheDocument());
   });
 
-  it("throws when useCompanyDetail is used outside a CompanyDetailProvider", async () => {
-    const { useCompanyDetail } = await freshModule();
+  it("shows a company seen moments ago at once, without asking the API again", async () => {
+    getCompanyDetail.mockResolvedValue({ kind: "ok", data: company() });
+    const client = createTestQueryClient();
 
+    const first = render(
+      <CompanyDetailProvider companyId="company-1">
+        <Consumer />
+      </CompanyDetailProvider>,
+      { wrapper: createQueryWrapper(client) },
+    );
+    await waitFor(() => expect(screen.getByText("loaded: Prairie Enterprises LLC")).toBeInTheDocument());
+    first.unmount();
+
+    // Coming back to the company inside the freshness window.
+    render(
+      <CompanyDetailProvider companyId="company-1">
+        <Consumer />
+      </CompanyDetailProvider>,
+      { wrapper: createQueryWrapper(client) },
+    );
+
+    expect(screen.getByText("loaded: Prairie Enterprises LLC")).toBeInTheDocument();
+    expect(getCompanyDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it("refetch() refreshes in place: the old data stays until the new arrives", async () => {
+    getCompanyDetail.mockResolvedValueOnce({ kind: "ok", data: company({ legal_name: "Old Name" }) });
+    let refetch: () => void = () => {};
+    function Capture() {
+      const current = useCompanyDetail().refetch;
+      useEffect(() => {
+        refetch = current;
+      }, [current]);
+      return <Consumer />;
+    }
+
+    render(
+      <CompanyDetailProvider companyId="company-1">
+        <Capture />
+      </CompanyDetailProvider>,
+      { wrapper: createQueryWrapper() },
+    );
+    await waitFor(() => expect(screen.getByText("loaded: Old Name")).toBeInTheDocument());
+
+    let release: (value: unknown) => void = () => {};
+    getCompanyDetail.mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
+    act(() => refetch());
+
+    // Mid-refresh: never back to "loading".
+    await waitFor(() => expect(getCompanyDetail).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("loaded: Old Name")).toBeInTheDocument();
+
+    await act(async () => release({ kind: "ok", data: company({ legal_name: "New Name" }) }));
+    await waitFor(() => expect(screen.getByText("loaded: New Name")).toBeInTheDocument());
+  });
+
+  it("keeps the page when only a background refresh fails", async () => {
+    getCompanyDetail.mockResolvedValueOnce({ kind: "ok", data: company() });
+    let refetch: () => void = () => {};
+    function Capture() {
+      const current = useCompanyDetail().refetch;
+      useEffect(() => {
+        refetch = current;
+      }, [current]);
+      return <Consumer />;
+    }
+
+    render(
+      <CompanyDetailProvider companyId="company-1">
+        <Capture />
+      </CompanyDetailProvider>,
+      { wrapper: createQueryWrapper() },
+    );
+    await waitFor(() => expect(screen.getByText("loaded: Prairie Enterprises LLC")).toBeInTheDocument());
+
+    getCompanyDetail.mockResolvedValueOnce({ kind: "error", message: "boom" });
+    act(() => refetch());
+    await waitFor(() => expect(getCompanyDetail).toHaveBeenCalledTimes(2));
+
+    expect(screen.getByText("loaded: Prairie Enterprises LLC")).toBeInTheDocument();
+    expect(screen.queryByText("error: boom")).not.toBeInTheDocument();
+  });
+
+  it("throws when useCompanyDetail is used outside a CompanyDetailProvider", () => {
     function BareConsumer() {
       useCompanyDetail();
       return null;
@@ -192,7 +263,7 @@ describe("CompanyDetailProvider / useCompanyDetail", () => {
     // one intentionally-throwing render.
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => render(<BareConsumer />)).toThrow(
-      "useCompanyDetail must be used within a CompanyDetailProvider"
+      "useCompanyDetail must be used within a CompanyDetailProvider",
     );
     consoleError.mockRestore();
   });

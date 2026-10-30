@@ -1,18 +1,23 @@
 "use client";
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
 import { getCompanyDetail, type CompanyDetail } from "@/lib/clientsDetail";
-import { useAsyncResource } from "@/lib/useAsyncResource";
+import { queryKeys } from "@/lib/queryKeys";
+import { queryErrorMessage, unwrap } from "@/lib/queryResult";
 
 /**
- * Fetches `getCompanyDetail` once per `companyId` and shares it across
- * the Company page and every Facility page under it (2026-09-03 fix --
- * both pages used to call `getCompanyDetail` independently, so clicking
- * between facilities in the rail refetched the *company's* data too,
- * even though it hadn't changed. Keyed on `companyId` alone, so
- * switching facilities within the same company reuses what's already
- * loaded instead of blinking back to "Loading…").
+ * Shares one `getCompanyDetail` read per `companyId` across the Company
+ * page and every Facility page under it, through the query cache: clicking
+ * between facilities reuses it (2026-09-03 fix, originally by keeping the
+ * provider's own state), and now so does coming back to a company a moment
+ * later -- the cached detail shows at once and is refreshed in the
+ * background once it is older than `QUERY_STALE_MS`.
+ *
+ * `refetch()` is for after a write: it refreshes the detail in place (the
+ * old data stays on screen until the new arrives) instead of blanking the
+ * page back to "Loading...".
  */
 interface CompanyDetailContextValue {
   company: CompanyDetail | null;
@@ -23,15 +28,25 @@ interface CompanyDetailContextValue {
 const CompanyDetailContext = createContext<CompanyDetailContextValue | null>(null);
 
 export function CompanyDetailProvider({ companyId, children }: { companyId: string; children: ReactNode }) {
-  // Reloads on a company switch (back to "Loading..." rather than
-  // flashing the previous company) and on `refetch()`.
-  const {
-    data: company,
-    error: loadError,
-    refetch,
-  } = useAsyncResource(() => getCompanyDetail(companyId), [companyId]);
+  const queryClient = useQueryClient();
 
-  const value = useMemo(() => ({ company, loadError, refetch }), [company, loadError, refetch]);
+  const { data, error } = useQuery({
+    queryKey: queryKeys.company(companyId),
+    queryFn: async () => unwrap(await getCompanyDetail(companyId)),
+  });
+
+  const refetch = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.company(companyId), exact: true });
+  }, [queryClient, companyId]);
+
+  // An error only counts while there is nothing to show: a failed
+  // background refresh must not blank a page that already has its data.
+  const loadError = data === undefined ? queryErrorMessage(error) : null;
+
+  const value = useMemo(
+    () => ({ company: data ?? null, loadError, refetch }),
+    [data, loadError, refetch],
+  );
 
   return <CompanyDetailContext.Provider value={value}>{children}</CompanyDetailContext.Provider>;
 }
